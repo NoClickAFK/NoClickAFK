@@ -16,41 +16,46 @@
 <div id="lock" class="lock">
   <div class="lock-card">
     <h1>Рабочий чек-лист «Богатка»</h1>
-    <p>Откройте приложение по исходной ссылке доступа. После первого входа оно будет работать на этом устройстве и без ссылки-ключа.</p>
+    <p>Откройте приложение по исходной ссылке доступа.</p>
   </div>
 </div>
 
 <div id="app" class="app hidden">
-  <header>
-    <h1>Осмотр локаций «Богатка»</h1>
-    <p>Рабочий чек-лист регионального запуска в Гродно</p>
+  <header class="hero">
+    <div>
+      <h1>Осмотр локаций «Богатка»</h1>
+      <p>Рабочий чек-лист регионального запуска в Гродно</p>
+    </div>
     <div class="statusbar">
       <span class="pill"><span class="dot"></span><span id="saveStatus">Все изменения сохранены</span></span>
       <span class="pill" id="onlineStatus">Онлайн</span>
-      <span class="pill">Версия 1.1</span>
+      <span class="pill">Версия <span id="versionLabel"></span></span>
     </div>
   </header>
 
   <div class="toolbar">
     <button class="btn install-btn hidden" id="installBtn">Установить</button>
-    <button class="btn secondary share-btn" id="shareAccessBtn">Ссылка доступа</button>
+    <button class="btn primary" id="addLocationBtn">+ Добавить локацию</button>
+    <button class="btn secondary" id="shareAccessBtn">Ссылка доступа</button>
     <button class="btn secondary" id="exportBtn">Резервная копия</button>
     <button class="btn secondary" id="importBtn">Восстановить</button>
-    <button class="btn secondary" id="reportBtn">Отчёт / PDF</button>
+    <button class="btn secondary" id="htmlReportBtn">Отчёт HTML</button>
+    <button class="btn secondary" id="pdfReportBtn">Отчёт PDF</button>
     <button class="btn warning" id="helpBtn">Как пользоваться</button>
-    <button class="btn danger" id="clearBtn">Очистить</button>
+    <button class="btn danger" id="clearAllBtn">Очистить всё</button>
     <input id="importFile" class="hidden" type="file" accept="application/json">
   </div>
 
-  <section class="summary">
+  <section class="summary card">
     <h2>Общая сводка</h2>
     <div class="summary-grid">
       <div class="metric"><strong id="completedCount">0</strong><span>осмотрено</span></div>
       <div class="metric"><strong id="bestScore">0</strong><span>лучший балл</span></div>
       <div class="metric"><strong id="keepCount">0</strong><span>оставить</span></div>
       <div class="metric"><strong id="photoCount">0</strong><span>фотографий</span></div>
+      <div class="metric wide"><strong id="storageUsage">0 МБ</strong><span>занято в браузере</span></div>
     </div>
-    <div class="profile">
+    <div class="profile grid-2">
       <label class="field">Кто проводит осмотр
         <input type="text" data-global="inspector" placeholder="Имя">
       </label>
@@ -66,38 +71,62 @@
 <div id="saveBanner" class="save-banner">Сохранено</div>
 
 <div id="helpModal" class="modal hidden">
-  <div class="modal-card">
-    <h2>Инструкция для осмотра</h2>
+  <div class="modal-card large">
+    <h2>Как пользоваться приложением</h2>
+    <div class="instruction-block">
+      <h3>Что это</h3>
+      <p>Это устанавливаемое веб-приложение (PWA). Его можно использовать прямо в браузере или установить на экран телефона как обычное приложение.</p>
+    </div>
     <ol>
-      <li><b>Впишите своё имя</b> в поле «Кто проводит осмотр».</li>
-      <li><b>Откройте нужную локацию</b> и заполните дату, время, известную аренду и контакт арендодателя.</li>
-      <li><b>Пройдите быстрый чек-лист.</b> Отмечайте только то, что реально увидели или подтвердили.</li>
-      <li><b>Поставьте оценки от 1 до 5:</b> 1 — плохо, 3 — приемлемо, 5 — отлично. В строке про конкурентов 5 означает, что конкуренция слабая и ситуация выгодная.</li>
-      <li><b>Добавьте фотографии:</b> фасад издалека, вход, парковка, дома вокруг, соседние магазины, помещение внутри и место разгрузки.</li>
-      <li><b>Запишите плюсы, минусы и вопросы</b>, которые нужно задать арендодателю.</li>
-      <li><b>Выберите предварительное решение:</b> оставить, под вопросом или исключить.</li>
-      <li><b>Проверьте надпись «Все изменения сохранены»</b> вверху страницы.</li>
-      <li><b>После поездки нажмите «Резервная копия».</b> Сохраните JSON-файл и отправьте его основному участнику проекта.</li>
-      <li><b>Для общего результата</b> основной участник нажимает «Восстановить» и загружает полученные резервные копии. Данные объединяются.</li>
-      <li><b>Кнопка «Отчёт / PDF»</b> создаёт итоговый документ с оценками, заметками и фотографиями.</li>
+      <li>Впишите имя в поле «Кто проводит осмотр».</li>
+      <li>Откройте нужную локацию или нажмите «Добавить локацию», чтобы создать новую.</li>
+      <li>Заполните дату, время, аренду, технические параметры и полевой замер.</li>
+      <li>Пройдите чек-лист. Отмечайте только то, что реально увидели или подтвердили.</li>
+      <li>Поставьте оценки от 1 до 5. В пункте про конкурентов 5 означает слабую конкуренцию.</li>
+      <li>Фотографируйте по отдельным категориям. Нажатие на фото открывает его крупно.</li>
+      <li>Запишите плюсы, минусы, риски и вопросы арендодателю.</li>
+      <li>После поездки сделайте резервную копию.</li>
+      <li>HTML-отчёт скачивается отдельным красивым файлом без кнопок приложения. PDF-отчёт открывает печатную версию.</li>
     </ol>
-    <div class="help">
-      <b>Где хранятся данные и фотографии:</b><br>
-      всё сохраняется локально в памяти браузера на текущем телефоне. Фотографии не отправляются в GitHub и не загружаются в облако. При добавлении приложение уменьшает их размер и хранит копию внутри браузера.
-    </div>
-    <div class="help">
-      <b>Что важно:</b><br>
-      у трёх телефонов отдельные локальные данные. Автоматической синхронизации нет. Если очистить данные браузера, удалить приложение, открыть его в другом браузере или сменить телефон, локальные записи могут исчезнуть. Поэтому после каждого дня осмотра делайте резервную копию.
-    </div>
-    <div class="help">
-      <b>Не нажимать «Очистить»</b>, пока резервная копия не сохранена.
-    </div>
+    <div class="help"><b>Установка не обязательна.</b> В браузере всё работает так же. Установка даёт иконку на главном экране, отдельное окно без вкладок, удобный запуск и более стабильную работу офлайн.</div>
+    <div class="help"><b>Фотографии:</b> сохраняются только в браузере текущего устройства, не загружаются в GitHub или облако. Приложение хранит высококачественную копию до 3200 пикселей по длинной стороне и показывает её в полноэкранном просмотре.</div>
+    <div class="help"><b>Надёжность:</b> у каждого телефона отдельные данные. После каждого дня осмотра сохраняйте резервную копию. Кнопка «Восстановить» объединяет данные из резервных копий.</div>
     <div class="modal-actions"><button class="btn" data-close-modal>Закрыть</button></div>
   </div>
 </div>
 
+<div id="locationModal" class="modal hidden">
+  <div class="modal-card">
+    <h2 id="locationModalTitle">Добавить локацию</h2>
+    <input type="hidden" id="editLocationId">
+    <label class="field">Название карточки
+      <input type="text" id="locationTitle" placeholder="Например: ТЦ «Название», ул. Такая-то, 10">
+    </label>
+    <label class="field">Адрес для карты
+      <input type="text" id="locationAddress" placeholder="Гродно, улица, номер дома">
+    </label>
+    <label class="field">Краткая заметка
+      <textarea id="locationNote" placeholder="Почему стоит посмотреть, что проверить"></textarea>
+    </label>
+    <div class="modal-actions spread">
+      <button class="btn danger hidden" id="deleteLocationBtn">Удалить локацию</button>
+      <div>
+        <button class="btn secondary" data-close-location>Отмена</button>
+        <button class="btn" id="saveLocationBtn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="photoViewer" class="modal hidden">
+  <div class="viewer-card">
+    <button class="viewer-close" data-close-viewer>×</button>
+    <img id="viewerImage" alt="Фотография локации">
+    <div id="viewerCaption"></div>
+  </div>
+</div>
+
 <script src="./config.js" defer></script>
-<script src="./ui.js" defer></script>
-<script src="./actions.js" defer></script>
+<script src="./app.js" defer></script>
 </body>
 </html>
