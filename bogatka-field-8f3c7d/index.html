@@ -1,1 +1,91 @@
-PLACEHOLDER
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#184f3a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Богатка">
+  <title>Богатка — осмотр локаций</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="lock" class="lock">
+  <div class="lock-card">
+    <h1>Рабочий чек-лист «Богатка»</h1>
+    <p>Откройте приложение по исходной ссылке доступа. После первого входа оно будет работать на этом устройстве и без ссылки-ключа.</p>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <header>
+    <h1>Осмотр локаций «Богатка»</h1>
+    <p>Рабочий чек-лист регионального запуска в Гродно</p>
+    <div class="statusbar">
+      <span class="pill"><span class="dot"></span><span id="saveStatus">Все изменения сохранены</span></span>
+      <span class="pill" id="onlineStatus">Онлайн</span>
+      <span class="pill">Версия 1.0</span>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="btn install-btn hidden" id="installBtn">Установить</button>
+    <button class="btn secondary share-btn" id="shareAccessBtn">Ссылка доступа</button>
+    <button class="btn secondary" id="exportBtn">Резервная копия</button>
+    <button class="btn secondary" id="importBtn">Восстановить</button>
+    <button class="btn secondary" id="reportBtn">Отчёт / PDF</button>
+    <button class="btn warning" id="helpBtn">Как пользоваться</button>
+    <button class="btn danger" id="clearBtn">Очистить</button>
+    <input id="importFile" class="hidden" type="file" accept="application/json">
+  </div>
+
+  <section class="summary">
+    <h2>Общая сводка</h2>
+    <div class="summary-grid">
+      <div class="metric"><strong id="completedCount">0</strong><span>осмотрено</span></div>
+      <div class="metric"><strong id="bestScore">0</strong><span>лучший балл</span></div>
+      <div class="metric"><strong id="keepCount">0</strong><span>оставить</span></div>
+      <div class="metric"><strong id="photoCount">0</strong><span>фотографий</span></div>
+    </div>
+    <div class="profile">
+      <label class="field">Кто проводит осмотр
+        <input type="text" data-global="inspector" placeholder="Имя">
+      </label>
+      <label class="field">Общие заметки поездки
+        <input type="text" data-global="tripNotes" placeholder="Маршрут, погода, важные наблюдения">
+      </label>
+    </div>
+  </section>
+
+  <div id="locations"></div>
+</div>
+
+<div id="saveBanner" class="save-banner">Сохранено</div>
+
+<div id="helpModal" class="modal hidden">
+  <div class="modal-card">
+    <h2>Как пользоваться</h2>
+    <ol>
+      <li>Откройте нужный адрес и заполните поля прямо на месте.</li>
+      <li>Все изменения автоматически сохраняются на этом телефоне.</li>
+      <li>Фотографии можно сделать камерой; приложение уменьшит их размер.</li>
+      <li>После поездки нажмите «Резервная копия» и сохраните JSON-файл.</li>
+      <li>Чтобы передать заполнение другому человеку, отправьте ему резервную копию; он нажмёт «Восстановить».</li>
+      <li>Кнопка «Отчёт / PDF» создаёт печатную итоговую версию.</li>
+    </ol>
+    <div class="help">
+      У трёх телефонов данные не синхронизируются автоматически: каждый хранит свою копию.
+      Для объединения используется экспорт и импорт резервной копии.
+    </div>
+    <div class="modal-actions"><button class="btn" data-close-modal>Закрыть</button></div>
+  </div>
+</div>
+
+<script src="./config.js" defer></script>
+<script src="./ui.js" defer></script>
+<script src="./actions.js" defer></script>
+</body>
+</html>
