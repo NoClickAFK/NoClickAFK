@@ -4,6 +4,7 @@ const STORE = "records";
 const PHOTO_STORE = "photos";
 const AUTH_KEY = "bogatka_access_authorized_v1";
 const TOKEN_KEY = "bogatka_access_token_v1";
+const ACCESS_PIN_HASH = "a98a69d554f7a03a3b5a9e1792b443c1938d5a48b323933be3fe90c9c2cfe64d";
 let db;
 let locations = [];
 let installPrompt = null;
@@ -21,6 +22,22 @@ async function sha256Hex(text) {
   return [...new Uint8Array(buffer)].map(byte => byte.toString(16).padStart(2,"0")).join("");
 }
 
+async function unlockWithPin() {
+  const input = $("#accessPin");
+  const error = $("#accessPinError");
+  const pin = input?.value.trim() || "";
+  if (await sha256Hex(pin) !== ACCESS_PIN_HASH) {
+    if (error) error.textContent = "Неверный код доступа.";
+    input?.focus();
+    return false;
+  }
+  localStorage.setItem(AUTH_KEY, "1");
+  if (error) error.textContent = "";
+  $("#lock").classList.add("hidden");
+  $("#app").classList.remove("hidden");
+  return true;
+}
+
 async function authorize() {
   const params = new URLSearchParams(location.hash.replace(/^#/, ""));
   const token = params.get("access");
@@ -32,6 +49,12 @@ async function authorize() {
   const allowed = localStorage.getItem(AUTH_KEY) === "1";
   $("#lock").classList.toggle("hidden", allowed);
   $("#app").classList.toggle("hidden", !allowed);
+  if (!allowed) {
+    $("#unlockBtn")?.addEventListener("click", unlockWithPin, {once:false});
+    $("#accessPin")?.addEventListener("keydown", event => {
+      if (event.key === "Enter") unlockWithPin();
+    });
+  }
   return allowed;
 }
 
