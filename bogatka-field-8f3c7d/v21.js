@@ -7,7 +7,7 @@ function scheduleEnhance() {
 }
 
 async function enhanceV21() {
-  if (!window.db) return;
+  if (typeof db === "undefined" || !db) return;
   await enhanceObjectTypes();
   await enhancePhotoSections();
 }
@@ -135,8 +135,15 @@ function bindV21Buttons() {
   });
 }
 
+async function reloadAfterSuccessfulPin() {
+  const pin = $("#accessPin")?.value.trim() || "";
+  if (pin && await sha256Hex(pin) === ACCESS_PIN_HASH) setTimeout(() => location.reload(), 80);
+}
+
 window.addEventListener("load", () => {
   bindV21Buttons();
+  $("#unlockBtn")?.addEventListener("click", reloadAfterSuccessfulPin);
+  $("#accessPin")?.addEventListener("keydown", event => { if (event.key === "Enter") reloadAfterSuccessfulPin(); });
   scheduleEnhance();
   const observer = new MutationObserver(scheduleEnhance);
   observer.observe(document.body, {childList:true, subtree:true});
