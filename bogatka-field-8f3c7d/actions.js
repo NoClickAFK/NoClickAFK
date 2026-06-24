@@ -45,7 +45,8 @@ async function exportBackup() {
   for(const key of ['global',...CONFIG.addresses.map(x=>'location:'+x.id)])records[key]=await idbGet(STORE,key)||{};
   const photos=[];
   for(const p of await idbAll(PHOTO_STORE))photos.push({...p,blob:await blobToDataURL(p.blob)});
-  const payload={format:'bogatka-location-backup',version:1,createdAt:new Date().toISOString(),records,photos};
+  const global=records.global||{};
+  const payload={format:'bogatka-location-backup',version:1,createdAt:new Date().toISOString(),author:global.inspector||'',records,photos};
   const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
   downloadBlob(blob,`bogatka-backup-${new Date().toISOString().slice(0,10)}.json`);
 }
@@ -54,12 +55,33 @@ function dataURLToBlob(dataURL) {
   const bytes=atob(data);const arr=new Uint8Array(bytes.length);for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
   return new Blob([arr],{type:mime});
 }
+function isPlainObject(value){return value&&typeof value==='object'&&!Array.isArray(value);}
+function deepMerge(base,incoming){
+  const result=isPlainObject(base)?{...base}:{};
+  for(const [key,value] of Object.entries(incoming||{})){
+    if(isPlainObject(value))result[key]=deepMerge(result[key],value);
+    else if(value!==''&&value!==null&&value!==undefined)result[key]=value;
+  }
+  return result;
+}
 async function importBackup(file) {
   const payload=JSON.parse(await file.text());
   if(payload.format!=='bogatka-location-backup')throw new Error('Неверный формат резервной копии');
-  await idbClear(STORE);await idbClear(PHOTO_STORE);
-  for(const [k,v] of Object.entries(payload.records||{}))await idbPut(STORE,v,k);
-  for(const p of payload.photos||[])await idbPut(PHOTO_STORE,{...p,blob:dataURLToBlob(p.blob)});
+  for(const [key,incoming] of Object.entries(payload.records||{})){
+    const current=await idbGet(STORE,key)||{};
+    if(key==='global'){
+      const merged={...incoming,...current};
+      const notes=[current.tripNotes,incoming.tripNotes].filter(Boolean);
+      if(notes.length)merged.tripNotes=[...new Set(notes)].join(' | ');
+      await idbPut(STORE,merged,key);
+    }else{
+      await idbPut(STORE,deepMerge(current,incoming),key);
+    }
+  }
+  const existingIds=new Set((await idbAll(PHOTO_STORE)).map(p=>p.id));
+  for(const p of payload.photos||[]){
+    if(!existingIds.has(p.id))await idbPut(PHOTO_STORE,{...p,blob:dataURLToBlob(p.blob)});
+  }
   await restoreForm();showSaved();
 }
 function downloadBlob(blob,name) {
@@ -116,7 +138,7 @@ async function init() {
   $('#shareAccessBtn').onclick=copyAccessLink;
   $('#exportBtn').onclick=exportBackup;
   $('#importBtn').onclick=()=>$('#importFile').click();
-  $('#importFile').onchange=async e=>{try{await importBackup(e.target.files[0]);alert('Данные восстановлены');}catch(err){alert(err.message);}e.target.value='';};
+  $('#importFile').onchange=async e=>{try{await importBackup(e.target.files[0]);alert('Данные объединены с текущим чек-листом');}catch(err){alert(err.message);}e.target.value='';};
   $('#reportBtn').onclick=createReport;
   $('#clearBtn').onclick=clearAll;
   $('#helpBtn').onclick=()=>$('#helpModal').classList.remove('hidden');
