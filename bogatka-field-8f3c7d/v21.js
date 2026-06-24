@@ -141,6 +141,7 @@ async function reloadAfterSuccessfulPin() {
 }
 
 window.addEventListener("load", () => {
+  if ($("#versionLabel")) $("#versionLabel").textContent = "2.1.0";
   bindV21Buttons();
   $("#unlockBtn")?.addEventListener("click", reloadAfterSuccessfulPin);
   $("#accessPin")?.addEventListener("keydown", event => { if (event.key === "Enter") reloadAfterSuccessfulPin(); });
