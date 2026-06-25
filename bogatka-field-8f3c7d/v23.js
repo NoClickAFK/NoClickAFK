@@ -2,6 +2,7 @@ function loadBogatkaPatch(tagName,attributes){
   const marker=attributes.src||attributes.href;
   if(marker&&document.querySelector(`${tagName}[src="${marker}"],${tagName}[href="${marker}"]`))return;
   const element=document.createElement(tagName);
+  if(tagName==='script')element.async=false;
   Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,value));
   document.head.appendChild(element);
 }
