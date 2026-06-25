@@ -51,12 +51,14 @@
     if(changed)await updateSummary();
   }
 
-  function loadSelftest(){
-    if(document.querySelector('script[src="./selftest-v400.js"]'))return;
-    const script=document.createElement('script');
-    script.src='./selftest-v400.js';
-    script.async=false;
-    document.head.appendChild(script);
+  function loadSupportModules(){
+    for(const src of ['./viewer-extra-v400.js','./selftest-v400.js']){
+      if(document.querySelector(`script[src="${src}"]`))continue;
+      const script=document.createElement('script');
+      script.src=src;
+      script.async=false;
+      document.head.appendChild(script);
+    }
   }
 
   window.exportBackup=async function exportBackupV400(){
@@ -81,10 +83,10 @@
   try{exportBackup=window.exportBackup}catch(_){}
 
   installDeviceHistory();
-  loadSelftest();
+  loadSupportModules();
   setTimeout(()=>{
     installDeviceHistory();
-    loadSelftest();
+    loadSupportModules();
     migrateCalculatedRent().catch(console.error);
   },1800);
 })();
