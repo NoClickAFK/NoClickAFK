@@ -1,181 +1,82 @@
 const REPORT_ENDPOINT = "https://fascqulqvlxmraktuxez.supabase.co/functions/v1/bogatka-public-report";
-
 const reportRoot = document.getElementById("reportRoot");
 const lightbox = document.getElementById("lightbox");
 const lightboxImage = document.getElementById("lightboxImage");
 const lightboxCaption = document.getElementById("lightboxCaption");
 
-function escapeHtml(value = "") {
-  return String(value).replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+const SCORE_WEIGHTS = {housing:8,occupied:8,foot:12,car:4,parking:7,stop:4,anchor:6,visibility:8,sign:7,loading:6,condition:6,storage:5,competition:8,overall:11};
+const PHOTO_PLAN = {street:3,entrance:3,parking:2,traffic:2,competitors:2,interior:5,storage:2,engineering:3,documents:2,other:0};
+const STOP_LABELS = {legalUse:"Назначение не допускает розничную торговлю",signage:"Нельзя согласовать заметную вывеску",loading:"Нет приемлемой разгрузки",power:"Недостаточная мощность",dampness:"Сырость, плесень или вредители",fireSafety:"Нельзя выполнить требования пожарной безопасности",workingHours:"Критические ограничения режима работы",access:"Неприемлемый доступ покупателей или доставки"};
+
+function escapeHtml(value = "") { return String(value).replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char])); }
+function display(value) { return value === undefined || value === null || value === "" ? "—" : escapeHtml(value); }
+function formatDate(value, withTime = false) { if (!value) return "—"; try { return new Date(value).toLocaleString("ru-RU", withTime ? undefined : {day:"2-digit",month:"2-digit",year:"numeric"}); } catch (_) { return escapeHtml(value); } }
+function formatNumber(value, digits = 0) { return value === null || value === undefined || !Number.isFinite(Number(value)) ? "—" : new Intl.NumberFormat("ru-RU", {maximumFractionDigits:digits}).format(Number(value)); }
+function parseNumber(value) { if (typeof value === "number") return Number.isFinite(value) ? value : null; if (typeof value !== "string") return null; const match = value.replace(/\s+/g, "").replace(",", ".").match(/-?\d+(?:\.\d+)?/); return match && Number.isFinite(Number(match[0])) ? Number(match[0]) : null; }
+function totalScore(data) { return SCORES.reduce((sum, [key]) => sum + Number(data?.score?.[key] || 0), 0); }
+function weightedScore(data) { let earned = 0; for (const [key, weight] of Object.entries(SCORE_WEIGHTS)) { const value = Number(data?.score?.[key]); if (value >= 1 && value <= 5) earned += weight * ((value - 1) / 4); } return Math.round(earned * 10) / 10; }
+function renderRows(definitions, source = {}) { return definitions.map(([key, label]) => `<tr><td>${escapeHtml(label)}</td><td>${display(source?.[key])}</td></tr>`).join(""); }
+function renderChecklist(data) { const groups = {}; CHECKLIST.forEach(([key, label, group]) => { if (data?.check?.[key]) (groups[group] ||= []).push(label); }); const entries = Object.entries(groups); if (!entries.length) return '<p class="empty">Нет отмеченных пунктов.</p>'; return `<div class="check-grid">${entries.map(([group, labels]) => `<div class="check-group"><h4>${escapeHtml(group)}</h4><ul>${labels.map(label => `<li>${escapeHtml(label)}</li>`).join("")}</ul></div>`).join("")}</div>`; }
+
+function calculateEconomy(data = {}) {
+  const economy = data.economy || {};
+  const revenue = parseNumber(economy.monthlyRevenue) || 0;
+  const margin = parseNumber(economy.grossMarginPct) || 0;
+  const tax = parseNumber(economy.taxRatePct) || 0;
+  const area = parseNumber(data?.tech?.totalArea) || 0;
+  const rent = parseNumber(data?.tech?.rentPerMonth) ?? parseNumber(data.rent) ?? 0;
+  const utilities = parseNumber(data?.tech?.utilities) ?? 0;
+  const payroll = parseNumber(economy.payroll) || 0;
+  const marketing = parseNumber(economy.marketing) || 0;
+  const logistics = parseNumber(economy.logistics) || 0;
+  const other = parseNumber(economy.otherOpex) || 0;
+  const fixed = rent + utilities + payroll + marketing + logistics + other;
+  const profit = revenue * margin / 100 - revenue * tax / 100 - fixed;
+  const contribution = Math.max(0, (margin - tax) / 100);
+  const breakEven = contribution > 0 ? fixed / contribution : null;
+  const investment = parseNumber(economy.openingInvestmentOverride) ?? ((parseNumber(data?.tech?.repairEstimate) || 0) + (parseNumber(data?.tech?.equipmentEstimate) || 0) + (parseNumber(data?.tech?.deposit) || 0) + (parseNumber(economy.initialStock) || 0) + (parseNumber(economy.workingCapital) || 0) + (parseNumber(economy.openingOther) || 0));
+  return { revenue, margin, rent, rentPerSqm: area ? rent / area : null, rentBurden: revenue ? rent / revenue * 100 : null, profit, breakEven, investment, payback: profit > 0 && investment > 0 ? investment / profit : null };
 }
 
-function display(value) {
-  return value === undefined || value === null || value === "" ? "—" : escapeHtml(value);
-}
+function photoPlan(locationId, photos) { const counts = {}; photos.filter(photo => photo.location_id === locationId).forEach(photo => counts[photo.category || "other"] = (counts[photo.category || "other"] || 0) + 1); const required = Object.values(PHOTO_PLAN).reduce((a, b) => a + b, 0); const complete = Object.entries(PHOTO_PLAN).reduce((sum, [category, amount]) => sum + Math.min(amount, counts[category] || 0), 0); return {counts, required, complete, percent:required ? Math.round(complete / required * 100) : 100}; }
+function stopState(data) { const values = Object.values(data.stopFactors || {}); return {blocks:values.filter(value => value === "block").length, risks:values.filter(value => value === "risk").length}; }
+function recommendation(data, weighted, economy) { const stops = stopState(data); if (stops.blocks) return {text:"СТОП", className:"stop"}; if (economy.revenue > 0 && economy.profit <= 0) return {text:"Экономика не сходится", className:"stop"}; if (economy.rentBurden > 18) return {text:"Высокая аренда", className:"risk"}; if (weighted >= 75) return {text:"Высокий приоритет", className:"good"}; if (weighted >= 60) return {text:"Перспективно", className:"good"}; if (weighted >= 45) return {text:"Средний потенциал", className:"medium"}; return {text:"Недостаточно данных", className:"empty"}; }
 
-function formatDate(value, withTime = false) {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleString("ru-RU", withTime ? undefined : {day:"2-digit",month:"2-digit",year:"numeric"});
-  } catch (_) {
-    return escapeHtml(value);
-  }
-}
+function renderPhotos(locationId, photos) { let result = ""; for (const [category, title] of PHOTO_CATEGORIES) { const items = photos.filter(photo => photo.location_id === locationId && (photo.category || "other") === category && photo.url); if (!items.length) continue; result += `<section class="photo-group"><h4>${escapeHtml(title)}</h4><div class="photos">${items.map(photo => `<figure class="photo"><button type="button" data-photo-url="${escapeHtml(photo.url)}" data-photo-caption="${escapeHtml(photo.caption || photo.original_name || title)}"><img loading="lazy" src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.caption || title)}"></button><figcaption>${escapeHtml(photo.caption || photo.original_name || "")}</figcaption></figure>`).join("")}</div></section>`; } return result || '<p class="empty">Фотографии не добавлены.</p>'; }
 
-function totalScore(data) {
-  return SCORES.reduce((sum, [key]) => sum + Number(data?.score?.[key] || 0), 0);
-}
-
-function renderRows(definitions, source = {}) {
-  return definitions.map(([key, label]) => `<tr><td>${escapeHtml(label)}</td><td>${display(source?.[key])}</td></tr>`).join("");
-}
-
-function renderChecklist(data) {
-  const groups = {};
-  CHECKLIST.forEach(([key, label, group]) => {
-    if (data?.check?.[key]) (groups[group] ||= []).push(label);
-  });
-  const entries = Object.entries(groups);
-  if (!entries.length) return '<p class="empty">Нет отмеченных пунктов.</p>';
-  return `<div class="check-grid">${entries.map(([group, labels]) => `
-    <div class="check-group"><h4>${escapeHtml(group)}</h4><ul>${labels.map(label => `<li>${escapeHtml(label)}</li>`).join("")}</ul></div>`).join("")}</div>`;
-}
-
-function renderPhotos(locationId, photos) {
-  let result = "";
-  for (const [category, title] of PHOTO_CATEGORIES) {
-    const items = photos.filter(photo => photo.location_id === locationId && (photo.category || "other") === category && photo.url);
-    if (!items.length) continue;
-    result += `<section class="photo-group"><h4>${escapeHtml(title)}</h4><div class="photos">${items.map(photo => `
-      <figure class="photo">
-        <button type="button" data-photo-url="${escapeHtml(photo.url)}" data-photo-caption="${escapeHtml(photo.caption || photo.original_name || title)}">
-          <img loading="lazy" src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.caption || title)}">
-        </button>
-        <figcaption>${escapeHtml(photo.caption || photo.original_name || "")}</figcaption>
-      </figure>`).join("")}</div></section>`;
-  }
-  return result || '<p class="empty">Фотографии не добавлены.</p>';
-}
+function renderEconomy(data) { const economy = calculateEconomy(data); return `<section class="report-extra"><h3>Экономическая модель</h3><div class="summary-grid"><div><b>Выручка:</b> ${formatNumber(economy.revenue,2)} BYN</div><div><b>Валовая маржа:</b> ${formatNumber(economy.margin,1)}%</div><div><b>Аренда за м²:</b> ${formatNumber(economy.rentPerSqm,2)} BYN</div><div><b>Арендная нагрузка:</b> ${formatNumber(economy.rentBurden,1)}%</div><div><b>Операционная прибыль:</b> ${formatNumber(economy.profit,2)} BYN</div><div><b>Точка безубыточности:</b> ${formatNumber(economy.breakEven,2)} BYN</div><div><b>Инвестиции:</b> ${formatNumber(economy.investment,2)} BYN</div><div><b>Окупаемость:</b> ${economy.payback == null ? "—" : `${formatNumber(economy.payback,1)} мес.`}</div></div></section>`; }
+function renderStops(data) { const entries = Object.entries(data.stopFactors || {}).filter(([, value]) => value); const labels = {clear:"Нет проблемы",risk:"Риск / уточнить",block:"Стоп-фактор"}; return `<section class="report-extra"><h3>Стоп-факторы</h3>${entries.length ? `<table><tbody>${entries.map(([key, value]) => `<tr class="stop-${escapeHtml(value)}"><td>${escapeHtml(STOP_LABELS[key] || key)}</td><td>${escapeHtml(labels[value] || value)}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">Не проверены.</p>'}</section>`; }
+function renderPhotoPlan(locationId, photos) { const plan = photoPlan(locationId, photos); const labels = Object.fromEntries(PHOTO_CATEGORIES.map(([key, label]) => [key, label])); return `<section class="report-extra"><h3>Фотоплан: ${plan.complete}/${plan.required} (${plan.percent}%)</h3><div class="photo-plan">${Object.entries(PHOTO_PLAN).filter(([, required]) => required > 0).map(([category, required]) => `<span class="${(plan.counts[category] || 0) >= required ? "done" : ""}">${escapeHtml(labels[category] || category)}: <b>${plan.counts[category] || 0}/${required}</b></span>`).join("")}</div></section>`; }
+function renderTasksComments(data) { const tasks = data.tasks || []; const comments = data.comments || []; const history = (data.activity || []).slice(-20).reverse(); return `<section class="report-extra"><h3>Задачи и совместная работа</h3>${tasks.length ? `<table><thead><tr><th>Задача</th><th>Ответственный</th><th>Срок</th><th>Статус</th></tr></thead><tbody>${tasks.map(task => `<tr><td>${escapeHtml(task.title)}</td><td>${display(task.assignee)}</td><td>${display(task.dueDate)}</td><td>${escapeHtml(({todo:"К выполнению",doing:"В работе",waiting:"Ожидает",done:"Готово"})[task.status] || task.status || "—")}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">Задач нет.</p>'}${comments.length ? `<h4>Комментарии</h4>${comments.slice(-20).reverse().map(comment => `<div class="report-comment"><b>${escapeHtml(comment.author || comment.authorEmail || "Участник")}</b><small>${formatDate(comment.createdAt,true)}</small><p>${escapeHtml(comment.text)}</p></div>`).join("")}` : ""}${history.length ? `<h4>История</h4><ul class="history">${history.map(item => `<li><b>${escapeHtml(item.action || "Изменение")}</b>${item.label ? ` · ${escapeHtml(item.label)}` : ""}<small>${escapeHtml(item.actor || item.actorEmail || "Участник")} · ${formatDate(item.at,true)}</small></li>`).join("")}</ul>` : ""}</section>`; }
+function renderLaunch(data) { const project = data.launchProject; if (!project?.enabled) return ""; const milestones = project.milestones || []; const done = milestones.filter(item => item.status === "done").length; return `<section class="report-extra"><h3>Проект открытия: ${done}/${milestones.length}</h3><div class="summary-grid"><div><b>Этап:</b> ${display(project.stage)}</div><div><b>Дата открытия:</b> ${display(project.targetDate)}</div><div><b>Ответственный:</b> ${display(project.manager)}</div><div><b>Бюджет:</b> ${display(project.budget)} BYN</div></div><ol class="milestones">${milestones.sort((a,b)=>(a.order||0)-(b.order||0)).map(item => `<li class="${item.status === "done" ? "done" : ""}"><b>${escapeHtml(item.title)}</b><span>${display(item.assignee)} · ${display(item.dueDate)} · ${escapeHtml(({todo:"не начато",doing:"в работе",waiting:"ожидает",done:"готово"})[item.status] || item.status)}</span></li>`).join("")}</ol></section>`; }
 
 function renderLocation(location, index, photos) {
   const data = location.form_data || {};
   const score = totalScore(data);
+  const weighted = weightedScore(data);
+  const economy = calculateEconomy(data);
+  const recommendationData = recommendation(data, weighted, economy);
   const gps = data.gpsLat && data.gpsLon ? `${data.gpsLat}, ${data.gpsLon}` : "—";
-  return `
-    <article class="location">
-      <div class="location-head">
-        <div><span class="rank">Локация ${index + 1}</span><h2>${escapeHtml(location.title || location.address || "Без названия")}</h2><p>${escapeHtml(location.note || "")}</p></div>
-        <div class="score">${score}<small>/ 70</small></div>
-      </div>
-      <div class="location-body">
-        <div class="summary-grid">
-          <div><b>Адрес:</b> ${display(location.address)}</div><div><b>Статус:</b> ${display(data.status || location.status)}</div>
-          <div><b>Решение:</b> ${display(data.decision)}</div><div><b>Тип объекта:</b> ${display(data.objectTypeOther || data.objectType || location.object_type)}</div>
-          <div><b>Дата:</b> ${display(data.date)}</div><div><b>Время:</b> ${display(data.time)}</div>
-          <div><b>Аренда:</b> ${display(data.rent)}</div><div><b>Контакт:</b> ${display(data.contact)}</div>
-          <div><b>GPS:</b> ${escapeHtml(gps)}</div><div><b>Обновлено:</b> ${formatDate(location.updated_at, true)}</div>
-        </div>
-
-        <h3>Полевой замер трафика</h3>
-        <table><tbody>${renderRows(TRAFFIC_FIELDS, data.traffic)}</tbody></table>
-
-        <h3>Оценка локации</h3>
-        <table><tbody>${renderRows(SCORES, data.score)}</tbody></table>
-
-        <h3>Технические и финансовые параметры</h3>
-        <table><tbody>${renderRows(TECH_FIELDS, data.tech)}</tbody></table>
-
-        <h3>Подтверждённые пункты чек-листа</h3>
-        ${renderChecklist(data)}
-
-        <h3>Конкуренты и окружение</h3>
-        <div class="summary-grid">
-          <div><b>Ближайший конкурент:</b> ${display(data?.competitor?.name)}</div>
-          <div><b>Расстояние:</b> ${display(data?.competitor?.distance)}</div>
-          <div><b>Сильные стороны:</b> ${display(data?.competitor?.strengths)}</div>
-          <div><b>Слабые стороны:</b> ${display(data?.competitor?.weaknesses)}</div>
-        </div>
-
-        <div class="notes-grid">
-          <div><h3>Плюсы</h3><p>${display(data.pros)}</p></div>
-          <div><h3>Минусы</h3><p>${display(data.cons)}</p></div>
-          <div><h3>Риски</h3><p>${display(data.risks)}</p></div>
-          <div><h3>Что уточнить</h3><p>${display(data.questions)}</p></div>
-          <div><h3>Идея формата</h3><p>${display(data.formatIdea)}</p></div>
-          <div><h3>Заметки</h3><p>${display(data.notes)}</p></div>
-        </div>
-
-        <h3>Фотографии</h3>
-        ${renderPhotos(location.id, photos)}
-      </div>
-    </article>`;
+  return `<article class="location"><div class="location-head"><div><span class="rank">Локация ${index + 1}</span><h2>${escapeHtml(location.title || location.address || "Без названия")}</h2><p>${escapeHtml(location.note || "")}</p></div><div class="score">${score}<small>/70</small><span>${weighted}/100</span><em class="${recommendationData.className}">${escapeHtml(recommendationData.text)}</em></div></div><div class="location-body"><div class="summary-grid"><div><b>Адрес:</b> ${display(location.address)}</div><div><b>Статус:</b> ${display(data.status || location.status)}</div><div><b>Решение:</b> ${display(data.decision)}</div><div><b>Тип объекта:</b> ${display(data.objectTypeOther || data.objectType || location.object_type)}</div><div><b>Дата:</b> ${display(data.date)}</div><div><b>Время:</b> ${display(data.time)}</div><div><b>Аренда:</b> ${display(data.rent)}</div><div><b>Контакт:</b> ${display(data.contact)}</div><div><b>GPS:</b> ${escapeHtml(gps)}</div><div><b>Обновлено:</b> ${formatDate(location.updated_at, true)}</div></div><h3>Полевой замер трафика</h3><table><tbody>${renderRows(TRAFFIC_FIELDS, data.traffic)}</tbody></table><h3>Оценка локации</h3><table><tbody>${renderRows(SCORES, data.score)}</tbody></table><h3>Технические и финансовые параметры</h3><table><tbody>${renderRows(TECH_FIELDS, data.tech)}</tbody></table>${renderEconomy(data)}${renderStops(data)}<h3>Подтверждённые пункты чек-листа</h3>${renderChecklist(data)}<h3>Конкуренты и окружение</h3><div class="summary-grid"><div><b>Ближайший конкурент:</b> ${display(data?.competitor?.name)}</div><div><b>Расстояние:</b> ${display(data?.competitor?.distance)}</div><div><b>Сильные стороны:</b> ${display(data?.competitor?.strengths)}</div><div><b>Слабые стороны:</b> ${display(data?.competitor?.weaknesses)}</div></div><div class="notes-grid"><div><h3>Плюсы</h3><p>${display(data.pros)}</p></div><div><h3>Минусы</h3><p>${display(data.cons)}</p></div><div><h3>Риски</h3><p>${display(data.risks)}</p></div><div><h3>Что уточнить</h3><p>${display(data.questions)}</p></div><div><h3>Идея формата</h3><p>${display(data.formatIdea)}</p></div><div><h3>Заметки</h3><p>${display(data.notes)}</p></div></div>${renderPhotoPlan(location.id,photos)}${renderTasksComments(data)}${renderLaunch(data)}<h3>Фотографии</h3>${renderPhotos(location.id, photos)}</div></article>`;
 }
+
+function renderComparison(locations) { const rows = locations.map((location,index) => { const data = location.form_data || {}, weighted = weightedScore(data), economy = calculateEconomy(data), stops = stopState(data), rec = recommendation(data,weighted,economy); return {index:index+1,title:location.title||location.address,weighted,raw:totalScore(data),rec,stops,economy,status:data.status||location.status||"—"}; }).sort((a,b)=>a.stops.blocks-b.stops.blocks||b.weighted-a.weighted); return `<section class="comparison"><h2>Сравнение локаций</h2><div class="wide-table"><table><thead><tr><th>Ранг</th><th>Локация</th><th>Рекомендация</th><th>Вес /100</th><th>Балл /70</th><th>Стопы</th><th>Статус</th><th>Аренда</th><th>Прибыль</th><th>Окупаемость</th></tr></thead><tbody>${rows.map((row,index)=>`<tr><td>#${index+1}</td><td>${escapeHtml(row.title)}</td><td><span class="rec ${row.rec.className}">${escapeHtml(row.rec.text)}</span></td><td>${row.weighted}</td><td>${row.raw}</td><td>${row.stops.blocks?`${row.stops.blocks} стоп`:row.stops.risks?`${row.stops.risks} риск`:'нет'}</td><td>${escapeHtml(row.status)}</td><td>${formatNumber(row.economy.rent,2)}</td><td>${formatNumber(row.economy.profit,2)}</td><td>${row.economy.payback==null?'—':`${formatNumber(row.economy.payback,1)} мес.`}</td></tr>`).join("")}</tbody></table></div></section>`; }
 
 function renderReport(payload) {
-  const snapshot = payload.snapshot || {};
-  const project = snapshot.project || {};
-  const global = snapshot.global || {};
-  const locations = Array.isArray(snapshot.locations) ? snapshot.locations : [];
+  const snapshot = payload.snapshot || {}, project = snapshot.project || {}, global = snapshot.global || {};
+  const locations = (Array.isArray(snapshot.locations) ? snapshot.locations : []).filter(location => !location.form_data?.archivedAt);
   const photos = Array.isArray(snapshot.photos) ? snapshot.photos : [];
-  const inspected = locations.filter(location => {
-    const data = location.form_data || {};
-    return data.date || data.decision || totalScore(data) > 0 || location.updated_at;
-  }).length;
+  const inspected = locations.filter(location => { const data = location.form_data || {}; return data.date || data.decision || totalScore(data) > 0 || photos.some(photo => photo.location_id === location.id); }).length;
   const best = Math.max(0, ...locations.map(location => totalScore(location.form_data || {})));
-
+  const bestWeighted = Math.max(0, ...locations.map(location => weightedScore(location.form_data || {})));
   document.title = `${payload.name || "Отчёт «Богатка»"}`;
-  reportRoot.innerHTML = `
-    <section class="cover">
-      <h1>${escapeHtml(payload.name || project.name || "Отчёт по локациям «Богатка»")}</h1>
-      <p><b>Инспектор:</b> ${display(global.inspector)}</p>
-      <p><b>Общие заметки:</b> ${display(global.tripNotes)}</p>
-      <div class="cover-meta">
-        <div><strong>${inspected}</strong><span>осмотрено</span></div>
-        <div><strong>${best}/70</strong><span>лучший балл</span></div>
-        <div><strong>${formatDate(payload.created_at || snapshot.generated_at, true)}</strong><span>дата отчёта</span></div>
-      </div>
-    </section>
-    ${locations.map((location, index) => renderLocation(location, index, photos)).join("") || '<section class="state-card"><h1>В отчёте пока нет локаций</h1></section>'}`;
+  reportRoot.innerHTML = `<section class="cover"><h1>${escapeHtml(payload.name || project.name || "Отчёт по локациям «Богатка»")}</h1><p><b>Инспектор:</b> ${display(global.inspector)}</p><p><b>Общие заметки:</b> ${display(global.tripNotes)}</p><div class="cover-meta"><div><strong>${locations.length}</strong><span>активных локаций</span></div><div><strong>${inspected}</strong><span>осмотрено</span></div><div><strong>${best}/70</strong><span>лучший балл</span></div><div><strong>${bestWeighted}/100</strong><span>лучший вес</span></div><div><strong>${formatDate(payload.created_at || snapshot.generated_at, true)}</strong><span>дата отчёта</span></div></div></section>${locations.length ? renderComparison(locations) : ""}${locations.map((location, index) => renderLocation(location, index, photos)).join("") || '<section class="state-card"><h1>В отчёте пока нет активных локаций</h1></section>'}`;
 }
 
-function showError(message) {
-  reportRoot.innerHTML = `<section class="state-card error-card"><h1>Не удалось открыть отчёт</h1><p>${escapeHtml(message)}</p><p>Ссылка могла быть отключена или срок её действия истёк.</p></section>`;
-}
-
-function openLightbox(url, caption) {
-  lightboxImage.src = url;
-  lightboxCaption.textContent = caption || "";
-  lightbox.classList.add("open");
-  lightbox.setAttribute("aria-hidden", "false");
-  document.body.style.overflow = "hidden";
-}
-
-function closeLightbox() {
-  lightbox.classList.remove("open");
-  lightbox.setAttribute("aria-hidden", "true");
-  lightboxImage.removeAttribute("src");
-  document.body.style.overflow = "";
-}
-
-async function loadReport() {
-  const token = new URLSearchParams(location.search).get("token") || "";
-  if (!token) return showError("В ссылке отсутствует токен отчёта.");
-  try {
-    const response = await fetch(`${REPORT_ENDPOINT}?token=${encodeURIComponent(token)}`, {headers:{Accept:"application/json"}});
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `Ошибка ${response.status}`);
-    renderReport(payload);
-  } catch (error) {
-    showError(error.message || String(error));
-  }
-}
-
-document.addEventListener("click", event => {
-  const button = event.target.closest("[data-photo-url]");
-  if (button) return openLightbox(button.dataset.photoUrl, button.dataset.photoCaption);
-  if (event.target === lightbox || event.target.closest(".lightbox-close")) closeLightbox();
-});
-
+function showError(message) { reportRoot.innerHTML = `<section class="state-card error-card"><h1>Не удалось открыть отчёт</h1><p>${escapeHtml(message)}</p><p>Ссылка могла быть отключена или срок её действия истёк.</p></section>`; }
+function openLightbox(url, caption) { lightboxImage.src = url; lightboxCaption.textContent = caption || ""; lightbox.classList.add("open"); lightbox.setAttribute("aria-hidden", "false"); document.body.style.overflow = "hidden"; }
+function closeLightbox() { lightbox.classList.remove("open"); lightbox.setAttribute("aria-hidden", "true"); lightboxImage.removeAttribute("src"); document.body.style.overflow = ""; }
+async function loadReport() { const token = new URLSearchParams(location.search).get("token") || ""; if (!token) return showError("В ссылке отсутствует токен отчёта."); try { const response = await fetch(`${REPORT_ENDPOINT}?token=${encodeURIComponent(token)}`, {headers:{Accept:"application/json"}}); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.error || `Ошибка ${response.status}`); renderReport(payload); } catch (error) { showError(error.message || String(error)); } }
+document.addEventListener("click", event => { const button = event.target.closest("[data-photo-url]"); if (button) return openLightbox(button.dataset.photoUrl, button.dataset.photoCaption); if (event.target === lightbox || event.target.closest(".lightbox-close")) closeLightbox(); });
 document.addEventListener("keydown", event => { if (event.key === "Escape") closeLightbox(); });
-
 loadReport();
