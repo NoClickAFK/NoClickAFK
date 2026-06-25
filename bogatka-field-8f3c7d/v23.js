@@ -51,6 +51,7 @@ function applyVersion23Enhancements(){
     if(event.key!=='Enter')return;
     if(!(target instanceof HTMLInputElement))return;
     if(['checkbox','radio','file','button','submit'].includes(target.type))return;
+    if(target.closest('#cloudAuthForm,#cloudInviteForm,#bogatkaRecoveryForm'))return;
     event.preventDefault();
     target.blur();
   });
