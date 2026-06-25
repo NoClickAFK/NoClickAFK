@@ -33,7 +33,7 @@ function upgradeAccessScreen(){
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
-  if(versionLabel)versionLabel.textContent=typeof APP_VERSION==='string'?APP_VERSION:'3.0.0';
+  if(versionLabel)versionLabel.textContent='3.4.0';
   upgradeAccessScreen();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
