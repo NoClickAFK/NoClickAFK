@@ -6,6 +6,17 @@ function loadBogatkaPatch(tagName,attributes){
   document.head.appendChild(element);
 }
 
+function redirectLegacyRecovery(){
+  const query=new URLSearchParams(location.search);
+  const recovery=location.hash.includes('type=recovery')||query.get('auth')==='recovery';
+  if(!recovery)return false;
+  const target=new URL('./reset/',location.href);
+  target.hash=location.hash;
+  if(query.get('code'))target.searchParams.set('code',query.get('code'));
+  location.replace(target.href);
+  return true;
+}
+
 function upgradeAccessScreen(){
   const card=document.querySelector('#lock .lock-card');
   if(!card||card.querySelector('.lock-help'))return;
@@ -20,7 +31,7 @@ function upgradeAccessScreen(){
 }
 
 function applyVersion23Enhancements(){
-  if(location.hash.includes('type=recovery')||new URLSearchParams(location.search).get('auth')==='recovery')sessionStorage.setItem('bogatka_password_recovery_pending','1');
+  if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
   if(versionLabel)versionLabel.textContent=typeof APP_VERSION==='string'?APP_VERSION:'3.0.0';
   upgradeAccessScreen();
@@ -28,7 +39,6 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
-  loadBogatkaPatch('script',{src:'./recovery-v31.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
