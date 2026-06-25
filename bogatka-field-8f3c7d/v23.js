@@ -53,6 +53,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./polish-v34.js'});
   loadBogatkaPatch('script',{src:'./account-v34.js'});
   loadBogatkaPatch('script',{src:'./insights-v331.js'});
+  loadBogatkaPatch('script',{src:'./version-guard-v340.js'});
   loadBogatkaPatch('script',{src:'./decision-core-v340.js'});
   loadBogatkaPatch('script',{src:'./decision-ui-v340.js'});
   loadBogatkaPatch('script',{src:'./compare-v340.js'});
