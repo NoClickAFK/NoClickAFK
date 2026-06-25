@@ -1,6 +1,6 @@
 (function(){
 if(window.BogatkaDecisionEngine)return;
-const VERSION='3.4.0';
+const VERSION='4.0.0';
 const WEIGHTS={housing:8,occupied:8,foot:12,car:4,parking:7,stop:4,anchor:6,visibility:8,sign:7,loading:6,condition:6,storage:5,competition:8,overall:11};
 const STOPS=[
 ['legalUse','Назначение не допускает розничную торговлю'],
