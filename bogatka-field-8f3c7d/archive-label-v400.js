@@ -26,8 +26,9 @@
       const project=S.ensureLaunchProject(data);
       const previous=getNested(project,path);
       setNested(project,path,value);
+      project.updatedAt=new Date().toISOString();
       S.appendActivityToData(data,{action:'Изменён проект открытия',field:`launchProject.${path}`,label:path,from:previous,to:value});
-      data.updatedAt=new Date().toISOString();
+      data.updatedAt=project.updatedAt;
       await idbPut(STORE,data,`location:${locationId}`);
       showSaved();
     };
@@ -107,10 +108,71 @@
     window.clearAllData=clearActive;
     try{clearAllData=clearActive}catch(_){}
   }
+  function mergeById(localItems,remoteItems,deletedIds=[]){
+    const deleted=new Set(deletedIds||[]),map=new Map();
+    for(const item of [...(remoteItems||[]),...(localItems||[])]){
+      if(!item?.id||deleted.has(item.id))continue;
+      const previous=map.get(item.id);
+      const previousTime=Date.parse(previous?.updatedAt||previous?.createdAt||previous?.completedAt||0)||0;
+      const currentTime=Date.parse(item.updatedAt||item.createdAt||item.completedAt||0)||0;
+      if(!previous||currentTime>=previousTime)map.set(item.id,item);
+    }
+    return [...map.values()];
+  }
+  function installCollaborationMerge(){
+    const S=window.BogatkaSuite;
+    if(!S||S.__collaborationMergeV400||typeof cloudApplyRemote!=='function')return;
+    S.__collaborationMergeV400=true;
+    const baseDeleteTask=S.deleteTask.bind(S),baseDeleteComment=S.deleteComment.bind(S);
+    S.deleteTask=async function(locationId,taskId){
+      await baseDeleteTask(locationId,taskId);
+      const data=await getLocationData(locationId);
+      data.deletedTaskIds=[...new Set([...(data.deletedTaskIds||[]),taskId])];
+      data.updatedAt=new Date().toISOString();
+      await idbPut(STORE,data,`location:${locationId}`);
+    };
+    S.deleteComment=async function(locationId,commentId){
+      await baseDeleteComment(locationId,commentId);
+      const data=await getLocationData(locationId);
+      data.deletedCommentIds=[...new Set([...(data.deletedCommentIds||[]),commentId])];
+      data.updatedAt=new Date().toISOString();
+      await idbPut(STORE,data,`location:${locationId}`);
+    };
+    const baseApply=cloudApplyRemote;
+    const wrapped=async function(remoteLocations,remotePhotos,remoteState,syncState){
+      const needsPush=[];
+      for(const remote of remoteLocations){
+        const id=remote.client_id||remote.id;
+        const local=await idbGet(STORE,`location:${id}`)||{};
+        const form=remote.form_data||{};
+        const deletedTaskIds=[...new Set([...(local.deletedTaskIds||[]),...(form.deletedTaskIds||[])])];
+        const deletedCommentIds=[...new Set([...(local.deletedCommentIds||[]),...(form.deletedCommentIds||[])])];
+        const mergedTasks=mergeById(local.tasks,form.tasks,deletedTaskIds);
+        const mergedComments=mergeById(local.comments,form.comments,deletedCommentIds);
+        const mergedActivity=mergeById(local.activity,form.activity).sort((a,b)=>(Date.parse(a.at)||0)-(Date.parse(b.at)||0)).slice(-300);
+        const newerLocal=(Date.parse(local.updatedAt)||0)>=(Date.parse(form.updatedAt)||0);
+        const primary=newerLocal?local:form;
+        const secondary=newerLocal?form:local;
+        let launchProject=primary.launchProject?structuredClone(primary.launchProject):secondary.launchProject?structuredClone(secondary.launchProject):null;
+        if(launchProject){
+          const milestones=mergeById(local.launchProject?.milestones,form.launchProject?.milestones);
+          launchProject.milestones=milestones;
+        }
+        const merged={...form,tasks:mergedTasks,comments:mergedComments,activity:mergedActivity,deletedTaskIds,deletedCommentIds};
+        if(launchProject)merged.launchProject=launchProject;
+        const changed=JSON.stringify(form.tasks||[])!==JSON.stringify(mergedTasks)||JSON.stringify(form.comments||[])!==JSON.stringify(mergedComments)||JSON.stringify(form.activity||[])!==JSON.stringify(mergedActivity)||JSON.stringify(form.launchProject||null)!==JSON.stringify(launchProject);
+        remote.form_data=merged;
+        if(changed)needsPush.push(id);
+      }
+      await baseApply(remoteLocations,remotePhotos,remoteState,syncState);
+      syncState.dirtyLocations||=[];
+      for(const id of needsPush)if(!syncState.dirtyLocations.includes(id))syncState.dirtyLocations.push(id);
+    };
+    window.cloudApplyRemote=wrapped;
+    try{cloudApplyRemote=wrapped}catch(_){}
+  }
   function diagnose(){
-    const checks=[
-      ['workflow',Boolean(window.BogatkaSuite)],['decision',Boolean(window.BogatkaDecisionEngine?.computeAll)],['interface',Boolean(window.BogatkaSuiteUI?.refresh)],['cloud',typeof window.cloudSyncAll==='function'],['report',typeof window.buildReportHtml==='function'],['backup',typeof window.exportBackup==='function']
-    ];
+    const checks=[['workflow',Boolean(window.BogatkaSuite)],['decision',Boolean(window.BogatkaDecisionEngine?.computeAll)],['interface',Boolean(window.BogatkaSuiteUI?.refresh)],['cloud',typeof window.cloudSyncAll==='function'],['report',typeof window.buildReportHtml==='function'],['backup',typeof window.exportBackup==='function']];
     const economy=window.BogatkaSuite?.calculateEconomy({tech:{totalArea:'100',rentPerMonth:'2000'},economy:{monthlyRevenue:'20000',grossMarginPct:'35',taxRatePct:'5'}});
     checks.push(['economy',Math.abs((economy?.rentPerSqm||0)-20)<0.001&&Math.abs((economy?.rentBurdenPct||0)-10)<0.001]);
     const total=Object.values(window.BogatkaDecisionEngine?.WEIGHTS||{}).reduce((sum,value)=>sum+Number(value||0),0);
@@ -125,7 +187,7 @@
       pill.title=failures.length?failures.join(', '):'Базовые программные проверки пройдены';
     }
   }
-  function installAll(){apply();stabilizeLaunchEditing();stabilizeArchiveFilter();installAutoRent();installArchiveAwareClear()}
+  function installAll(){apply();stabilizeLaunchEditing();stabilizeArchiveFilter();installAutoRent();installArchiveAwareClear();installCollaborationMerge()}
   installAll();
   let timer=null;
   new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(installAll,60)}).observe(document.body,{childList:true,subtree:true});
