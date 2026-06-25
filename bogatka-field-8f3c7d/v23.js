@@ -38,9 +38,12 @@ function applyVersion23Enhancements(){
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./members-v32.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./stability-v33.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
+  loadBogatkaPatch('script',{src:'./stability-v33.js'});
+  loadBogatkaPatch('script',{src:'./sw-register-v33.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
