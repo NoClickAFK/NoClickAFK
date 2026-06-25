@@ -1,0 +1,36 @@
+/* Bogatka 3.0 — premium cloud forms and access-link dialog */
+#cloudModal .modal-card{width:min(720px,calc(100vw - 28px));max-height:min(86vh,820px);padding:26px;border-radius:24px;border:1px solid rgba(24,79,58,.14);box-shadow:0 28px 80px rgba(9,42,29,.28);background:linear-gradient(180deg,#fff,#fbfdfc)}
+#cloudModal h2{margin:0 0 18px;font-size:30px;line-height:1.15;color:#174f3a;letter-spacing:-.02em}
+#cloudModal .cloud-copy{font-size:16px;line-height:1.55;color:#64746b}
+#cloudModal .cloud-form{gap:15px}
+#cloudModal .field{display:grid;gap:7px;font-size:14px;font-weight:800;color:#174f3a}
+#cloudModal .field input,#cloudModal .field select{display:block;width:100%;height:58px;min-height:58px;padding:0 17px;border:1px solid #c6d8ce!important;border-radius:16px!important;background:#fff!important;color:#18271f;font-size:16px!important;font-weight:600;box-shadow:0 5px 16px rgba(24,79,58,.045)!important;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+#cloudModal .field input::placeholder{color:#9aa7a0;font-weight:500}
+#cloudModal .field input:focus,#cloudModal .field select:focus{border-color:#4c9472!important;box-shadow:0 0 0 4px rgba(38,139,94,.11),0 8px 22px rgba(24,79,58,.07)!important;transform:translateY(-1px)}
+#cloudModal .cloud-auth-tabs{gap:9px;padding:5px;border-radius:17px;background:#edf4f0}
+#cloudModal .cloud-auth-tabs button{min-height:50px;border:0;border-radius:13px;padding:11px 16px;font-size:16px;transition:.18s ease}
+#cloudModal .cloud-auth-tabs button.active{box-shadow:0 8px 20px rgba(24,79,58,.17)}
+#cloudModal #cloudAuthSubmit,#cloudModal #cloudInviteForm>button{min-height:56px;border-radius:16px;font-size:17px;box-shadow:0 10px 24px rgba(24,79,58,.15)}
+#cloudModal #cloudInviteForm .grid-2{gap:13px;align-items:end}
+#cloudModal #cloudInviteRole{-webkit-appearance:none;appearance:none;padding-right:48px;background-color:#fff!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23184f3a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 17px center!important;background-size:18px!important;cursor:pointer}
+.cloud-password-control{position:relative;width:100%}
+.cloud-password-control input{padding-right:58px!important}
+.cloud-password-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:12px;background:transparent;color:#537064;cursor:pointer;transition:background .15s ease,color .15s ease}
+.cloud-password-toggle:hover,.cloud-password-toggle:focus-visible{background:#edf6f1;color:#176344;outline:none}
+.cloud-password-toggle svg{width:22px;height:22px;display:block}
+.cloud-member{border-radius:15px!important;padding:13px 15px!important;box-shadow:0 4px 14px rgba(24,79,58,.035)}
+.cloud-role{border-radius:999px!important;padding:5px 10px!important}
+
+.access-link-modal{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(8,31,22,.66);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.access-link-modal.open{display:flex}
+.access-link-card{position:relative;width:min(620px,100%);padding:27px;border:1px solid rgba(24,79,58,.14);border-radius:24px;background:linear-gradient(180deg,#fff,#f9fcfa);box-shadow:0 30px 90px rgba(4,30,20,.34)}
+.access-link-card h2{margin:0 48px 8px 0;color:#174f3a;font-size:28px;line-height:1.15}
+.access-link-card p{margin:0 0 18px;color:#657168;line-height:1.5}
+.access-link-close{position:absolute;right:15px;top:15px;display:grid;place-items:center;width:42px;height:42px;border:0;border-radius:50%;background:#edf4f0;color:#174f3a;font-size:27px;line-height:1;cursor:pointer}
+.access-link-field{display:grid;gap:8px;margin-bottom:15px;font-size:14px;font-weight:800;color:#174f3a}
+.access-link-field input{width:100%;height:58px;padding:0 16px;border:1px solid #c6d8ce!important;border-radius:16px!important;background:#fff!important;color:#26362e;font-size:15px!important;box-shadow:0 5px 16px rgba(24,79,58,.05)!important}
+.access-link-actions{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:9px}
+.access-link-actions .btn{min-height:52px;border-radius:15px;font-size:15px}
+.access-link-message{min-height:22px;margin-top:12px;color:#176344;font-size:13px;font-weight:700}
+
+@media(max-width:650px){#cloudModal .modal-card{width:calc(100vw - 16px);padding:19px;border-radius:20px}#cloudModal h2{font-size:25px}#cloudModal .field input,#cloudModal .field select{height:56px;min-height:56px}.access-link-modal{padding:8px}.access-link-card{padding:21px 16px 18px;border-radius:20px}.access-link-card h2{font-size:24px}.access-link-actions{grid-template-columns:1fr}.access-link-actions .btn{width:100%}}
