@@ -34,7 +34,7 @@ function upgradeAccessScreen(){
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
-  if(versionLabel)versionLabel.textContent='3.4.0';
+  if(versionLabel)versionLabel.textContent='4.0.0';
   upgradeAccessScreen();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
@@ -45,6 +45,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./compare-v332.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./decision-v340.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./compare-v340.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./suite-v400.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -55,8 +56,11 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./insights-v331.js'});
   loadBogatkaPatch('script',{src:'./version-guard-v340.js'});
   loadBogatkaPatch('script',{src:'./decision-core-v340.js'});
+  loadBogatkaPatch('script',{src:'./suite-core-v400.js'});
   loadBogatkaPatch('script',{src:'./decision-ui-v340.js'});
   loadBogatkaPatch('script',{src:'./compare-v340.js'});
+  loadBogatkaPatch('script',{src:'./suite-ui-v400.js'});
+  loadBogatkaPatch('script',{src:'./report-v400.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
