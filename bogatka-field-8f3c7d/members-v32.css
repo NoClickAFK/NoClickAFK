@@ -1,0 +1,14 @@
+/* Premium project members UI */
+#cloudInviteForm{gap:14px}
+#cloudInviteForm>button[type="submit"]{min-height:56px;border:0;border-radius:16px;background:linear-gradient(135deg,#155a40,#1d7a55);color:#fff;font-size:17px;font-weight:800;box-shadow:0 12px 28px rgba(21,90,64,.2);transition:transform .16s ease,box-shadow .16s ease,filter .16s ease}
+#cloudInviteForm>button[type="submit"]:hover{transform:translateY(-1px);box-shadow:0 15px 32px rgba(21,90,64,.24);filter:saturate(1.04)}
+#cloudInviteForm>button[type="submit"]:active{transform:translateY(0);box-shadow:0 8px 18px rgba(21,90,64,.18)}
+.cloud-members{display:grid;gap:10px;margin-top:16px}
+.cloud-member-premium{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:14px;align-items:center;padding:15px 16px;border:1px solid #d4e2da;border-radius:18px;background:linear-gradient(180deg,#fff,#fbfdfc);box-shadow:0 8px 22px rgba(24,79,58,.055)}
+.cloud-member-avatar{width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(145deg,#dcefe5,#edf7f1);color:#17543c;font-size:20px;font-weight:900;box-shadow:inset 0 0 0 1px rgba(24,79,58,.06)}
+.cloud-member-identity{min-width:0;display:grid;gap:4px}
+.cloud-member-name{min-width:0;color:#17261f;font-size:17px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}
+.cloud-member-email{min-width:0;color:#6b7971;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.cloud-member-role{justify-self:end;align-self:center;display:inline-flex;align-items:center;min-height:34px;padding:6px 12px;border-radius:999px;background:#def0e6;color:#18543c;font-size:14px;font-weight:800;white-space:nowrap}
+.cloud-member-empty{padding:14px 16px;border:1px dashed #cddbd3;border-radius:16px;background:#f7faf8;color:#66756d;text-align:center}
+@media(max-width:650px){.cloud-member-premium{grid-template-columns:46px minmax(0,1fr);padding:13px}.cloud-member-avatar{width:46px;height:46px;border-radius:14px}.cloud-member-role{grid-column:2;justify-self:start;margin-top:2px}.cloud-member-name{font-size:16px}.cloud-member-email{font-size:13px}#cloudInviteForm>button[type="submit"]{width:100%}}
