@@ -1,0 +1,1 @@
+(function(){function apply(){const button=document.getElementById('deleteLocationBtn');if(button){button.textContent='В архив';button.classList.remove('danger');button.classList.add('warning')}}apply();let timer=null;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(apply,50)}).observe(document.body,{childList:true,subtree:true})})();
