@@ -57,7 +57,6 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./decision-core-v340.js'});
   loadBogatkaPatch('script',{src:'./decision-ui-v340.js'});
   loadBogatkaPatch('script',{src:'./compare-v340.js'});
-  loadBogatkaPatch('script',{src:'./sw-register-v340.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
