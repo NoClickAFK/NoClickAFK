@@ -47,6 +47,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./stability-v331.js'});
   loadBogatkaPatch('script',{src:'./polish-v34.js'});
   loadBogatkaPatch('script',{src:'./account-v34.js'});
+  loadBogatkaPatch('script',{src:'./version-v34.js'});
   loadBogatkaPatch('script',{src:'./sw-register-v33.js'});
 
   document.addEventListener('keydown',event=>{
