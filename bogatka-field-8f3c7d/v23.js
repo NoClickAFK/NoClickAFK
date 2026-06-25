@@ -43,6 +43,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
   loadBogatkaPatch('script',{src:'./stability-v33.js'});
+  loadBogatkaPatch('script',{src:'./stability-v331.js'});
   loadBogatkaPatch('script',{src:'./sw-register-v33.js'});
 
   document.addEventListener('keydown',event=>{
