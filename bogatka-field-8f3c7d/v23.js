@@ -63,6 +63,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./archive-label-v400.js'});
   loadBogatkaPatch('script',{src:'./backup-v400.js'});
   loadBogatkaPatch('script',{src:'./report-v400.js'});
+  loadBogatkaPatch('script',{src:'./access-version-v400.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
