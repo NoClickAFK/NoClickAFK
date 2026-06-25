@@ -1,0 +1,79 @@
+/* Bogatka 3.3.1 — expanded summary, score guide and direct location deletion */
+.summary-grid.summary-grid-v331{
+  grid-template-columns:repeat(auto-fit,minmax(145px,1fr))!important;
+}
+.summary-grid-v331 .metric{
+  min-height:88px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+.summary-grid-v331 .metric.wide{grid-column:span 2}
+
+.score-guide-v331{
+  margin:0 0 12px;
+  padding:14px;
+  border:1px solid #d2e1d8;
+  border-radius:14px;
+  background:linear-gradient(180deg,#f4faf6,#edf6f1);
+  color:#31483d;
+}
+.score-guide-title{
+  margin-bottom:5px;
+  color:#174f3a;
+  font-size:15px;
+  font-weight:800;
+}
+.score-guide-v331 p{
+  margin:0 0 11px;
+  color:#5d6d64;
+  font-size:13px;
+  line-height:1.5;
+}
+.score-scale-v331{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:7px;
+}
+.score-scale-v331 span{
+  min-height:54px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:8px 9px;
+  border:1px solid #d8e5dd;
+  border-radius:11px;
+  background:#fff;
+  color:#405148;
+  font-size:12px;
+  line-height:1.25;
+}
+.score-scale-v331 b{
+  width:27px;
+  height:27px;
+  flex:0 0 27px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:#e1efe7;
+  color:#15543b;
+  font-size:14px;
+}
+.score-guide-note-v331{
+  margin-top:10px;
+  padding:9px 11px;
+  border-left:3px solid #94601d;
+  border-radius:8px;
+  background:#fff8e9;
+  color:#6d5629;
+  font-size:12px;
+  line-height:1.45;
+}
+.delete-location-v331{background:#7c2f2f!important}
+
+@media(max-width:700px){
+  .summary-grid.summary-grid-v331{grid-template-columns:1fr 1fr!important}
+  .summary-grid-v331 .metric.wide{grid-column:1/-1}
+  .score-scale-v331{grid-template-columns:1fr}
+  .score-scale-v331 span{min-height:44px}
+}
