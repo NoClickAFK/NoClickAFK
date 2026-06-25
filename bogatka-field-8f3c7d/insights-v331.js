@@ -5,7 +5,7 @@
 
   function setVersion(){
     const label = document.getElementById('versionLabel');
-    if(label) label.textContent = VERSION;
+    if(label && label.textContent !== VERSION) label.textContent = VERSION;
   }
 
   if(typeof window.upgradeV22Controls === 'function' && !window.upgradeV22Controls.__v331){
