@@ -141,6 +141,7 @@
     const baseApply=cloudApplyRemote;
     const wrapped=async function(remoteLocations,remotePhotos,remoteState,syncState){
       const needsPush=[];
+      const dirtySet=new Set(syncState.dirtyLocations||[]);
       for(const remote of remoteLocations){
         const id=remote.client_id||remote.id;
         const local=await idbGet(STORE,`location:${id}`)||{};
@@ -154,14 +155,16 @@
         const primary=newerLocal?local:form;
         const secondary=newerLocal?form:local;
         let launchProject=primary.launchProject?structuredClone(primary.launchProject):secondary.launchProject?structuredClone(secondary.launchProject):null;
-        if(launchProject){
-          const milestones=mergeById(local.launchProject?.milestones,form.launchProject?.milestones);
-          launchProject.milestones=milestones;
-        }
+        if(launchProject)launchProject.milestones=mergeById(local.launchProject?.milestones,form.launchProject?.milestones);
         const merged={...form,tasks:mergedTasks,comments:mergedComments,activity:mergedActivity,deletedTaskIds,deletedCommentIds};
         if(launchProject)merged.launchProject=launchProject;
         const changed=JSON.stringify(form.tasks||[])!==JSON.stringify(mergedTasks)||JSON.stringify(form.comments||[])!==JSON.stringify(mergedComments)||JSON.stringify(form.activity||[])!==JSON.stringify(mergedActivity)||JSON.stringify(form.launchProject||null)!==JSON.stringify(launchProject);
         remote.form_data=merged;
+        if(dirtySet.has(id)){
+          const localMerged={...local,tasks:mergedTasks,comments:mergedComments,activity:mergedActivity,deletedTaskIds,deletedCommentIds};
+          if(launchProject)localMerged.launchProject=launchProject;
+          await cloudOriginalIdbPut(STORE,localMerged,`location:${id}`);
+        }
         if(changed)needsPush.push(id);
       }
       await baseApply(remoteLocations,remotePhotos,remoteState,syncState);
