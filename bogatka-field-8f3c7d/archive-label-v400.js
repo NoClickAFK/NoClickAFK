@@ -17,6 +17,24 @@
     document.body.classList.toggle('viewer-mode-v400',viewer);
     const label=document.getElementById('versionLabel');if(label)label.textContent='4.0.0';
   }
+  function stabilizeLaunchEditing(){
+    const S=window.BogatkaSuite;
+    if(!S||S.__stableLaunchV400)return;
+    S.__stableLaunchV400=true;
+    S.saveLaunchField=async function(locationId,path,value){
+      const data=await getLocationData(locationId);
+      const project=S.ensureLaunchProject(data);
+      const previous=getNested(project,path);
+      setNested(project,path,value);
+      S.appendActivityToData(data,{action:'Изменён проект открытия',field:`launchProject.${path}`,label:path,from:previous,to:value});
+      data.updatedAt=new Date().toISOString();
+      await idbPut(STORE,data,`location:${locationId}`);
+      showSaved();
+    };
+    document.addEventListener('focusout',event=>{
+      if(event.target.closest('[data-launch-body]'))setTimeout(()=>updateSummary().catch(showError),180);
+    });
+  }
   function diagnose(){
     const checks=[
       ['workflow',Boolean(window.BogatkaSuite)],
@@ -41,8 +59,9 @@
     }
   }
   apply();
+  stabilizeLaunchEditing();
   let timer=null;
-  new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(apply,60)}).observe(document.body,{childList:true,subtree:true});
-  setInterval(apply,1500);
+  new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(()=>{apply();stabilizeLaunchEditing()},60)}).observe(document.body,{childList:true,subtree:true});
+  setInterval(()=>{apply();stabilizeLaunchEditing()},1500);
   setTimeout(diagnose,2500);
 })();
