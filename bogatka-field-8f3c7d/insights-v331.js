@@ -1,5 +1,5 @@
 (function(){
-  const VERSION = '3.3.2';
+  const VERSION = '3.4.0';
   const ignoredKeys = new Set(['updatedAt','createdAt','cloudId','cloudRevision','cloudUpdatedAt','cloudSyncedAt']);
   let enhanceTimer = null;
 
