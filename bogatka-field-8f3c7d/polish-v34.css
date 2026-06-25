@@ -1,0 +1,166 @@
+/* Bogatka 3.4 — final form polish, premium selects and stable destructive actions */
+
+/* Remove clipped focus corners inherited from mobile overflow rules. */
+label.field,
+.location-body,
+.status-row,
+.quick-grid,
+.grid-2,
+.grid-3,
+.grid-4,
+.notes-grid,
+details,
+.details-body,
+.table-wrap,
+#cloudInviteForm,
+#cloudModal .cloud-section{
+  overflow:visible!important;
+}
+
+/* One clean control geometry across the whole application. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+textarea,
+select,
+.access-link-field input,
+#cloudModal .field input,
+#cloudModal .field select,
+.lock-card #accessPin{
+  border:1px solid #c8d8cf!important;
+  border-radius:14px!important;
+  outline:0!important;
+  background:#fff!important;
+  background-clip:padding-box!important;
+  box-shadow:0 2px 8px rgba(20,67,49,.045)!important;
+  transform:none!important;
+  transition:border-color .15s ease,box-shadow .15s ease,background-color .15s ease!important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible,
+.access-link-field input:focus,
+#cloudModal .field input:focus,
+#cloudModal .field select:focus,
+.lock-card #accessPin:focus{
+  border-color:#82a895!important;
+  outline:0!important;
+  box-shadow:0 5px 14px rgba(20,67,49,.085)!important;
+  transform:none!important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus{
+  -webkit-text-fill-color:#18271f!important;
+  -webkit-box-shadow:0 0 0 1000px #fff inset,0 5px 14px rgba(20,67,49,.07)!important;
+  border-radius:14px!important;
+  caret-color:#18271f;
+  transition:background-color 9999s ease-out 0s;
+}
+
+/* Replace every native select with the same premium dropdown. */
+.premium-native-select{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  min-width:1px!important;
+  max-width:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  border:0!important;
+  opacity:0!important;
+  pointer-events:none!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+}
+
+.premium-select-trigger{
+  width:100%;
+  min-height:43px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:5px;
+  padding:9px 13px;
+  border:1px solid #c8d8cf;
+  border-radius:14px;
+  outline:0;
+  background:#fff;
+  color:#1b2b23;
+  box-shadow:0 2px 8px rgba(20,67,49,.045);
+  font:600 14px/1.25 Arial,Helvetica,sans-serif;
+  text-align:left;
+  cursor:pointer;
+  transition:border-color .15s ease,box-shadow .15s ease,background-color .15s ease;
+}
+.premium-select-trigger:hover{border-color:#adc5b9;background:#fdfefd}
+.premium-select-trigger:focus,
+.premium-select-trigger:focus-visible,
+.premium-select-trigger.open{
+  border-color:#82a895;
+  outline:0;
+  box-shadow:0 5px 14px rgba(20,67,49,.085);
+}
+.premium-select-trigger:disabled{opacity:.55;cursor:not-allowed}
+.premium-select-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.premium-select-trigger svg{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:#174f3a;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}
+.premium-select-trigger.open svg{transform:rotate(180deg)}
+
+.premium-select-menu{
+  position:fixed;
+  z-index:30000;
+  display:none;
+  overflow:auto;
+  padding:6px;
+  border:1px solid #c9d9d0;
+  border-radius:16px;
+  background:rgba(255,255,255,.99);
+  box-shadow:0 20px 48px rgba(7,38,26,.2);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  overscroll-behavior:contain;
+}
+.premium-select-menu.open{display:block;animation:premiumSelectIn .13s ease-out}
+.premium-select-menu.open-above{transform-origin:bottom center}
+.premium-select-option{
+  width:100%;
+  min-height:45px;
+  display:flex;
+  align-items:center;
+  padding:10px 13px;
+  border:0;
+  border-radius:10px;
+  outline:0;
+  background:transparent;
+  color:#22342b;
+  font:600 14px/1.25 Arial,Helvetica,sans-serif;
+  text-align:left;
+  cursor:pointer;
+}
+.premium-select-option+.premium-select-option{border-top:1px solid #edf2ef;border-top-left-radius:0;border-top-right-radius:0}
+.premium-select-option:hover,
+.premium-select-option:focus-visible{background:#eef6f1;color:#14513a}
+.premium-select-option.selected{background:#e2f1e8;color:#14513a;font-weight:800}
+.premium-select-option:disabled{opacity:.45;cursor:not-allowed}
+@keyframes premiumSelectIn{from{opacity:0;transform:translateY(-4px) scale(.992)}to{opacity:1;transform:none}}
+
+/* Cloud form uses larger controls but the same geometry. */
+#cloudModal .premium-select-trigger{min-height:58px;margin-top:0;padding:0 17px;border-radius:16px;font-size:16px;font-weight:700}
+#cloudModal .field{overflow:visible!important}
+#cloudModal .modal-card{overflow-x:hidden}
+#cloudModal .cloud-password-control:focus-within{box-shadow:none!important;outline:0!important}
+.bogatka-role-select{display:none!important}
+
+/* Account entry in the main toolbar. */
+#accountBtn{background:linear-gradient(135deg,#245f91,#347bac);color:#fff}
+
+@media(max-width:700px){
+  .premium-select-trigger{min-height:50px;padding:11px 13px;font-size:16px}
+  .premium-select-option{min-height:50px;font-size:16px;padding:12px 14px}
+  #cloudModal .premium-select-trigger{min-height:56px}
+}
