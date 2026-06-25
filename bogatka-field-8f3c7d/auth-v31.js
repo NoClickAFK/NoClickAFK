@@ -12,7 +12,7 @@ function bogatkaAuthText(message=''){
 }
 
 function bogatkaRecoveryUrl(){
-  return `${location.origin}${location.pathname}?v=310&auth=recovery`;
+  return new URL('./reset/',location.href).href;
 }
 
 function bogatkaAddAuthHelp(){
@@ -30,7 +30,7 @@ function bogatkaAddAuthHelp(){
     cloudSetMessage('Отправляю письмо восстановления…','info');
     const {error}=await cloudClient.auth.resetPasswordForEmail(email,{redirectTo:bogatkaRecoveryUrl()});
     if(error)return cloudSetMessage(bogatkaAuthText(error.message),'error');
-    cloudSetMessage('Запрос восстановления отправлен. Проверьте входящие письма и папку «Спам». Повторная регистрация не нужна.','success');
+    cloudSetMessage('Письмо отправлено. Откройте в нём кнопку восстановления — она приведёт на отдельную страницу создания нового пароля.','success');
   });
 }
 
