@@ -37,8 +37,10 @@ function applyVersion23Enhancements(){
   upgradeAccessScreen();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./members-v32.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
+  loadBogatkaPatch('script',{src:'./members-v32.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
