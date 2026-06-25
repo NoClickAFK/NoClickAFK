@@ -47,11 +47,14 @@ function schedulePremiumEnhance() {
   premiumEnhanceTimer = setTimeout(enhancePremiumUi, 60);
 }
 
-function getAccessUrl() {
+function getAccessLinkData() {
   const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) return "";
-  const version = typeof APP_VERSION === "string" ? APP_VERSION.replace(/\D/g, "") : "300";
-  return `${location.origin}${location.pathname}?v=${version}#access=${encodeURIComponent(token)}`;
+  const version = typeof APP_VERSION === "string" ? APP_VERSION.replace(/\D/g, "") : "320";
+  const baseUrl = `${location.origin}${location.pathname}?v=${version}`;
+  return {
+    url: token ? `${baseUrl}#access=${encodeURIComponent(token)}` : baseUrl,
+    hasFullKey: Boolean(token),
+  };
 }
 
 function ensureAccessLinkModal() {
@@ -65,13 +68,14 @@ function ensureAccessLinkModal() {
   modal.innerHTML = `
     <section class="access-link-card" role="dialog" aria-modal="true" aria-labelledby="accessLinkTitle">
       <button class="access-link-close" type="button" aria-label="Закрыть">×</button>
-      <h2 id="accessLinkTitle">Ссылка доступа</h2>
-      <p>Эта ссылка открывает рабочее приложение. Передавайте её только участникам проекта.</p>
-      <label class="access-link-field">Ссылка
+      <h2 id="accessLinkTitle">Доступ с нового устройства</h2>
+      <p id="accessLinkIntro">Подготовка ссылки…</p>
+      <div class="access-link-notice" id="accessLinkNotice"></div>
+      <label class="access-link-field">Ссылка на приложение
         <input id="accessLinkValue" type="text" readonly spellcheck="false">
       </label>
       <div class="access-link-actions">
-        <button class="btn" id="accessCopyBtn" type="button">Копировать</button>
+        <button class="btn" id="accessCopyBtn" type="button">Копировать ссылку</button>
         <button class="btn secondary" id="accessOpenBtn" type="button">Открыть</button>
         <button class="btn secondary" id="accessShareBtn" type="button">Поделиться</button>
       </div>
@@ -104,7 +108,9 @@ function ensureAccessLinkModal() {
       input.setSelectionRange(0, input.value.length);
       try { copied = document.execCommand("copy"); } catch (_) {}
     }
-    message.textContent = copied ? "Ссылка скопирована в буфер обмена." : "Не удалось скопировать автоматически. Выделите ссылку и скопируйте вручную.";
+    message.textContent = copied
+      ? "Ссылка скопирована. Отправьте её на телефон или другому участнику."
+      : "Не удалось скопировать автоматически. Выделите ссылку и скопируйте вручную.";
   });
 
   modal.querySelector("#accessOpenBtn").addEventListener("click", () => {
@@ -115,16 +121,23 @@ function ensureAccessLinkModal() {
   modal.querySelector("#accessShareBtn").addEventListener("click", async () => {
     const url = modal.querySelector("#accessLinkValue").value;
     const message = modal.querySelector("#accessLinkMessage");
+    const hasFullKey = modal.dataset.hasFullKey === "1";
     if (!url) return;
     if (!navigator.share) {
-      message.textContent = "Системное меню недоступно. Используйте кнопку «Копировать».";
+      message.textContent = "Системное меню недоступно. Используйте кнопку «Копировать ссылку».";
       return;
     }
     try {
-      await navigator.share({title:"Чек-лист «Богатка»",text:"Ссылка доступа к приложению",url});
+      await navigator.share({
+        title:"Чек-лист «Богатка»",
+        text: hasFullKey
+          ? "Ссылка доступа к рабочему приложению «Богатка»"
+          : "Ссылка на приложение «Богатка». При первом открытии введите шестизначный код доступа, затем войдите в облачный аккаунт.",
+        url,
+      });
       message.textContent = "Ссылка передана в системное меню.";
     } catch (error) {
-      if (error?.name !== "AbortError") message.textContent = "Не удалось открыть системное меню. Используйте кнопку «Копировать».";
+      if (error?.name !== "AbortError") message.textContent = "Не удалось открыть системное меню. Используйте кнопку «Копировать ссылку».";
     }
   });
 
@@ -132,14 +145,24 @@ function ensureAccessLinkModal() {
 }
 
 function openAccessLinkModal() {
-  const url = getAccessUrl();
-  if (!url) {
-    alert("На этом устройстве нет исходного ключа доступа. Сначала откройте приложение по полной ссылке доступа.");
-    return;
-  }
+  const data = getAccessLinkData();
   const modal = ensureAccessLinkModal();
-  modal.querySelector("#accessLinkValue").value = url;
+  modal.dataset.hasFullKey = data.hasFullKey ? "1" : "0";
+  modal.querySelector("#accessLinkValue").value = data.url;
   modal.querySelector("#accessLinkMessage").textContent = "";
+
+  const intro = modal.querySelector("#accessLinkIntro");
+  const notice = modal.querySelector("#accessLinkNotice");
+  if (data.hasFullKey) {
+    intro.textContent = "Это полная ссылка доступа. На новом устройстве приложение откроется без ввода шестизначного кода.";
+    notice.className = "access-link-notice success";
+    notice.innerHTML = "<strong>Готово к передаче.</strong> Отправьте ссылку себе на телефон через Telegram или другой мессенджер.";
+  } else {
+    intro.textContent = "Исходный ключ был удалён при очистке данных браузера, поэтому сейчас сформирована обычная ссылка на приложение.";
+    notice.className = "access-link-notice warning";
+    notice.innerHTML = "<strong>Это не ошибка.</strong> На новом устройстве откройте эту ссылку, введите ваш шестизначный код доступа один раз, затем войдите в тот же облачный аккаунт. После входа данные синхронизируются.";
+  }
+
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
