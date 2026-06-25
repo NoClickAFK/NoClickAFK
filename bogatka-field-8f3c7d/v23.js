@@ -1,6 +1,6 @@
 function applyVersion23Enhancements(){
   const versionLabel=document.getElementById('versionLabel');
-  if(versionLabel)versionLabel.textContent='2.3.0';
+  if(versionLabel)versionLabel.textContent='3.0.0';
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
