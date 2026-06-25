@@ -1,4 +1,5 @@
 let bogatkaAuthPatchTimer=null;
+let bogatkaAuthPatchStarted=false;
 
 function bogatkaAuthText(message=''){
   const value=String(message||'');
@@ -30,7 +31,9 @@ function bogatkaAddAuthHelp(){
   });
 }
 
-window.addEventListener('load',()=>{
+function bogatkaStartAuthPatch(){
+  if(bogatkaAuthPatchStarted)return;
+  bogatkaAuthPatchStarted=true;
   const originalMessage=cloudSetMessage;
   cloudSetMessage=function(text='',type='info'){return originalMessage(bogatkaAuthText(text),type)};
   const observer=new MutationObserver(()=>{
@@ -39,4 +42,7 @@ window.addEventListener('load',()=>{
   });
   observer.observe(document.body,{childList:true,subtree:true});
   bogatkaAddAuthHelp();
-});
+}
+
+if(document.readyState==='complete')bogatkaStartAuthPatch();
+else window.addEventListener('load',bogatkaStartAuthPatch,{once:true});
