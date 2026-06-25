@@ -60,6 +60,8 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./decision-ui-v340.js'});
   loadBogatkaPatch('script',{src:'./compare-v340.js'});
   loadBogatkaPatch('script',{src:'./suite-ui-v400.js'});
+  loadBogatkaPatch('script',{src:'./archive-label-v400.js'});
+  loadBogatkaPatch('script',{src:'./backup-v400.js'});
   loadBogatkaPatch('script',{src:'./report-v400.js'});
 
   document.addEventListener('keydown',event=>{
