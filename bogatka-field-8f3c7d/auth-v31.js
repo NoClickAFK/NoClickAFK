@@ -11,6 +11,10 @@ function bogatkaAuthText(message=''){
   return value;
 }
 
+function bogatkaRecoveryUrl(){
+  return `${location.origin}${location.pathname}?v=310&auth=recovery`;
+}
+
 function bogatkaAddAuthHelp(){
   const form=document.querySelector('#cloudAuthForm');
   if(!form||form.querySelector('#cloudForgotPasswordBtn'))return;
@@ -24,8 +28,7 @@ function bogatkaAddAuthHelp(){
     const email=document.querySelector('#cloudEmail')?.value.trim().toLowerCase();
     if(!email)return cloudSetMessage('Сначала укажите email существующего аккаунта.','error');
     cloudSetMessage('Отправляю письмо восстановления…','info');
-    const redirectTo=`${location.origin}${location.pathname}?auth=recovery`;
-    const {error}=await cloudClient.auth.resetPasswordForEmail(email,{redirectTo});
+    const {error}=await cloudClient.auth.resetPasswordForEmail(email,{redirectTo:bogatkaRecoveryUrl()});
     if(error)return cloudSetMessage(bogatkaAuthText(error.message),'error');
     cloudSetMessage('Запрос восстановления отправлен. Проверьте входящие письма и папку «Спам». Повторная регистрация не нужна.','success');
   });
