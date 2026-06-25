@@ -1,6 +1,52 @@
 (function(){
   if(window.__bogatkaBackupV400)return;
   window.__bogatkaBackupV400=true;
+
+  function deviceLabel(){
+    const ua=navigator.userAgent||'';
+    let device='Устройство';
+    if(/iPhone|iPad|iPod/i.test(ua))device='iPhone/iPad';
+    else if(/Android/i.test(ua))device='Android';
+    else if(/Windows/i.test(ua))device='Windows';
+    else if(/Macintosh|Mac OS X/i.test(ua))device='macOS';
+    else if(/Linux/i.test(ua))device='Linux';
+    const standalone=Boolean(window.matchMedia?.('(display-mode: standalone)')?.matches||navigator.standalone);
+    return `${device} · ${standalone?'приложение':'браузер'}`;
+  }
+
+  function installDeviceHistory(){
+    if(window.__bogatkaDeviceHistoryV400||typeof idbPut!=='function')return;
+    window.__bogatkaDeviceHistoryV400=true;
+    const basePut=idbPut;
+    const wrapped=async function(store,value,key){
+      if(store===STORE&&typeof key==='string'&&key.startsWith('location:')&&Array.isArray(value?.activity)){
+        const device=deviceLabel();
+        value.activity=value.activity.map(entry=>entry?.device?entry:{...entry,device});
+      }
+      return basePut(store,value,key);
+    };
+    window.idbPut=wrapped;
+    try{idbPut=wrapped}catch(_){}
+  }
+
+  async function migrateCalculatedRent(){
+    if(localStorage.getItem('bogatka_rent_migration_v400')==='done')return;
+    let changed=false;
+    for(const item of locations){
+      const data=await getLocationData(item.id);
+      const area=Number(String(data?.tech?.totalArea||'').replace(',','.'));
+      const rent=Number(String(data?.tech?.rentPerMonth||data.rent||'').replace(',','.'));
+      if(!Number.isFinite(area)||area<=0||!Number.isFinite(rent)||rent<0||data?.tech?.rentPerSqm)continue;
+      data.tech||={};
+      data.tech.rentPerSqm=String(Math.round(rent/area*100)/100);
+      data.updatedAt=new Date().toISOString();
+      await idbPut(STORE,data,`location:${item.id}`);
+      changed=true;
+    }
+    localStorage.setItem('bogatka_rent_migration_v400','done');
+    if(changed)await updateSummary();
+  }
+
   window.exportBackup=async function exportBackupV400(){
     const records={};
     records['meta:locations']=locations;
@@ -21,4 +67,10 @@
     await idbPut(STORE,global,'global');
   };
   try{exportBackup=window.exportBackup}catch(_){}
+
+  installDeviceHistory();
+  setTimeout(()=>{
+    installDeviceHistory();
+    migrateCalculatedRent().catch(console.error);
+  },1800);
 })();
