@@ -21,7 +21,11 @@
     const wrapped=async function(store,value,key){
       if(store===STORE&&typeof key==='string'&&key.startsWith('location:')&&Array.isArray(value?.activity)){
         const device=deviceLabel();
-        value.activity=value.activity.map(entry=>entry?.device?entry:{...entry,device});
+        value.activity=value.activity.map(entry=>{
+          if(entry?.device)return entry;
+          const actor=entry?.actor?`${entry.actor} · ${device}`:device;
+          return {...entry,actor,device};
+        });
       }
       return basePut(store,value,key);
     };
