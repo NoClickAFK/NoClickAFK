@@ -14,6 +14,7 @@ const required = [
   'suite-v400.css',
   'archive-label-v400.js',
   'backup-v400.js',
+  'viewer-extra-v400.js',
   'report-v400.js',
   'access-version-v400.js',
   'selftest-v400.js',
@@ -39,8 +40,13 @@ if (!failures.length) {
     if (!loader.includes(file)) failures.push(`v23.js does not load ${file}`);
   }
 
+  const backup = read('backup-v400.js');
+  for (const file of ['viewer-extra-v400.js','selftest-v400.js']) {
+    if (!backup.includes(file)) failures.push(`backup-v400.js does not load ${file}`);
+  }
+
   const serviceWorker = read('sw-v340.js');
-  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','selftest-v400.js']) {
+  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js']) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
 
@@ -61,6 +67,11 @@ if (!failures.length) {
   const archive = read('archive-label-v400.js');
   for (const marker of ['installAutoRent','installArchiveAwareClear','installCollaborationMerge','viewer-mode-v400']) {
     if (!archive.includes(marker)) failures.push(`archive-label-v400.js is missing ${marker}`);
+  }
+
+  const viewer = read('viewer-extra-v400.js');
+  for (const marker of ['[data-global]','[data-location-card] button','.photo-add','.photo-delete']) {
+    if (!viewer.includes(marker)) failures.push(`viewer-extra-v400.js is missing ${marker}`);
   }
 
   const report = read('report-v400.js');
