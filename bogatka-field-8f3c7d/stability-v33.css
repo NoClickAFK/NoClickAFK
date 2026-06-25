@@ -1,0 +1,155 @@
+/* Bogatka 3.3 — stable premium controls */
+
+/* Cloud tabs: two independent controls, without the tinted tray. */
+#cloudModal .cloud-auth-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  padding:0!important;
+  background:transparent!important;
+  border-radius:0!important;
+}
+#cloudModal .cloud-auth-tabs button{
+  min-height:56px!important;
+  border:1px solid #c9d9d0!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  color:#174f3a!important;
+  box-shadow:0 7px 20px rgba(24,79,58,.055)!important;
+  font-weight:800!important;
+}
+#cloudModal .cloud-auth-tabs button.active{
+  border-color:#15583f!important;
+  background:linear-gradient(135deg,#15533c,#1b684a)!important;
+  color:#fff!important;
+  box-shadow:0 12px 26px rgba(21,83,60,.2)!important;
+}
+
+/* Clean focus: depth and lift only, no uneven halo. */
+#cloudModal .field input,
+#cloudModal .field select,
+#cloudModal .cloud-password-control input{
+  outline:none!important;
+  -webkit-tap-highlight-color:transparent;
+}
+#cloudModal .field input:focus,
+#cloudModal .field select:focus,
+#cloudModal .cloud-password-control input:focus{
+  border-color:#86ae9a!important;
+  outline:none!important;
+  box-shadow:0 13px 27px rgba(20,72,52,.12),inset 0 1px 0 rgba(255,255,255,.9)!important;
+  transform:translateY(-1px)!important;
+}
+#cloudModal .cloud-password-control:focus-within{
+  border-radius:16px;
+  box-shadow:none!important;
+  outline:none!important;
+}
+#cloudModal input:-webkit-autofill,
+#cloudModal input:-webkit-autofill:hover,
+#cloudModal input:-webkit-autofill:focus{
+  -webkit-text-fill-color:#18271f!important;
+  -webkit-box-shadow:0 0 0 1000px #fff inset,0 13px 27px rgba(20,72,52,.1)!important;
+  transition:background-color 9999s ease-out 0s;
+  caret-color:#18271f;
+}
+
+/* Custom premium role selector. */
+.bogatka-native-select-hidden{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+  border:0!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+.bogatka-role-select{position:relative;width:100%;font-weight:600}
+.bogatka-role-trigger{
+  width:100%;
+  min-height:58px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:0 17px;
+  border:1px solid #c6d8ce;
+  border-radius:16px;
+  background:#fff;
+  color:#18271f;
+  box-shadow:0 5px 16px rgba(24,79,58,.045);
+  font:700 16px/1.2 inherit;
+  cursor:pointer;
+  transition:border-color .17s ease,box-shadow .17s ease,transform .17s ease;
+}
+.bogatka-role-trigger:hover{border-color:#aac7b8;box-shadow:0 9px 21px rgba(24,79,58,.075)}
+.bogatka-role-trigger:focus-visible,
+.bogatka-role-select.open .bogatka-role-trigger{
+  border-color:#86ae9a;
+  outline:none;
+  box-shadow:0 13px 27px rgba(20,72,52,.12);
+  transform:translateY(-1px);
+}
+.bogatka-role-chevron{width:18px;height:18px;flex:0 0 auto;transition:transform .18s ease}
+.bogatka-role-select.open .bogatka-role-chevron{transform:rotate(180deg)}
+.bogatka-role-menu{
+  position:absolute;
+  z-index:13050;
+  top:calc(100% + 7px);
+  left:0;
+  right:0;
+  display:none;
+  overflow:hidden;
+  padding:6px;
+  border:1px solid #c9d9d0;
+  border-radius:17px;
+  background:rgba(255,255,255,.985);
+  box-shadow:0 22px 50px rgba(8,42,28,.2);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.bogatka-role-select.open .bogatka-role-menu{display:block;animation:bogatkaMenuIn .14s ease-out}
+.bogatka-role-option{
+  width:100%;
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  padding:10px 13px;
+  border:0;
+  border-radius:11px;
+  background:transparent;
+  color:#23352c;
+  font:650 16px/1.2 inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.bogatka-role-option+.bogatka-role-option{border-top:1px solid #edf2ef;border-top-left-radius:0;border-top-right-radius:0}
+.bogatka-role-option:hover,
+.bogatka-role-option:focus-visible{background:#eef6f1;color:#14513a;outline:none}
+.bogatka-role-option.selected{background:#e3f2e9;color:#14513a;font-weight:800}
+@keyframes bogatkaMenuIn{from{opacity:0;transform:translateY(-5px) scale(.99)}to{opacity:1;transform:none}}
+
+/* Photo thumbnails must remain light enough for iOS memory limits. */
+.photo-preview img{background:#eef3f0}
+.photo-preview.photo-loading::after{
+  content:"Загрузка…";
+  position:absolute;
+  inset:auto 10px 10px;
+  padding:5px 8px;
+  border-radius:999px;
+  background:rgba(14,55,40,.78);
+  color:#fff;
+  font-size:11px;
+  text-align:center;
+}
+
+@media(max-width:650px){
+  #cloudModal .cloud-auth-tabs{gap:9px}
+  #cloudModal .cloud-auth-tabs button{min-height:53px!important}
+  .bogatka-role-trigger{min-height:56px}
+  .bogatka-role-option{min-height:50px;font-size:16px}
+}
