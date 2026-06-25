@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="./v21.css">
   <link rel="stylesheet" href="./v22.css">
   <link rel="stylesheet" href="./v23.css">
+  <link rel="stylesheet" href="./cloud.css">
 </head>
 <body>
 <div id="lock" class="lock">
@@ -55,8 +56,8 @@
   </div>
 
   <div class="premium-actions">
-    <button class="btn premium-share" id="shareReportBtn">Поделиться отчётом</button>
-    <button class="btn cloud-sync" id="cloudSyncBtn">Облачная синхронизация</button>
+    <button class="btn premium-share" id="shareReportBtn">Поделиться отчётом по ссылке</button>
+    <button class="btn cloud-sync" id="cloudSyncBtn">Войти и синхронизировать</button>
   </div>
 
   <section class="summary card">
@@ -98,12 +99,13 @@
       <li>Поставьте оценки от 1 до 5. В пункте про конкурентов 5 означает слабую конкуренцию.</li>
       <li>Фотографируйте по отдельным категориям. Нажатие на фото открывает его крупно.</li>
       <li>Для удаления или изменения подписей сначала включите режим редактирования фотографий внутри конкретной локации.</li>
-      <li>После поездки сделайте резервную копию.</li>
-      <li>HTML-отчёт скачивается отдельным красивым файлом без кнопок приложения. PDF-отчёт открывает печатную версию.</li>
+      <li>Войдите в облако, чтобы данные автоматически появились на телефоне и компьютере.</li>
+      <li>После поездки дополнительно сделайте резервную копию.</li>
+      <li>Кнопка «Поделиться отчётом по ссылке» создаёт отдельный отчёт только для просмотра.</li>
     </ol>
     <div class="help"><b>Установка не обязательна.</b> В браузере всё работает так же. Установка даёт иконку на главном экране, отдельное окно без вкладок и более удобный запуск.</div>
-    <div class="help"><b>Фотографии:</b> сохраняются в браузере текущего устройства. Они не попадают автоматически в галерею. Для сохранения в «Фото» используйте кнопку «Сохранить / поделиться» под конкретным снимком.</div>
-    <div class="help"><b>Синхронизация:</b> текущая локальная версия не переносит данные между телефоном и ПК автоматически. Для этого подключается отдельная облачная база и хранилище.</div>
+    <div class="help"><b>Фотографии:</b> после входа они сохраняются и локально, и в закрытом облачном хранилище. Для сохранения отдельного снимка в «Фото» используйте кнопку «Сохранить / поделиться».</div>
+    <div class="help"><b>Синхронизация:</b> изменения сначала сохраняются на устройстве, затем автоматически отправляются в облако. При отсутствии связи они будут отправлены после восстановления интернета.</div>
     <div class="modal-actions"><button class="btn" data-close-modal>Закрыть</button></div>
   </div>
 </div>
@@ -111,10 +113,8 @@
 <div id="cloudModal" class="modal hidden">
   <div class="modal-card">
     <h2>Облачная синхронизация</h2>
-    <p>Для синхронизации телефона, компьютера и трёх участников нужно подключить защищённую облачную базу и хранилище фотографий.</p>
-    <div class="help"><b>После подключения:</b> изменения будут появляться на ПК и телефонах, фотографии будут доступны участникам проекта, а отчёт можно будет опубликовать по отдельной ссылке только для просмотра.</div>
-    <p>Сейчас приложение продолжает надёжно сохранять данные локально. Используйте резервную копию до подключения облака.</p>
-    <div class="modal-actions"><button class="btn" data-close-cloud>Закрыть</button></div>
+    <p>Загружаю защищённое подключение…</p>
+    <div class="modal-actions"><button class="btn secondary" data-close-cloud>Закрыть</button></div>
   </div>
 </div>
 
@@ -149,6 +149,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script src="./supabase-config.js" defer></script>
 <script src="./config.js" defer></script>
 <script src="./core.js" defer></script>
 <script src="./ui-v2.js" defer></script>
@@ -158,5 +160,6 @@
 <script src="./v21.js" defer></script>
 <script src="./v22.js" defer></script>
 <script src="./v23.js" defer></script>
+<script src="./cloud.js" defer></script>
 </body>
 </html>
