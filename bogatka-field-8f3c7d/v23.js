@@ -33,13 +33,14 @@ function upgradeAccessScreen(){
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
-  if(versionLabel)versionLabel.textContent='3.4.0';
+  if(versionLabel)versionLabel.textContent='3.3.1';
   upgradeAccessScreen();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./members-v32.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./stability-v33.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./polish-v34.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./insights-v331.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -47,7 +48,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./stability-v331.js'});
   loadBogatkaPatch('script',{src:'./polish-v34.js'});
   loadBogatkaPatch('script',{src:'./account-v34.js'});
-  loadBogatkaPatch('script',{src:'./version-v34.js'});
+  loadBogatkaPatch('script',{src:'./insights-v331.js'});
   loadBogatkaPatch('script',{src:'./sw-register-v33.js'});
 
   document.addEventListener('keydown',event=>{
