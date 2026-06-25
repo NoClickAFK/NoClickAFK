@@ -17,8 +17,32 @@
     document.body.classList.toggle('viewer-mode-v400',viewer);
     const label=document.getElementById('versionLabel');if(label)label.textContent='4.0.0';
   }
+  function diagnose(){
+    const checks=[
+      ['workflow',Boolean(window.BogatkaSuite)],
+      ['decision',Boolean(window.BogatkaDecisionEngine?.computeAll)],
+      ['interface',Boolean(window.BogatkaSuiteUI?.refresh)],
+      ['cloud',typeof window.cloudSyncAll==='function'],
+      ['report',typeof window.buildReportHtml==='function'],
+      ['backup',typeof window.exportBackup==='function']
+    ];
+    const economy=window.BogatkaSuite?.calculateEconomy({tech:{totalArea:'100',rentPerMonth:'2000'},economy:{monthlyRevenue:'20000',grossMarginPct:'35',taxRatePct:'5'}});
+    checks.push(['economy',Math.abs((economy?.rentPerSqm||0)-20)<0.001&&Math.abs((economy?.rentBurdenPct||0)-10)<0.001]);
+    const total=Object.values(window.BogatkaDecisionEngine?.WEIGHTS||{}).reduce((sum,value)=>sum+Number(value||0),0);
+    checks.push(['weights',total===100]);
+    const failures=checks.filter(([,ok])=>!ok).map(([name])=>name);
+    localStorage.setItem('bogatka_diagnostics_v400',JSON.stringify({version:'4.0.0',at:new Date().toISOString(),ok:failures.length===0,checks}));
+    const statusbar=document.querySelector('.statusbar');
+    if(statusbar){
+      let pill=document.getElementById('diagnosticsPillV400');
+      if(!pill){pill=document.createElement('span');pill.id='diagnosticsPillV400';pill.className='pill';statusbar.appendChild(pill)}
+      pill.textContent=failures.length?`Самопроверка: ${failures.length} ошибок`:'Самопроверка: OK';
+      pill.title=failures.length?failures.join(', '):'Базовые программные проверки пройдены';
+    }
+  }
   apply();
   let timer=null;
   new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(apply,60)}).observe(document.body,{childList:true,subtree:true});
   setInterval(apply,1500);
+  setTimeout(diagnose,2500);
 })();
