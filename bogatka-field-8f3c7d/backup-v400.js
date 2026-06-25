@@ -51,6 +51,14 @@
     if(changed)await updateSummary();
   }
 
+  function loadSelftest(){
+    if(document.querySelector('script[src="./selftest-v400.js"]'))return;
+    const script=document.createElement('script');
+    script.src='./selftest-v400.js';
+    script.async=false;
+    document.head.appendChild(script);
+  }
+
   window.exportBackup=async function exportBackupV400(){
     const records={};
     records['meta:locations']=locations;
@@ -73,8 +81,10 @@
   try{exportBackup=window.exportBackup}catch(_){}
 
   installDeviceHistory();
+  loadSelftest();
   setTimeout(()=>{
     installDeviceHistory();
+    loadSelftest();
     migrateCalculatedRent().catch(console.error);
   },1800);
 })();
