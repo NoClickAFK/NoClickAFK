@@ -45,9 +45,6 @@ function bogatkaEnhanceMembers(){
     inviteButton.classList.remove('secondary');
     inviteButton.textContent='Добавить участника';
   }
-  if(document.querySelector('#cloudMembers')&&typeof cloudLoadMembers==='function'){
-    cloudLoadMembers().catch(error=>typeof cloudHandleError==='function'&&cloudHandleError(error));
-  }
 }
 
 const bogatkaMembersObserver=new MutationObserver(()=>{
