@@ -6,7 +6,7 @@ function scheduleV22Enhance() {
 }
 
 function upgradeV22Controls() {
-  if (document.getElementById("versionLabel")) document.getElementById("versionLabel").textContent = APP_VERSION;
+  if (document.getElementById("versionLabel")) document.getElementById("versionLabel").textContent = "4.0.0";
 
   document.querySelectorAll(".photo-mode-bar").forEach(bar => {
     if (bar.dataset.v22 === "1") return;
