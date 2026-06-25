@@ -1,0 +1,22 @@
+project_id = "fascqulqvlxmraktuxez"
+
+[api]
+enabled = true
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+major_version = 15
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+file_size_limit = "25MiB"
+
+[auth]
+enabled = true
+site_url = "https://noclickafk.github.io/NoClickAFK/bogatka-field-8f3c7d/"
+additional_redirect_urls = ["https://noclickafk.github.io/NoClickAFK/bogatka-field-8f3c7d/"]
