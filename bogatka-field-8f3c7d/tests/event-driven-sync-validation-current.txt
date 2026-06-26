@@ -1,0 +1,1 @@
+Validate current main event-driven cloud synchronization.
