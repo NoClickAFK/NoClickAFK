@@ -48,6 +48,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./decision-v340.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./compare-v340.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./suite-v400.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./visual-v411.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -67,6 +68,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./backup-v400.js'});
   loadBogatkaPatch('script',{src:'./report-v400.js'});
   loadBogatkaPatch('script',{src:'./access-version-v400.js'});
+  loadBogatkaPatch('script',{src:'./visual-v411.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
