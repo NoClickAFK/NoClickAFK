@@ -55,7 +55,7 @@ jobs:
           npm install --no-save --silent @playwright/test@1.52.0
           npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
 
-      - name: Run browser smoke tests
+      - name: Run browser acceptance tests
         id: smoke
         continue-on-error: true
         env:
@@ -71,7 +71,7 @@ jobs:
             fi
             sleep 1
           done
-          npx playwright test bogatka-field-8f3c7d/tests/browser-smoke.spec.mjs --reporter=json > /tmp/playwright-output.log 2>&1
+          npx playwright test 'bogatka-field-8f3c7d/tests/*.spec.mjs' --reporter=json > /tmp/playwright-output.log 2>&1
 
       - name: Upload browser test diagnostics
         if: always()
@@ -85,10 +85,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Fail when browser smoke tests failed
+      - name: Fail when browser acceptance tests failed
         if: steps.smoke.outcome != 'success'
         run: |
-          echo 'Bogatka browser smoke tests failed. Diagnostics were uploaded as an artifact.'
+          echo 'Bogatka browser acceptance tests failed. Diagnostics were uploaded as an artifact.'
           if [ -f test-results/playwright-results.json ]; then
             node - <<'NODE'
           const fs = require('fs');
