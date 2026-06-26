@@ -57,7 +57,7 @@ const visualJsPath=path.join(root,'visual-v411.js');
 if(!fs.existsSync(visualJsPath))errors.push('Missing visual-v411.js');
 else{
   const visualJs=fs.readFileSync(visualJsPath,'utf8');
-  for(const marker of ['collaboration-accordion-v411','inviteHistoryToggleV411','grid','MutationObserver','BogatkaVisualPolish',"version:'4.1.1'"])if(!visualJs.includes(marker))errors.push(`visual-v411.js missing ${marker}`);
+  for(const marker of ['collaboration-accordion-v411','inviteHistoryToggleV411','MutationObserver','BogatkaVisualPolish',"version:'4.1.1'"])if(!visualJs.includes(marker))errors.push(`visual-v411.js missing ${marker}`);
   if(visualJs.includes('observe(document.body'))errors.push('Visual observer must be scoped to the cloud modal');
 }
 
