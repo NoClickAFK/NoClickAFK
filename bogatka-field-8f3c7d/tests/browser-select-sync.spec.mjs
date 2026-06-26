@@ -13,7 +13,7 @@ test('remote custom selects update visible labels',async({page})=>{
     const selects=[
       document.querySelector(`select[data-location="${id}"][data-field="status"]`),
       document.querySelector(`select[data-location="${id}"][data-field="objectType"]`),
-      document.querySelector(`select[data-location="${id}"][data-field^="scores."]`),
+      document.querySelector(`select[data-location="${id}"][data-field^="score."]`),
     ];
     const data=await getLocationData(id);
     for(const select of selects){
@@ -42,7 +42,7 @@ test('select changes persist and mark the location dirty',async({page})=>{
     const selects=[
       document.querySelector(`select[data-location="${id}"][data-field="status"]`),
       document.querySelector(`select[data-location="${id}"][data-field="objectType"]`),
-      document.querySelector(`select[data-location="${id}"][data-field^="scores."]`),
+      document.querySelector(`select[data-location="${id}"][data-field^="score."]`),
     ];
     for(const select of selects){
       const option=[...select.options].find(item=>item.value&&item.value!==select.value)||[...select.options].find(item=>item.value);
