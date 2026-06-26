@@ -1,10 +1,15 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=409';
+const APP_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=410';
 const RESET_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/reset/';
 
 async function authorize(page) {
   await page.addInitScript(() => localStorage.setItem('bogatka_access_authorized_v1', '1'));
+}
+
+async function waitForV410(page) {
+  await page.waitForFunction(() => window.BogatkaInviteManager?.version === '4.1.0');
+  await page.waitForFunction(() => window.BogatkaCollaboration?.version === '4.1.0');
 }
 
 test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
@@ -12,6 +17,7 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   page.on('pageerror', error => pageErrors.push(String(error)));
   await authorize(page);
   await page.goto(APP_URL, { waitUntil: 'networkidle' });
+  await waitForV410(page);
 
   await expect(page.locator('#app')).toBeVisible();
   await expect(page.locator('#versionLabel')).toHaveText('4.0.0');
@@ -29,6 +35,7 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
       selfTest,
       archiveSync: Boolean(window.BogatkaCloudArchive?.enabled),
       inviteManager: window.BogatkaInviteManager?.version,
+      collaboration: window.BogatkaCollaboration?.version,
       normalized: window.BogatkaAddressFix?.normalizeAddress('Гродно, ул. Лидская, 34'),
       duplicate: window.BogatkaAddressFix?.findAddressDuplicate('г. Гродно, улица Лидская, 34')?.exact,
       backupTaskIds: merged?.tasks?.map(item => item.id).sort(),
@@ -42,7 +49,8 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   expect(state.selfTest?.ok).toBe(true);
   expect(state.selfTest?.checks?.length).toBeGreaterThan(10);
   expect(state.archiveSync).toBe(true);
-  expect(state.inviteManager).toBe('4.0.9');
+  expect(state.inviteManager).toBe('4.1.0');
+  expect(state.collaboration).toBe('4.1.0');
   expect(state.normalized).toBe('лидская 34');
   expect(state.duplicate).toBe(true);
   expect(state.backupTaskIds).toEqual(['local-task','remote-task']);
@@ -52,67 +60,135 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
-test('owner invitation panel explains link lifetime and separates the application link', async ({ page }) => {
+test('owner panel renders clear history, role controls, removal, and active account email', async ({ page }) => {
   await authorize(page);
   await page.goto(APP_URL, { waitUntil:'networkidle' });
+  await waitForV410(page);
+  page.on('dialog', dialog => dialog.accept());
+
   await page.evaluate(() => {
-    cloudSession={user:{id:'00000000-0000-0000-0000-000000000001',email:'owner@example.com',user_metadata:{display_name:'Owner'}}};
-    cloudProjectId='00000000-0000-0000-0000-000000000001';
+    const projectId='00000000-0000-0000-0000-000000000001';
+    const ownerId='00000000-0000-0000-0000-000000000010';
+    const editorId='00000000-0000-0000-0000-000000000020';
+    let memberRows=[
+      {user_id:ownerId,role:'owner',created_at:'2026-06-01T10:00:00Z'},
+      {user_id:editorId,role:'editor',created_at:'2026-06-02T10:00:00Z'},
+    ];
+    const profiles=[
+      {id:ownerId,email:'owner@example.com',display_name:'Дмитрий'},
+      {id:editorId,email:'editor@example.com',display_name:'Антон'},
+    ];
+    const inviteRows=[
+      {id:'10000000-0000-0000-0000-000000000001',email:'new@example.com',role:'viewer',created_at:'2026-06-26T10:00:00Z',expires_at:'2099-06-29T10:00:00Z',accepted_at:null,accepted_by:null,revoked_at:null},
+      {id:'10000000-0000-0000-0000-000000000002',email:'editor@example.com',role:'editor',created_at:'2026-06-25T10:00:00Z',expires_at:'2099-06-28T10:00:00Z',accepted_at:'2026-06-25T11:00:00Z',accepted_by:editorId,revoked_at:null},
+      {id:'10000000-0000-0000-0000-000000000003',email:'old@example.com',role:'editor',created_at:'2026-06-20T10:00:00Z',expires_at:'2026-06-21T10:00:00Z',accepted_at:null,accepted_by:null,revoked_at:'2026-06-20T12:00:00Z'},
+    ];
+    const calls=[];
+
+    function query(table){
+      const builder={
+        table,
+        data:table==='project_members'?memberRows:table==='profiles'?profiles:table==='project_invites'?inviteRows:[],
+        error:null,
+        select(){return this;},
+        eq(){return this;},
+        in(){return this;},
+        order(){return this;},
+        limit(){return Promise.resolve({data:this.data,error:null});},
+        single(){return Promise.resolve({data:{role:'owner'},error:null});},
+        maybeSingle(){return Promise.resolve({data:null,error:null});},
+      };
+      return builder;
+    }
+    const channel={on(){return this;},subscribe(){return this;}};
+
+    cloudSession={user:{id:ownerId,email:'owner@example.com',user_metadata:{display_name:'Дмитрий'}}};
+    cloudProjectId=projectId;
     cloudRole='owner';
-    const chain=()=>({
-      data:[],
-      error:null,
-      select(){return this;},
-      eq(){return this;},
-      in(){return this;},
-      order(){return this;},
-      limit(){return Promise.resolve({data:[],error:null});},
-      single(){return Promise.resolve({data:{role:'owner'},error:null});},
-    });
-    cloudClient={from:()=>chain(),rpc:async()=>({data:null,error:null})};
+    cloudClient={
+      from:query,
+      channel:()=>channel,
+      removeChannel:async()=>{},
+      rpc:async(name,args)=>{
+        calls.push({name,args});
+        if(name==='update_project_member_role'){
+          memberRows=memberRows.map(item=>item.user_id===args.p_user_id?{...item,role:args.p_role}:item);
+          return {data:true,error:null};
+        }
+        if(name==='remove_project_member'){
+          memberRows=memberRows.filter(item=>item.user_id!==args.p_user_id);
+          return {data:true,error:null};
+        }
+        if(name==='revoke_project_invite')return {data:true,error:null};
+        return {data:null,error:null};
+      },
+    };
+    window.__collaborationCalls=calls;
+    cloudSetStatus('ready');
     cloudOpenModal();
   });
 
   await expect(page.locator('#bogatkaInviteForm')).toBeVisible();
-  await expect(page.locator('#bogatkaInviteForm')).toContainText('Срок действия ссылки');
-  await expect(page.locator('.invite-lifetime-help-v409')).toContainText('После регистрации доступ к проекту сохраняется');
-  await expect(page.locator('#bogatkaInviteLifetime option')).toHaveCount(3);
-  await expect(page.locator('#bogatkaInviteLifetime')).not.toContainText('30 дней');
-  await expect(page.locator('.application-link-copy-v409 b')).toHaveText('Постоянная ссылка на приложение');
-  await expect(page.locator('.application-link-copy-v409 small')).toContainText('не выдаёт доступ к проекту');
-  await expect(page.locator('#bogatkaCopyAppLink')).toHaveText('Копировать');
-  const layout=await page.locator('.application-link-v408').evaluate(element=>({
-    display:getComputedStyle(element).display,
-    marginTop:getComputedStyle(element).marginTop,
-    buttonWidth:getComputedStyle(element.querySelector('#bogatkaCopyAppLink')).minWidth,
-  }));
-  expect(layout.display).toBe('grid');
-  expect(parseFloat(layout.marginTop)).toBeGreaterThanOrEqual(20);
-  expect(parseFloat(layout.buttonWidth)).toBeGreaterThanOrEqual(130);
+  await expect(page.locator('.application-link-copy-v409 b')).toHaveText('Ссылка на вход и регистрацию');
+  await expect(page.locator('.application-link-copy-v409 small')).toContainText('сама по себе не выдаёт доступ к проекту');
+  await expect(page.locator('.application-link-copy-v409 small')).toContainText('регистрация и приглашение владельца');
+  await expect(page.locator('#cloudAccountPillV410')).toContainText('owner@example.com');
+  await expect(page.locator('#cloudAccountPillV410')).toContainText('Владелец');
+
+  await expect(page.locator('.invite-row-v408')).toHaveCount(3);
+  await expect(page.locator('.invite-status-badge-v410.status-active')).toHaveText('Ожидает принятия');
+  await expect(page.locator('.invite-status-badge-v410.status-accepted')).toHaveText('Принято');
+  await expect(page.locator('.invite-status-badge-v410.status-revoked')).toHaveText('Ссылка отозвана');
+  await expect(page.locator('.invite-revoke-v410')).toHaveCount(1);
+
+  await expect(page.locator('.cloud-member-premium')).toHaveCount(2);
+  const editorCard=page.locator('[data-member-card-v410="00000000-0000-0000-0000-000000000020"]');
+  await expect(editorCard).toContainText('Антон');
+  await editorCard.locator('[data-member-role-v410]').selectOption('viewer');
+  await expect(editorCard.locator('[data-save-member-v410]')).toBeEnabled();
+  await editorCard.locator('[data-save-member-v410]').click();
+  await expect(page.locator('[data-member-card-v410="00000000-0000-0000-0000-000000000020"] [data-member-role-v410]')).toHaveValue('viewer');
+
+  await page.locator('[data-member-card-v410="00000000-0000-0000-0000-000000000020"] [data-remove-member-v410]').click();
+  await expect(page.locator('.cloud-member-premium')).toHaveCount(1);
+  await expect(page.locator('.invite-status-badge-v410.status-removed')).toHaveText('Доступ отключён');
+
+  const calls=await page.evaluate(()=>window.__collaborationCalls);
+  expect(calls.some(item=>item.name==='update_project_member_role'&&item.args.p_role==='viewer')).toBe(true);
+  expect(calls.some(item=>item.name==='remove_project_member')).toBe(true);
 });
 
-test('personal invitation preserves token and email for confirmation', async ({ page }) => {
+test('personal invite opens the registration form immediately', async ({ page }) => {
   const token='a'.repeat(64);
   const email='worker@example.com';
-  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=409&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
+  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=410&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
   await page.waitForFunction(() => typeof window.bogatkaPendingInvite === 'function');
+
+  await expect(page.locator('#cloudModal')).not.toHaveClass(/hidden/, { timeout:10_000 });
+  await expect(page.locator('[data-cloud-tab="signup"]')).toHaveClass(/active/);
+  await expect(page.locator('#cloudDisplayName')).toBeVisible();
+  await expect(page.locator('#cloudEmail')).toHaveValue(email);
+  await expect(page.locator('#cloudEmail')).toHaveAttribute('readonly','');
+  await expect(page.locator('#cloudMessage')).toContainText('Создайте аккаунт');
+
   const state=await page.evaluate(() => ({
     invite:window.bogatkaPendingInvite(),
     redirect:window.bogatkaInviteRedirectUrl(),
     authorized:localStorage.getItem('bogatka_access_authorized_v1'),
   }));
   expect(state.invite).toEqual({token,email});
-  expect(state.redirect).toContain('v=409');
+  expect(state.redirect).toContain('v=410');
   expect(state.redirect).toContain(`invite=${token}`);
   expect(state.redirect).toContain('email=worker%40example.com');
   expect(state.authorized).toBe('1');
 });
 
-test('personal invitation is accepted through the raw token RPC', async ({ page }) => {
+test('concurrent project initialization accepts a raw invite token only once', async ({ page }) => {
   const token='b'.repeat(64);
   const email='worker@example.com';
-  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=409&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
+  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=410&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
   await page.waitForFunction(() => typeof window.bogatkaPendingInvite === 'function');
+
   const state=await page.evaluate(async ({token,email})=>{
     const calls=[];
     cloudSession={user:{id:'00000000-0000-0000-0000-000000000002',email}};
@@ -121,7 +197,10 @@ test('personal invitation is accepted through the raw token RPC', async ({ page 
     cloudClient={
       rpc:async(name,args)=>{
         calls.push({name,args:args||null});
-        if(name==='accept_bogatka_project_invite')return {data:'00000000-0000-0000-0000-000000000001',error:null};
+        if(name==='accept_bogatka_project_invite'){
+          await new Promise(resolve=>setTimeout(resolve,30));
+          return {data:'00000000-0000-0000-0000-000000000001',error:null};
+        }
         if(name==='claim_bogatka_project')return {data:'00000000-0000-0000-0000-000000000001',error:null};
         return {data:null,error:{message:`Unexpected RPC ${name}`}};
       },
@@ -131,22 +210,48 @@ test('personal invitation is accepted through the raw token RPC', async ({ page 
         async single(){return {data:{role:'editor'},error:null};},
       }),
     };
-    const projectId=await cloudEnsureProject();
+    const projectIds=await Promise.all([cloudEnsureProject(),cloudEnsureProject(),cloudEnsureProject()]);
     return {
-      projectId,
+      projectIds,
       role:cloudRole,
       calls,
       pending:window.bogatkaPendingInvite(),
       url:location.href,
     };
   },{token,email});
-  expect(state.projectId).toBe('00000000-0000-0000-0000-000000000001');
+
+  expect(state.projectIds).toEqual([
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+  ]);
   expect(state.role).toBe('editor');
-  expect(state.calls[0]).toEqual({name:'accept_bogatka_project_invite',args:{p_token:token}});
-  expect(state.calls[1]?.name).toBe('claim_bogatka_project');
+  expect(state.calls.filter(item=>item.name==='accept_bogatka_project_invite')).toHaveLength(1);
+  expect(state.calls.find(item=>item.name==='accept_bogatka_project_invite')?.args).toEqual({p_token:token});
   expect(state.pending).toBeNull();
+  expect(state.url).toContain('v=410');
   expect(state.url).not.toContain('invite=');
   expect(state.url).not.toContain('email=');
+});
+
+test('invitation result and action buttons have deliberate spacing', async ({ page }) => {
+  await authorize(page);
+  await page.goto(APP_URL, { waitUntil:'networkidle' });
+  await waitForV410(page);
+  await page.evaluate(() => {
+    const result=document.createElement('div');
+    result.className='invite-result-v408';
+    result.innerHTML='<strong>Ссылка</strong><input class="invite-link-input-v410"><div class="invite-actions-v408"><button class="btn">Копировать</button><button class="btn secondary">Поделиться</button></div><p class="invite-result-note-v410">Примечание</p>';
+    document.body.append(result);
+  });
+  const spacing=await page.locator('.invite-result-v408').evaluate(element=>({
+    gap:parseFloat(getComputedStyle(element).rowGap),
+    actionGap:parseFloat(getComputedStyle(element.querySelector('.invite-actions-v408')).columnGap),
+    notePadding:parseFloat(getComputedStyle(element.querySelector('.invite-result-note-v410')).paddingTop),
+  }));
+  expect(spacing.gap).toBeGreaterThanOrEqual(12);
+  expect(spacing.actionGap).toBeGreaterThanOrEqual(8);
+  expect(spacing.notePadding).toBeGreaterThanOrEqual(10);
 });
 
 test('mobile layout does not create page-level horizontal overflow', async ({ page }) => {

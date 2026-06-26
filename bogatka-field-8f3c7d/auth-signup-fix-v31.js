@@ -1,5 +1,6 @@
 const BOGATKA_INVITE_TOKEN_KEY='bogatka_pending_invite_v408';
 const BOGATKA_INVITE_EMAIL_KEY='bogatka_pending_invite_email_v408';
+let bogatkaInviteAcceptancePromise=null;
 
 function bogatkaNormalizeInviteEmail(value=''){
   const email=String(value||'').trim().toLowerCase();
@@ -29,14 +30,14 @@ function bogatkaClearPendingInvite(){
   const url=new URL(location.href);
   url.searchParams.delete('invite');
   url.searchParams.delete('email');
-  url.searchParams.set('v','409');
+  url.searchParams.set('v','410');
   history.replaceState(null,'',url.pathname+url.search+url.hash);
 }
 
 function bogatkaInviteRedirectUrl(){
   const invite=bogatkaPendingInvite();
   const url=new URL(location.origin+location.pathname);
-  url.searchParams.set('v','409');
+  url.searchParams.set('v','410');
   url.searchParams.set('auth','confirmed');
   if(invite){
     url.searchParams.set('invite',invite.token);
@@ -58,10 +59,10 @@ function bogatkaBuildInviteNote(invite){
   const title=document.createElement('strong');
   title.textContent='Персональное приглашение';
   const text=document.createElement('p');
-  text.append(document.createTextNode('Войдите или зарегистрируйтесь под email '));
+  text.append(document.createTextNode('Продолжите под email '));
   const email=document.createElement('b');
   email.textContent=invite.email||'из приглашения';
-  text.append(email,document.createTextNode('. После входа доступ подключится автоматически.'));
+  text.append(email,document.createTextNode('. После входа доступ к проекту подключится автоматически.'));
   note.append(title,text);
   return note;
 }
@@ -76,8 +77,8 @@ function bogatkaRefreshPasswordField(){
   input.autocomplete=signup?'new-password':'current-password';
 
   const invite=bogatkaPendingInvite();
-  if(invite&&form.dataset.inviteV408!=='1'){
-    form.dataset.inviteV408='1';
+  if(invite&&form.dataset.inviteV410!=='1'){
+    form.dataset.inviteV410='1';
     form.prepend(bogatkaBuildInviteNote(invite));
     const emailInput=document.querySelector('#cloudEmail');
     if(emailInput&&invite.email){
@@ -85,8 +86,38 @@ function bogatkaRefreshPasswordField(){
       emailInput.readOnly=true;
     }
     const title=document.querySelector('#cloudModal h2');
-    if(title)title.textContent='Вход по персональному приглашению';
+    if(title)title.textContent='Доступ по персональному приглашению';
   }
+}
+
+function bogatkaInviteAuthMode(){
+  return new URLSearchParams(location.search).get('auth')==='confirmed'?'login':'signup';
+}
+
+function bogatkaOpenInviteAuth(){
+  const invite=bogatkaPendingInvite();
+  if(!invite)return false;
+  if(typeof cloudSession!=='undefined'&&cloudSession?.user)return false;
+  if(typeof cloudOpenModal!=='function')return false;
+  cloudOpenModal();
+  const mode=bogatkaInviteAuthMode();
+  setTimeout(()=>{
+    document.querySelector(`[data-cloud-tab="${mode}"]`)?.click();
+    bogatkaRefreshPasswordField();
+    const message=mode==='signup'
+      ?'Создайте аккаунт по email из приглашения. После подтверждения почты доступ подключится автоматически.'
+      :'Email подтверждён. Войдите под этим аккаунтом, чтобы завершить подключение доступа.';
+    if(typeof cloudSetMessage==='function')cloudSetMessage(message,'info');
+  },0);
+  return true;
+}
+
+function bogatkaScheduleInviteAuth(){
+  let attempts=0;
+  const timer=setInterval(()=>{
+    attempts++;
+    if(bogatkaOpenInviteAuth()||attempts>=40)clearInterval(timer);
+  },125);
 }
 
 if(typeof cloudEnsureProject==='function'){
@@ -99,15 +130,22 @@ if(typeof cloudEnsureProject==='function'){
     if(invite.email&&invite.email!==sessionEmail){
       throw new Error(`Эта ссылка выдана для ${invite.email}. Войдите под этим email.`);
     }
-    const accepted=await cloudClient.rpc('accept_bogatka_project_invite',{p_token:invite.token});
-    if(accepted.error)throw new Error(accepted.error.message);
-    if(!accepted.data)throw new Error('Не удалось принять персональное приглашение.');
-    cloudProjectId=accepted.data;
-    const projectId=await bogatkaBaseEnsureProject();
-    bogatkaClearPendingInvite();
-    sessionStorage.setItem('bogatka_invite_accepted_v408','1');
-    window.dispatchEvent(new CustomEvent('bogatka:invite-accepted'));
-    return projectId;
+
+    if(!bogatkaInviteAcceptancePromise){
+      bogatkaInviteAcceptancePromise=(async()=>{
+        const accepted=await cloudClient.rpc('accept_bogatka_project_invite',{p_token:invite.token});
+        if(accepted.error)throw new Error(accepted.error.message);
+        if(!accepted.data)throw new Error('Не удалось принять персональное приглашение.');
+        cloudProjectId=accepted.data;
+        bogatkaClearPendingInvite();
+        sessionStorage.setItem('bogatka_invite_accepted_v408','1');
+        window.dispatchEvent(new CustomEvent('bogatka:invite-accepted'));
+        return accepted.data;
+      })().finally(()=>{bogatkaInviteAcceptancePromise=null;});
+    }
+
+    cloudProjectId=await bogatkaInviteAcceptancePromise;
+    return bogatkaBaseEnsureProject();
   };
   window.cloudEnsureProject=cloudEnsureProject;
 }
@@ -127,7 +165,7 @@ if(typeof cloudHandleAuth==='function'){
     }else if(password.length<6){
       return cloudSetMessage('Укажите пароль аккаунта.','error');
     }
-    cloudSetMessage(mode==='signup'?'Проверяю адрес…':'Проверяю данные входа…','info');
+    cloudSetMessage(mode==='signup'?'Создаю аккаунт…':'Проверяю данные входа…','info');
     if(mode==='signup'){
       const {data,error}=await cloudClient.auth.signUp({email,password,options:{data:{display_name:displayName||email.split('@')[0]},emailRedirectTo:bogatkaInviteRedirectUrl()}});
       if(error)return cloudSetMessage(error.message,'error');
@@ -135,7 +173,7 @@ if(typeof cloudHandleAuth==='function'){
         document.querySelector('[data-cloud-tab="login"]')?.click();
         return cloudSetMessage('Аккаунт уже существует. Введите прежний пароль или восстановите его.','info');
       }
-      if(!data?.session)return cloudSetMessage('Аккаунт создан. Подтвердите email по письму, затем войдите. Персональная ссылка сохранена.','success');
+      if(!data?.session)return cloudSetMessage('Аккаунт создан. Подтвердите email по письму. После подтверждения вернитесь по ссылке и войдите.','success');
     }else{
       const {error}=await cloudClient.auth.signInWithPassword({email,password});
       if(error)return cloudSetMessage(error.message,'error');
@@ -151,17 +189,23 @@ document.addEventListener('click',event=>{
 
 function bogatkaInstallPasswordObserver(){
   const modal=document.querySelector('#cloudModal');
-  if(!modal||modal.dataset.inviteObserverV408==='1')return;
-  modal.dataset.inviteObserverV408='1';
+  if(!modal||modal.dataset.inviteObserverV410==='1')return;
+  modal.dataset.inviteObserverV410='1';
   const observer=new MutationObserver(bogatkaRefreshPasswordField);
   observer.observe(modal,{childList:true,subtree:true});
   bogatkaRefreshPasswordField();
 }
 
 bogatkaPendingInvite();
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bogatkaInstallPasswordObserver,{once:true});
-else bogatkaInstallPasswordObserver();
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',bogatkaInstallPasswordObserver,{once:true});
+  window.addEventListener('load',bogatkaScheduleInviteAuth,{once:true});
+}else{
+  bogatkaInstallPasswordObserver();
+  bogatkaScheduleInviteAuth();
+}
 
 window.bogatkaValidateNewPassword=bogatkaValidateNewPassword;
 window.bogatkaPendingInvite=bogatkaPendingInvite;
 window.bogatkaInviteRedirectUrl=bogatkaInviteRedirectUrl;
+window.bogatkaOpenInviteAuth=bogatkaOpenInviteAuth;
