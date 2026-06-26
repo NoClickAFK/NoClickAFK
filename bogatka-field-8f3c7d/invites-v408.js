@@ -8,7 +8,7 @@
   }
 
   function showAcceptedMessage(){
-    if(!sessionStorage.getItem('bogatka_invite_accepted_v408')||typeof cloudSession==='undefined'||!cloudSession)return;
+    if(!sessionStorage.getItem('bogatka_invite_accepted_v408'))return;
     sessionStorage.removeItem('bogatka_invite_accepted_v408');
     if(typeof cloudSetMessage==='function')cloudSetMessage('Персональное приглашение принято. Доступ к проекту подключён.','success');
   }
@@ -26,16 +26,14 @@
     },0);
   },true);
 
+  window.addEventListener('bogatka:invite-accepted',showAcceptedMessage);
+
   function install(){
     updateButton();
     showAcceptedMessage();
-    const observer=new MutationObserver(()=>{
-      updateButton();
-      showAcceptedMessage();
-    });
-    observer.observe(document.body,{childList:true,subtree:true});
   }
 
   window.BogatkaInvites={version:'4.0.8',principle:'one-email-one-personal-link'};
-  window.addEventListener('load',install,{once:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
+  else install();
 })();
