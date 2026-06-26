@@ -38,8 +38,26 @@ function bogatkaInviteUrl(raw,email){
 }
 
 async function bogatkaCopyInvite(text,message='Ссылка скопирована.'){
-  await navigator.clipboard.writeText(text);
-  cloudSetMessage(message,'success');
+  let copied=false;
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(text);
+      copied=true;
+    }
+  }catch(_){ }
+  if(!copied){
+    const area=document.createElement('textarea');
+    area.value=text;
+    area.setAttribute('readonly','');
+    area.style.position='fixed';
+    area.style.opacity='0';
+    document.body.append(area);
+    area.select();
+    try{copied=document.execCommand('copy')}catch(_){copied=false}
+    area.remove();
+  }
+  cloudSetMessage(copied?message:'Не удалось скопировать автоматически. Выделите ссылку вручную.',copied?'success':'error');
+  return copied;
 }
 
 async function bogatkaLoadInvites(){
@@ -65,7 +83,9 @@ async function bogatkaCreateInvite(event){
   const email=document.querySelector('#bogatkaInviteEmail')?.value.trim().toLowerCase();
   const role=document.querySelector('#bogatkaInviteRole')?.value||'editor';
   const hours=Number(document.querySelector('#bogatkaInviteLifetime')?.value||72);
-  if(!email)return cloudSetMessage('Укажите email участника.','error');
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email||''))return cloudSetMessage('Укажите корректный email участника.','error');
+  if(!['editor','viewer'].includes(role))return cloudSetMessage('Недопустимая роль приглашения.','error');
+  if(![24,72,168,720].includes(hours))return cloudSetMessage('Недопустимый срок приглашения.','error');
   cloudSetMessage('Создаю персональную ссылку…','info');
   const response=await cloudClient.rpc('create_project_invite',{p_project_id:cloudProjectId,p_email:email,p_role:role,p_expires_hours:hours});
   if(response.error)return cloudSetMessage(response.error.message,'error');
@@ -73,11 +93,19 @@ async function bogatkaCreateInvite(event){
   if(!row?.invite_token)return cloudSetMessage('Сервер не вернул приглашение.','error');
   const link=bogatkaInviteUrl(row.invite_token,row.invite_email||email);
   const result=document.querySelector('#bogatkaInviteResult');
+  if(!result)return cloudSetMessage('Не удалось открыть результат приглашения.','error');
   result.classList.remove('hidden');
   result.innerHTML=`<strong>Персональная одноразовая ссылка</strong><p>Для <b>${esc(row.invite_email||email)}</b> · ${bogatkaInviteRoleName(row.invite_role||role)} · до ${new Date(row.invite_expires_at).toLocaleString('ru-RU')}.</p><input type="text" readonly value="${esc(link)}"><div class="invite-actions-v408"><button type="button" class="btn" data-copy-v408>Копировать</button><button type="button" class="btn secondary" data-share-v408>Поделиться</button></div><small>Ссылка показывается только сейчас. Новая ссылка для того же email отзывает предыдущую неиспользованную.</small>`;
   result.querySelector('[data-copy-v408]').addEventListener('click',()=>bogatkaCopyInvite(link,'Персональная ссылка скопирована.'));
   result.querySelector('[data-share-v408]').addEventListener('click',async()=>{
-    if(navigator.share){try{await navigator.share({title:'Приглашение в проект «Богатка»',text:`Персональная ссылка для ${email}`,url:link});return}catch(error){if(error?.name==='AbortError')return}}
+    if(navigator.share){
+      try{
+        await navigator.share({title:'Приглашение в проект «Богатка»',text:`Персональная ссылка для ${email}`,url:link});
+        return;
+      }catch(error){
+        if(error?.name==='AbortError')return;
+      }
+    }
     await bogatkaCopyInvite(link,'Персональная ссылка скопирована.');
   });
   document.querySelector('#bogatkaInviteEmail').value='';
@@ -97,12 +125,19 @@ function bogatkaEnhanceMembers(){
   cloudLoadMembers().catch(error=>cloudSetMessage(error.message,'error'));
 }
 
-const bogatkaMembersObserver=new MutationObserver(()=>{
-  clearTimeout(window.__bogatkaMembersTimer);
-  window.__bogatkaMembersTimer=setTimeout(bogatkaEnhanceMembers,60);
-});
-bogatkaMembersObserver.observe(document.body,{childList:true,subtree:true});
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bogatkaEnhanceMembers,{once:true});
-else bogatkaEnhanceMembers();
+function bogatkaInstallMembersObserver(){
+  const modal=document.querySelector('#cloudModal');
+  if(!modal||modal.dataset.membersObserverV408==='1')return;
+  modal.dataset.membersObserverV408='1';
+  const observer=new MutationObserver(()=>{
+    clearTimeout(window.__bogatkaMembersTimer);
+    window.__bogatkaMembersTimer=setTimeout(bogatkaEnhanceMembers,60);
+  });
+  observer.observe(modal,{childList:true,subtree:true});
+  bogatkaEnhanceMembers();
+}
+
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bogatkaInstallMembersObserver,{once:true});
+else bogatkaInstallMembersObserver();
 
 window.BogatkaInviteManager={version:'4.0.8',loadInvites:bogatkaLoadInvites,createLink:bogatkaInviteUrl};
