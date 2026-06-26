@@ -28,3 +28,4 @@ for(const legacy of ['workflow-v350.js','workflow-v350.css','workflow-report-v35
 }
 if(errors.length){console.error(errors.join('\n'));process.exit(1)}
 console.log('Bogatka hardening validation passed.');
+// Validation branch marker: event-driven synchronization.
