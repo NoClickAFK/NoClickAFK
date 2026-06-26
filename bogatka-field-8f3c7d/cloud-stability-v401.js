@@ -105,17 +105,22 @@
   }
 
   cloudApplyRemote=async function stableBackgroundApplyRemote(...args){
-    if(automaticRun&&suppressUiForRun)return applyWithoutTouchingUi(args);
+    const mustProtect=automaticRun&&(suppressUiForRun||isInteracting()||window.BogatkaUIStability?.isEditing?.());
+    if(mustProtect){
+      const result=await applyWithoutTouchingUi(args);
+      window.BogatkaUIStability?.requestRefresh?.(900);
+      return result;
+    }
     return baseApplyRemote(...args);
   };
 
   cloudSetStatus=function stableCloudSetStatus(status,detail=''){
-    if(automaticRun&&suppressUiForRun&&(status==='syncing'||status==='ready'))return;
+    if(automaticRun&&(suppressUiForRun||isInteracting())&&(status==='syncing'||status==='ready'))return;
     return baseSetStatus(status,detail);
   };
 
   cloudSetMessage=function stableCloudSetMessage(text='',type='info'){
-    if(automaticRun&&suppressUiForRun&&type==='success')return;
+    if(automaticRun&&(suppressUiForRun||isInteracting())&&type==='success')return;
     return baseSetMessage(text,type);
   };
 
@@ -181,7 +186,7 @@
 
   cloudSyncAll=async function stableCloudSyncAll(options={}){
     const manual=Boolean(options?.manual);
-    if(!manual&&(cloudSyncing||isInteracting())){
+    if(!manual&&(cloudSyncing||isInteracting()||window.BogatkaUIStability?.isEditing?.())){
       queueAutomaticSync(1800);
       return;
     }
@@ -189,7 +194,7 @@
     const previousAutomatic=automaticRun;
     const previousSuppress=suppressUiForRun;
     automaticRun=!manual;
-    suppressUiForRun=!manual&&(Boolean(cloudReadState().lastSyncAt)||isInteracting());
+    suppressUiForRun=!manual&&(isInteracting()||window.BogatkaUIStability?.isEditing?.());
     let completed=false;
     try{
       const result=await baseSyncAll(options);
@@ -208,10 +213,10 @@
   window.addEventListener('online',()=>queueAutomaticSync(500));
 
   window.BogatkaCloudStability={
-    version:'4.0.1',
+    version:'4.0.2',
     isInteracting,
     queueAutomaticSync,
     get suppressedUiRefreshes(){return suppressedUiRefreshes},
-    principle:'background-sync-never-rebuilds-active-form',
+    principle:'background-sync-updates-idle-ui-and-never-rebuilds-active-form',
   };
 })();
