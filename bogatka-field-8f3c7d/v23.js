@@ -90,6 +90,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./decision-panel-v412.js'});
   loadBogatkaPatch('script',{src:'./workflow-v414.js'});
   loadBogatkaPatch('script',{src:'./workflow-fixes-v415.js'});
+  loadBogatkaPatch('script',{src:'./score-guide-fix-v415.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
