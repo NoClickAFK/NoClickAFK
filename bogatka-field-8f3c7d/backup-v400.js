@@ -52,7 +52,8 @@
   }
 
   function loadSupportModules(){
-    for(const src of ['./cloud-archive-v400.js','./ui-stability-v402.js','./cloud-stability-v401.js','./address-fix-v400.js','./backup-import-v400.js','./viewer-extra-v400.js','./selftest-v400.js']){
+    const modules=['./cloud-archive-v400.js','./ui-stability-v402.js','./cloud-stability-v401.js','./select-sync-v407.js','./address-fix-v400.js','./backup-import-v400.js','./viewer-extra-v400.js','./selftest-v400.js'];
+    for(const src of modules){
       if(document.querySelector(`script[src="${src}"]`))continue;
       const script=document.createElement('script');
       script.src=src;
