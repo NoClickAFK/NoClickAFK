@@ -22,7 +22,7 @@
         <label class="field">
           <span>Новый пароль</span>
           <span class="password-control">
-            <input id="newPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Минимум 8 символов" required>
+            <input id="newPassword" type="password" minlength="12" autocomplete="new-password" placeholder="Не менее 12 символов" required>
             <button class="eye-button" type="button" data-toggle-password="newPassword" aria-label="Показать пароль">◉</button>
           </span>
         </label>
@@ -30,20 +30,20 @@
         <label class="field">
           <span>Повторите пароль</span>
           <span class="password-control">
-            <input id="repeatPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Введите пароль ещё раз" required>
+            <input id="repeatPassword" type="password" minlength="12" autocomplete="new-password" placeholder="Введите пароль ещё раз" required>
             <button class="eye-button" type="button" data-toggle-password="repeatPassword" aria-label="Показать пароль">◉</button>
           </span>
         </label>
 
         <div class="requirements">
-          Пароль должен содержать не менее 8 символов. Данные проекта, фотографии и роль владельца сохранятся.
+          Не менее 12 символов, минимум одна буква и одна цифра. Данные проекта, фотографии и роль владельца сохранятся.
         </div>
 
         <button class="primary-button" id="savePasswordBtn" type="submit">Сохранить новый пароль</button>
       </form>
 
       <div class="result-actions hidden" id="resultActions">
-        <a class="primary-button link-button" id="returnToApp" href="../?v=311">Вернуться в приложение</a>
+        <a class="primary-button link-button" id="returnToApp" href="../?v=400">Вернуться в приложение</a>
         <button class="secondary-button" id="requestAgainBtn" type="button">Запросить новую ссылку</button>
       </div>
 
