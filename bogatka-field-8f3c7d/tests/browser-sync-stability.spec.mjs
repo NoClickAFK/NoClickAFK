@@ -102,11 +102,12 @@ test('automatic sync waits while a field or native picker is active',async({page
     cloudSyncAll=async()=>{calls++};
     cloudScheduleSync(20);
     await new Promise(resolve=>setTimeout(resolve,700));
-    const callsWhileFocused=calls;
+    const callsWhileProtected=calls;
+    const stillProtected=window.BogatkaCloudStability.isInteracting();
     cloudSyncAll=original;
-    return {interacting,callsWhileFocused,active:document.activeElement===input};
+    return {interacting,callsWhileProtected,stillProtected};
   });
   expect(result.interacting).toBe(true);
-  expect(result.callsWhileFocused).toBe(0);
-  expect(result.active).toBe(true);
+  expect(result.callsWhileProtected).toBe(0);
+  expect(result.stillProtected).toBe(true);
 });
