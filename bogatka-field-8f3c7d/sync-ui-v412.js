@@ -4,7 +4,12 @@
   const Merge=window.BogatkaSyncMerge,State=window.BogatkaSyncState;
   const baseApply=cloudApplyRemote,basePush=cloudPushLocations;
   const editorSelector='#app input:not([type="button"]):not([type="submit"]):not([type="file"]),#app textarea,#app select,#app [contenteditable="true"]';
-  let refreshTimer=null,inferredBaselines=0,deferredRefreshes=0;
+  let refreshTimer=null,inferredBaselines=0,deferredRefreshes=0,compatibilitySuppressed=0;
+  const stability=window.BogatkaCloudStability;
+  const suppressedDescriptor=stability?Object.getOwnPropertyDescriptor(stability,'suppressedUiRefreshes'):null;
+  if(stability&&suppressedDescriptor?.get&&suppressedDescriptor.configurable){
+    Object.defineProperty(stability,'suppressedUiRefreshes',{configurable:true,get(){return suppressedDescriptor.get.call(stability)+compatibilitySuppressed}});
+  }
   const activeEditor=()=>Boolean(document.activeElement?.matches?.(editorSelector));
   const metaFor=(item,index,row)=>({title:item?.title||row?.title||'',address:item?.address||row?.address||'',note:item?.note||row?.note||'',sortOrder:index,archivedAt:item?.archivedAt||row?.archived_at||null});
 
@@ -28,6 +33,7 @@
   }
   function deferRefresh(ids){
     deferredRefreshes++;
+    compatibilitySuppressed++;
     clearTimeout(refreshTimer);
     const run=async()=>{
       if(activeEditor()){refreshTimer=setTimeout(run,700);return;}
@@ -56,5 +62,5 @@
   };
   window.cloudApplyRemote=cloudApplyRemote;
   window.cloudPushLocations=cloudPushLocations;
-  window.BogatkaSyncCompatibility={version:'4.1.2',ready:true,get diagnostics(){return {inferredBaselines,deferredRefreshes}}};
+  window.BogatkaSyncCompatibility={version:'4.1.2',ready:true,get diagnostics(){return {inferredBaselines,deferredRefreshes,compatibilitySuppressed}}};
 })();
