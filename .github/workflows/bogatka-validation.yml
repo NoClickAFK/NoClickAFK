@@ -6,6 +6,11 @@ on:
     paths:
       - 'bogatka-field-8f3c7d/**'
       - '.github/workflows/bogatka-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'bogatka-field-8f3c7d/**'
+      - '.github/workflows/bogatka-validation.yml'
   workflow_dispatch:
 
 permissions:
