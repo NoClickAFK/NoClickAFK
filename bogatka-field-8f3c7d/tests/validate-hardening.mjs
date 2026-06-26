@@ -25,8 +25,8 @@ const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks).filter(file=>file!=='decision-ui-v340.js'))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v412'"))errors.push('Service Worker cache version is not v412');
-for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
+if(!sw.includes("CACHE_NAME='bogatka-location-v414'"))errors.push('Service Worker cache version is not v414');
+for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
 
 const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
 for(const marker of [
@@ -81,12 +81,30 @@ for(const marker of ['Предварительное решение по лок�
 const decisionPanelCss=fs.readFileSync(path.join(root,'decision-panel-v412.css'),'utf8');
 for(const marker of ['.decision.decision-panel-v412','.decision-actions-v412','grid-template-columns:minmax(280px,1fr) auto'])if(!decisionPanelCss.includes(marker))errors.push(`decision-panel-v412.css missing ${marker}`);
 
+const workflowJsPath=path.join(root,'workflow-v414.js');
+if(!fs.existsSync(workflowJsPath))errors.push('Missing workflow-v414.js');
+else{
+  const workflowJs=fs.readFileSync(workflowJsPath,'utf8');
+  for(const marker of [
+    "VERSION='4.1.4'",'Сравнительная оценка локации — 70 баллов','checklist-guide-v414',
+    'structured-notes-v414','task-examples-v414','HISTORY_PAGE_SIZE=10','history-pagination-v414',
+    'moveEconomyAndLaunch','project_members','BogatkaWorkflowV414',
+  ])if(!workflowJs.includes(marker))errors.push(`workflow-v414.js missing ${marker}`);
+  if(workflowJs.includes('observer.observe(document.body'))errors.push('Workflow observer must be scoped to locations');
+}
+const workflowCssPath=path.join(root,'workflow-v414.css');
+if(!fs.existsSync(workflowCssPath))errors.push('Missing workflow-v414.css');
+else{
+  const workflowCss=fs.readFileSync(workflowCssPath,'utf8');
+  for(const marker of ['.score-label-v414','.structured-notes-v414','.task-field-v414','.history-pagination-v414','.premium-select-option.selected'])if(!workflowCss.includes(marker))errors.push(`workflow-v414.css missing ${marker}`);
+}
+
 const inviteModule=fs.readFileSync(path.join(root,'invites-v408.js'),'utf8');
 for(const marker of ['Пригласить участника','one-email-one-personal-link','bogatka:invite-accepted',"version:'4.1.0'"])if(!inviteModule.includes(marker))errors.push(`invites-v408.js missing ${marker}`);
 if(inviteModule.includes('new MutationObserver'))errors.push('Invite toolbar module must not install a global DOM observer');
 
 const loader=fs.readFileSync(path.join(root,'v23.js'),'utf8');
-for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'","href:'./decision-panel-v412.css'","src:'./decision-panel-v412.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
+for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'","href:'./decision-panel-v412.css'","src:'./decision-panel-v412.js'","href:'./workflow-v414.css'","src:'./workflow-v414.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
 for(const marker of ["'./sync-merge-v412.js'","'./sync-state-v412.js'","'./sync-runtime-v412.js'"])if(!backup.includes(marker))errors.push(`backup-v400.js missing ${marker}`);
 
 const secureMigrationPath=path.resolve('supabase/migrations/20260626000200_secure_personal_invites_v408.sql');
@@ -112,6 +130,13 @@ if(!fs.existsSync(syncMigrationPath))errors.push('Missing v412 sync integrity mi
 else{
   const migration=fs.readFileSync(syncMigrationPath,'utf8');
   for(const marker of ['prepare_location_audit','to_jsonb(new)',"- 'updated_at' - 'updated_by' - 'revision'",'return null','suppresses semantically identical updates'])if(!migration.includes(marker))errors.push(`Sync migration missing ${marker}`);
+}
+
+const activityCleanupPath=path.resolve('supabase/migrations/20260627000100_remove_location_activity_log_v413.sql');
+if(!fs.existsSync(activityCleanupPath))errors.push('Missing v413 activity log cleanup migration');
+else{
+  const migration=fs.readFileSync(activityCleanupPath,'utf8');
+  for(const marker of ['drop trigger if exists locations_activity','delete from public.activity_log','Automatic per-update logging is disabled'])if(!migration.includes(marker))errors.push(`Activity cleanup migration missing ${marker}`);
 }
 
 const config=fs.readFileSync(path.join(root,'config.js'),'utf8');
