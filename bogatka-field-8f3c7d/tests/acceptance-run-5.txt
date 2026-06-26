@@ -1,0 +1,1 @@
+Final validation marker with version alignment checks.
