@@ -31,6 +31,20 @@ function upgradeAccessScreen(){
   if(input){input.placeholder='Введите 6 цифр';input.setAttribute('aria-label','Шестизначный код доступа')}
 }
 
+function installSyncIntegrityGate(){
+  if(window.__bogatkaSyncIntegrityGateV412||typeof cloudInit!=='function')return;
+  window.__bogatkaSyncIntegrityGateV412=true;
+  const baseCloudInit=cloudInit;
+  cloudInit=async function gatedCloudInit(){
+    for(let attempt=0;attempt<300;attempt++){
+      if(window.BogatkaSyncIntegrity?.ready&&window.BogatkaSyncCompatibility?.ready)return baseCloudInit();
+      await new Promise(resolve=>setTimeout(resolve,50));
+    }
+    throw new Error('Не загрузился модуль безопасной синхронизации. Выполните полное обновление страницы.');
+  };
+  window.cloudInit=cloudInit;
+}
+
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
@@ -38,6 +52,7 @@ function applyVersion23Enhancements(){
   const accessButton=document.getElementById('shareAccessBtn');
   if(accessButton)accessButton.textContent='Пригласить участника';
   upgradeAccessScreen();
+  installSyncIntegrityGate();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./members-v32.css'});
@@ -49,6 +64,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./compare-v340.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./suite-v400.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./visual-v411.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./decision-panel-v412.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -69,6 +85,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./report-v400.js'});
   loadBogatkaPatch('script',{src:'./access-version-v400.js'});
   loadBogatkaPatch('script',{src:'./visual-v411.js'});
+  loadBogatkaPatch('script',{src:'./decision-panel-v412.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;

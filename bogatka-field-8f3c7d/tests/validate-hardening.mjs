@@ -6,6 +6,9 @@ const checks={
   'cloud-archive-v400.js':['archived_at','cloudFetchRemoteWithArchive','cloudPushLocationsWithArchive','BogatkaCloudArchive'],
   'ui-stability-v402.js':['never-reorder-or-rebuild-cards-while-editing','stableUpdateSummary','requestRefresh','BogatkaUIStability'],
   'cloud-stability-v401.js':['event-driven-sync-with-no-idle-network-loop','hasPendingLocalChanges','hasAutomaticWork','eventDrivenPushLocations','eventDrivenPushProjectState','skippedIdleRuns','BogatkaCloudStability'],
+  'sync-merge-v412.js':['mergeIdArray','deletedTaskIds','preferLocal',"version:'4.1.2'",'BogatkaSyncMerge'],
+  'sync-state-v412.js':['bogatka_cloud_sync_state_v412','guardedIdbPut','readBase','writeBase',"version:'4.1.2'"],
+  'sync-runtime-v412.js':['conditionalUpdate',"eq('revision',row.revision)",'three-way-field-merge-with-revision-checked-location-writes','BogatkaSyncIntegrity'],
   'select-sync-v407.js':['hidden-select-and-visible-trigger-always-share-one-value','syncVisibleSelect','syncLocationSelects','BogatkaSelectSync'],
   'address-fix-v400.js':['STOP_WORDS','normalizeAddress','saveLocationFromModalFixed','BogatkaAddressFix'],
   'collaboration-v410.js':['cloud-account-pill-v410','renderAccountPill','BogatkaCollaboration',"version:'4.1.0'"],
@@ -22,8 +25,8 @@ const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks).filter(file=>file!=='decision-ui-v340.js'))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v411'"))errors.push('Service Worker cache version is not v411');
-for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
+if(!sw.includes("CACHE_NAME='bogatka-location-v412'"))errors.push('Service Worker cache version is not v412');
+for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
 
 const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
 for(const marker of [
@@ -73,12 +76,18 @@ else{
   ])if(!visualCss.includes(marker))errors.push(`visual-v411.css missing ${marker}`);
 }
 
+const decisionPanelJs=fs.readFileSync(path.join(root,'decision-panel-v412.js'),'utf8');
+for(const marker of ['Предварительное решение по локации','decision-actions-v412','Под вопросом','BogatkaDecisionPanel',"version:'4.1.2'"])if(!decisionPanelJs.includes(marker))errors.push(`decision-panel-v412.js missing ${marker}`);
+const decisionPanelCss=fs.readFileSync(path.join(root,'decision-panel-v412.css'),'utf8');
+for(const marker of ['.decision.decision-panel-v412','.decision-actions-v412','grid-template-columns:minmax(280px,1fr) auto'])if(!decisionPanelCss.includes(marker))errors.push(`decision-panel-v412.css missing ${marker}`);
+
 const inviteModule=fs.readFileSync(path.join(root,'invites-v408.js'),'utf8');
 for(const marker of ['Пригласить участника','one-email-one-personal-link','bogatka:invite-accepted',"version:'4.1.0'"])if(!inviteModule.includes(marker))errors.push(`invites-v408.js missing ${marker}`);
 if(inviteModule.includes('new MutationObserver'))errors.push('Invite toolbar module must not install a global DOM observer');
 
 const loader=fs.readFileSync(path.join(root,'v23.js'),'utf8');
-for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
+for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'","href:'./decision-panel-v412.css'","src:'./decision-panel-v412.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
+for(const marker of ["'./sync-merge-v412.js'","'./sync-state-v412.js'","'./sync-runtime-v412.js'"])if(!backup.includes(marker))errors.push(`backup-v400.js missing ${marker}`);
 
 const secureMigrationPath=path.resolve('supabase/migrations/20260626000200_secure_personal_invites_v408.sql');
 if(!fs.existsSync(secureMigrationPath))errors.push('Missing secure personal invitations migration');
@@ -96,6 +105,13 @@ else{
     'remove_project_member','alter publication supabase_realtime add table public.project_members',
     'alter publication supabase_realtime add table public.project_invites',
   ])if(!migration.includes(marker))errors.push(`Collaboration migration missing ${marker}`);
+}
+
+const syncMigrationPath=path.resolve('supabase/migrations/20260626000500_sync_integrity_v412.sql');
+if(!fs.existsSync(syncMigrationPath))errors.push('Missing v412 sync integrity migration');
+else{
+  const migration=fs.readFileSync(syncMigrationPath,'utf8');
+  for(const marker of ['prepare_location_audit','to_jsonb(new)',"- 'updated_at' - 'updated_by' - 'revision'",'return null','suppresses semantically identical updates'])if(!migration.includes(marker))errors.push(`Sync migration missing ${marker}`);
 }
 
 const config=fs.readFileSync(path.join(root,'config.js'),'utf8');
