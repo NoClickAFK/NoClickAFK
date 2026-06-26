@@ -6,6 +6,7 @@
   const historyPages=new Map();
   let memberOptions=[];
   let memberLoadPromise=null;
+  let membersLoaded=false;
   let enhanceTimer=null;
 
   const SCORE_GUIDANCE={
@@ -47,33 +48,50 @@
   };
 
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-
-  function locationId(card){return card?.dataset.locationCard||''}
+  const locationId=card=>card?.dataset.locationCard||'';
+  const checklistDefinitions=()=>typeof CHECKLIST!=='undefined'?CHECKLIST:[];
+  const trafficDefinitions=()=>typeof TRAFFIC_FIELDS!=='undefined'?TRAFFIC_FIELDS:[];
+  const techDefinitions=()=>typeof TECH_FIELDS!=='undefined'?TECH_FIELDS:[];
 
   function detailsByTitle(card,text){
     return [...card.querySelectorAll(':scope .location-body > details')].find(details=>details.querySelector(':scope > summary')?.textContent.includes(text));
   }
 
-  function scoreKeyFromSelect(select){return String(select?.dataset.field||'').replace(/^score\./,'')}
+  function enhanceQuickChecklist(card){
+    const details=detailsByTitle(card,'Быстрый чек-лист');
+    const body=details?.querySelector('.details-body');
+    if(!details||!body||body.querySelector('.checklist-guide-v414'))return;
+    const guide=document.createElement('div');
+    guide.className='checklist-guide-v414';
+    guide.innerHTML='<strong>Задача чек-листа — подтвердить факты.</strong> Ставьте галочку, только когда условие реально проверено. Галочка означает «есть / подтверждено», но не означает, что показатель сильный — его качество отдельно оценивается в следующем разделе.';
+    body.prepend(guide);
+  }
 
   function enhanceScore(card){
     const details=detailsByTitle(card,'70-балльной');
+    const summary=details?.querySelector(':scope > summary');
     const body=details?.querySelector('.details-body');
     const table=body?.querySelector('.score-table');
-    if(!body||!table)return;
+    if(!details||!body||!table)return;
+    if(summary&&!summary.dataset.workflowV414){
+      summary.dataset.workflowV414='1';
+      summary.textContent='Сравнительная оценка локации — 70 баллов';
+    }
 
     const oldGuide=body.querySelector('.score-guide-v331');
     if(oldGuide&&!oldGuide.classList.contains('score-guide-v414')){
       oldGuide.classList.add('score-guide-v414');
-      oldGuide.innerHTML=`<div class="score-guide-title">Зачем нужна оценка после чек-листа</div><p><b>Чек-лист</b> фиксирует, что условие проверено и присутствует. <b>Оценка</b> показывает, насколько это условие сильное по сравнению с другими локациями. Пример: парковка есть — галочка в чек-листе; парковка маленькая и занята — оценка 2.</p><div class="score-scale-v331"><span><b>1</b> критически слабо</span><span><b>2</b> ниже нормы</span><span><b>3</b> приемлемо</span><span><b>4</b> сильный показатель</span><span><b>5</b> явное преимущество</span></div><div class="score-guide-note-v331"><b>Правило:</b> ставьте балл только после проверки факта. Пустое значение означает «ещё не оценено», а не ноль.</div>`;
+      oldGuide.innerHTML=`<div class="score-guide-title">Зачем нужна оценка после чек-листа</div><p><b>Чек-лист</b> фиксирует, что условие проверено и присутствует. <b>Оценка</b> показывает, насколько это условие сильное по сравнению с другими локациями. Пример: парковка есть — галочка в чек-листе; парковка маленькая и почти всегда занята — оценка 2.</p><div class="score-scale-v331"><span><b>1</b> критически слабо</span><span><b>2</b> ниже нормы</span><span><b>3</b> приемлемо</span><span><b>4</b> сильный показатель</span><span><b>5</b> явное преимущество</span></div><div class="score-guide-note-v331"><b>Правило:</b> ставьте балл только после проверки факта. Пустое значение означает «ещё не оценено», а не ноль.</div>`;
     }
 
     table.querySelectorAll('tbody tr').forEach(row=>{
+      if(row.dataset.workflowV414==='1')return;
       const select=row.querySelector('select[data-field^="score."]');
-      const key=scoreKeyFromSelect(select);
+      const key=String(select?.dataset.field||'').replace(/^score\./,'');
       const guide=SCORE_GUIDANCE[key];
       const cell=row.querySelector('td:first-child');
       if(!guide||!cell)return;
+      row.dataset.workflowV414='1';
       cell.innerHTML=`<div class="score-label-v414"><strong>${esc(guide.label)}</strong><small><span>${esc(guide.low)}</span><span>${esc(guide.high)}</span></small></div>`;
     });
   }
@@ -90,33 +108,59 @@
     }
   }
 
+  function currentUserOption(){
+    const user=typeof cloudSession!=='undefined'?cloudSession?.user:null;
+    if(!user?.email)return null;
+    const name=user.user_metadata?.display_name||user.user_metadata?.full_name||user.email;
+    return {value:name,label:name===user.email?user.email:`${name} · ${user.email}`};
+  }
+
   async function loadMembers(){
+    if(membersLoaded)return memberOptions;
     if(memberLoadPromise)return memberLoadPromise;
     memberLoadPromise=(async()=>{
-      const fallback=[];
+      const fallback=currentUserOption();
       try{
-        if(typeof bogatkaFetchMembers==='function'&&typeof cloudProjectId!=='undefined'&&cloudProjectId){
-          const rows=await bogatkaFetchMembers();
-          return (rows||[]).map(row=>({value:row.profile?.display_name||row.profile?.email||'',label:row.profile?.display_name?`${row.profile.display_name}${row.profile.email?` · ${row.profile.email}`:''}`:(row.profile?.email||'Участник')})).filter(item=>item.value);
+        if(typeof cloudClient!=='undefined'&&cloudClient&&typeof cloudProjectId!=='undefined'&&cloudProjectId){
+          const memberResult=await cloudClient.from('project_members').select('user_id,role').eq('project_id',cloudProjectId);
+          if(memberResult.error)throw new Error(memberResult.error.message);
+          const ids=(memberResult.data||[]).map(item=>item.user_id);
+          if(ids.length){
+            const profileResult=await cloudClient.from('profiles').select('id,email,display_name').in('id',ids);
+            if(profileResult.error)throw new Error(profileResult.error.message);
+            const rows=(profileResult.data||[]).map(profile=>{
+              const name=profile.display_name||profile.email||'Участник';
+              return {value:name,label:profile.display_name&&profile.email?`${profile.display_name} · ${profile.email}`:(profile.email||name)};
+            }).filter(item=>item.value);
+            if(rows.length)return rows;
+          }
         }
       }catch(error){console.warn('Не удалось загрузить участников для задач',error)}
-      const current=typeof cloudSession!=='undefined'?cloudSession?.user:null;
-      if(current?.email)fallback.push({value:current.user_metadata?.display_name||current.email,label:current.user_metadata?.display_name?`${current.user_metadata.display_name} · ${current.email}`:current.email});
-      return fallback;
-    })().then(rows=>{memberOptions=rows;return rows}).finally(()=>{memberLoadPromise=null});
+      return fallback?[fallback]:[];
+    })().then(rows=>{
+      const unique=[];
+      const seen=new Set();
+      for(const row of rows){if(row.value&&!seen.has(row.value)){seen.add(row.value);unique.push(row)}}
+      memberOptions=unique;
+      membersLoaded=true;
+      return unique;
+    }).finally(()=>{memberLoadPromise=null});
     return memberLoadPromise;
   }
 
   function memberOptionsMarkup(selected=''){
     const options=['<option value="">Не назначен</option>'];
-    for(const item of memberOptions){
-      options.push(`<option value="${esc(item.value)}"${item.value===selected?' selected':''}>${esc(item.label)}</option>`);
-    }
+    for(const item of memberOptions)options.push(`<option value="${esc(item.value)}"${item.value===selected?' selected':''}>${esc(item.label)}</option>`);
     return options.join('');
   }
 
   function taskExamplesMarkup(){
-    return `<details class="task-examples-v414"><summary>Примеры задач</summary><div>${Object.entries(TASK_EXAMPLES).map(([priority,items])=>`<section><strong>${priority==='normal'?'Обычные':priority==='high'?'Высокий приоритет':'Критические'}</strong>${items.map(title=>`<button type="button" data-task-example-title="${esc(title)}" data-task-example-priority="${priority}">${esc(title)}</button>`).join('')}</section>`).join('')}</div></details>`;
+    return `<details class="task-examples-v414"><summary>Примеры задач — нажмите, чтобы подставить и отредактировать</summary><div>${Object.entries(TASK_EXAMPLES).map(([priority,items])=>`<section><strong>${priority==='normal'?'Обычные':priority==='high'?'Высокий приоритет':'Критические'}</strong>${items.map(title=>`<button type="button" data-task-example-title="${esc(title)}" data-task-example-priority="${priority}">${esc(title)}</button>`).join('')}</section>`).join('')}</div></details>`;
+  }
+
+  function syncVisibleSelect(select){
+    const trigger=select?.nextElementSibling?.classList.contains('premium-select-trigger')?select.nextElementSibling:null;
+    if(trigger&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
   }
 
   async function enhanceTaskForm(card){
@@ -126,23 +170,12 @@
     form.dataset.workflowV414='1';
     await loadMembers();
 
-    const title=form.querySelector('[name="title"]');
-    const assignee=form.querySelector('[name="assignee"]');
-    const dueDate=form.querySelector('[name="dueDate"]');
-    const priority=form.querySelector('[name="priority"]');
-    const submit=form.querySelector('button[type="submit"]');
-    if(!title||!assignee||!dueDate||!priority||!submit)return;
-
-    title.placeholder='Например: запросить проект договора аренды';
-    title.classList.add('task-title-v414');
-    const assigneeSelect=document.createElement('select');
-    assigneeSelect.name='assignee';
-    assigneeSelect.className='task-assignee-v414';
-    assigneeSelect.innerHTML=memberOptionsMarkup(assignee.value||'');
-    assignee.replaceWith(assigneeSelect);
-    dueDate.setAttribute('aria-label','Срок выполнения');
-    submit.textContent='Добавить';
-    submit.classList.add('task-submit-v414');
+    form.innerHTML=`
+      <label class="task-field-v414 task-title-field-v414"><span>Что нужно сделать</span><textarea name="title" rows="1" placeholder="Например: запросить проект договора аренды" required></textarea></label>
+      <label class="task-field-v414"><span>Ответственный</span><select name="assignee" data-workflow-select="assignee">${memberOptionsMarkup()}</select></label>
+      <label class="task-field-v414"><span>Срок</span><input name="dueDate" type="date" aria-label="Срок выполнения"></label>
+      <label class="task-field-v414"><span>Приоритет</span><select name="priority" data-workflow-select="priority"><option value="normal">Обычный приоритет</option><option value="high">Высокий приоритет</option><option value="critical">Критический</option></select></label>
+      <button class="btn task-submit-v414" type="submit">Добавить</button>`;
 
     if(!form.previousElementSibling?.classList.contains('task-form-help-v414')){
       const help=document.createElement('div');
@@ -150,45 +183,44 @@
       help.innerHTML='<strong>Новая задача</strong><span>Опишите конкретный результат, назначьте участника, срок и приоритет. После создания задачу можно перевести в работу, ожидание или завершить.</span>';
       form.insertAdjacentElement('beforebegin',help);
     }
-    form.insertAdjacentHTML('afterend',taskExamplesMarkup());
+    if(!form.nextElementSibling?.classList.contains('task-examples-v414'))form.insertAdjacentHTML('afterend',taskExamplesMarkup());
+
+    const title=form.querySelector('[name="title"]');
+    const priority=form.querySelector('[name="priority"]');
     form.nextElementSibling?.querySelectorAll('[data-task-example-title]').forEach(button=>button.addEventListener('click',()=>{
       title.value=button.dataset.taskExampleTitle||'';
       priority.value=button.dataset.taskExamplePriority||'normal';
       priority.dispatchEvent(new Event('change',{bubbles:true}));
+      syncVisibleSelect(priority);
       title.focus();
     }));
+    form.addEventListener('reset',()=>setTimeout(()=>form.querySelectorAll('select').forEach(syncVisibleSelect),0));
   }
 
-  function structuredNotesMarkup(id){
-    return `<div class="structured-notes-v414"><div class="structured-notes-head-v414"><strong>Выводы и рабочие заметки</strong><span>Структурированные поля сохраняются в карточке локации и попадают в сравнение и отчёт.</span></div>${NOTE_FIELDS.map(([field,label,placeholder])=>`<label class="structured-note-v414"><span>${esc(label)}</span><textarea data-location="${esc(id)}" data-field="${field}" placeholder="${esc(placeholder)}"></textarea></label>`).join('')}</div>`;
+  function structuredNotesMarkup(){
+    return `<div class="structured-notes-v414"><div class="structured-notes-head-v414"><strong>Выводы и рабочие заметки</strong><span>Эти поля структурируют выводы по локации и сохраняются отдельно от обычных сообщений участников.</span></div>${NOTE_FIELDS.map(([field,label])=>`<label class="structured-note-v414" data-note-slot-v414="${field}"><span>${esc(label)}</span></label>`).join('')}</div>`;
   }
 
   function moveNotesToComments(card){
     const id=locationId(card);
     const pane=card.querySelector('[data-collab-pane="comments"]');
+    if(!pane)return;
     const notes=card.querySelector('.notes-grid');
-    if(!pane||!notes)return;
-    if(!pane.querySelector('.structured-notes-v414'))pane.insertAdjacentHTML('afterbegin',structuredNotesMarkup(id));
-    const structured=pane.querySelector('.structured-notes-v414');
-    NOTE_FIELDS.forEach(([field])=>{
-      const original=notes.querySelector(`[data-field="${field}"]`);
-      const target=structured.querySelector(`[data-field="${field}"]`);
-      if(original&&target){
-        target.value=original.value;
-        original.replaceWith(target);
-      }
-    });
-    notes.remove();
-
-    structured.querySelectorAll('textarea[data-location][data-field]').forEach(textarea=>{
-      if(textarea.dataset.boundV414==='1')return;
-      textarea.dataset.boundV414='1';
-      textarea.addEventListener('input',()=>{
-        showSaving();
-        clearTimeout(textarea._saveTimer);
-        textarea._saveTimer=setTimeout(()=>saveField(textarea).catch(showError),250);
+    let structured=pane.querySelector('.structured-notes-v414');
+    if(notes&&!structured){
+      pane.insertAdjacentHTML('afterbegin',structuredNotesMarkup());
+      structured=pane.querySelector('.structured-notes-v414');
+      NOTE_FIELDS.forEach(([field,,placeholder])=>{
+        const original=notes.querySelector(`[data-field="${field}"]`);
+        const slot=structured.querySelector(`[data-note-slot-v414="${field}"]`);
+        if(original&&slot){
+          original.placeholder=placeholder;
+          original.setAttribute('rows','2');
+          slot.appendChild(original);
+        }
       });
-    });
+      notes.remove();
+    }
 
     const commentForm=pane.querySelector(`[data-comment-form="${CSS.escape(id)}"]`);
     if(commentForm&&!commentForm.previousElementSibling?.classList.contains('project-comments-title-v414')){
@@ -199,7 +231,7 @@
     }
     const commentText=commentForm?.querySelector('textarea[name="text"]');
     const commentButton=commentForm?.querySelector('button');
-    if(commentText)commentText.placeholder='Напишите комментарий участникам проекта';
+    if(commentText){commentText.placeholder='Напишите комментарий участникам проекта';commentText.setAttribute('rows','2')}
     if(commentButton)commentButton.textContent='Добавить';
   }
 
@@ -209,19 +241,19 @@
     if(field.startsWith('score.'))return SCORE_GUIDANCE[field.slice(6)]?.label||'Оценка локации';
     if(field.startsWith('check.')){
       const key=field.slice(6);
-      const checklist=(window.CHECKLIST||[]).find(item=>item[0]===key);
-      return checklist?.[1]||'Пункт быстрого чек-листа';
+      return checklistDefinitions().find(item=>item[0]===key)?.[1]||'Пункт быстрого чек-листа';
     }
     if(field.startsWith('traffic.')){
       const key=field.slice(8);
-      const traffic=(window.TRAFFIC_FIELDS||[]).find(item=>item[0]===key);
-      return traffic?.[1]||'Полевой замер трафика';
+      return trafficDefinitions().find(item=>item[0]===key)?.[1]||'Полевой замер трафика';
     }
     if(field.startsWith('tech.')){
       const key=field.slice(5);
-      const tech=(window.TECH_FIELDS||[]).find(item=>item[0]===key);
-      return tech?.[1]||'Технический параметр';
+      return techDefinitions().find(item=>item[0]===key)?.[1]||'Технический параметр';
     }
+    if(field.startsWith('economy.'))return 'Экономическая модель';
+    if(field.startsWith('task.'))return entry.label||'Задача';
+    if(field.startsWith('launchProject.'))return 'Проект открытия магазина';
     return entry.label&&entry.label!==field?entry.label:(field||'Изменение');
   }
 
@@ -232,14 +264,21 @@
     return String(value??'');
   }
 
+  function formatDate(value){
+    const date=new Date(value);
+    return Number.isNaN(date.getTime())?'—':date.toLocaleString('ru-RU');
+  }
+
   function historyItem(entry){
     const label=readableHistoryLabel(entry);
     const action=entry.action==='Изменено поле'?'Изменено':(entry.action||'Изменение');
     const from=activityValue(entry.from),to=activityValue(entry.to);
-    return `<article class="history-item-v400"><span class="history-dot-v400"></span><div><strong>${esc(action)} · ${esc(label)}</strong><small>${esc(entry.actor||entry.actorEmail||'Участник')} · ${esc(new Date(entry.at).toLocaleString('ru-RU'))}</small>${entry.from||entry.to?`<p>${entry.from?`<del>${esc(from)}</del>`:''}${entry.to?`<ins>${esc(to)}</ins>`:''}</p>`:entry.details?`<p>${esc(entry.details)}</p>`:''}</div></article>`;
+    const hasFrom=entry.from!==undefined&&entry.from!==null&&entry.from!=='';
+    const hasTo=entry.to!==undefined&&entry.to!==null&&entry.to!=='';
+    return `<article class="history-item-v400"><span class="history-dot-v400"></span><div><strong>${esc(action)} · ${esc(label)}</strong><small>${esc(entry.actor||entry.actorEmail||'Участник')} · ${esc(formatDate(entry.at))}</small>${hasFrom||hasTo?`<p>${hasFrom?`<del>${esc(from)}</del>`:''}${hasTo?`<ins>${esc(to)}</ins>`:''}</p>`:entry.details?`<p>${esc(entry.details)}</p>`:''}</div></article>`;
   }
 
-  function renderHistoryPagination(card,data){
+  function renderHistoryPagination(card,data,force=false){
     const id=locationId(card);
     const list=card.querySelector(`[data-history-list="${CSS.escape(id)}"]`);
     const count=card.querySelector(`[data-history-count="${CSS.escape(id)}"]`);
@@ -247,8 +286,11 @@
     const activity=Array.isArray(data.activity)?[...data.activity].reverse():[];
     if(count)count.textContent=activity.length;
     const pages=Math.max(1,Math.ceil(activity.length/HISTORY_PAGE_SIZE));
-    const page=Math.min(historyPages.get(id)||1,pages);
+    const page=Math.max(1,Math.min(historyPages.get(id)||1,pages));
     historyPages.set(id,page);
+    const signature=`${activity.length}:${activity[0]?.id||''}:${page}`;
+    if(!force&&list.dataset.historySignatureV414===signature&&list.querySelector('[data-history-sentinel-v414]'))return;
+    list.dataset.historySignatureV414=signature;
     const start=(page-1)*HISTORY_PAGE_SIZE;
     const items=activity.slice(start,start+HISTORY_PAGE_SIZE);
     list.innerHTML=items.length?items.map(historyItem).join(''):'<p class="empty-state-v400">История появится после первого изменения.</p>';
@@ -258,20 +300,24 @@
       pager.setAttribute('aria-label','Страницы истории');
       pager.innerHTML=`<button type="button" data-history-prev ${page<=1?'disabled':''}>Назад</button><span>Страница ${page} из ${pages}</span><button type="button" data-history-next ${page>=pages?'disabled':''}>Далее</button>`;
       list.appendChild(pager);
-      pager.querySelector('[data-history-prev]')?.addEventListener('click',()=>{historyPages.set(id,page-1);renderHistoryPagination(card,data)});
-      pager.querySelector('[data-history-next]')?.addEventListener('click',()=>{historyPages.set(id,page+1);renderHistoryPagination(card,data)});
+      pager.querySelector('[data-history-prev]')?.addEventListener('click',()=>{historyPages.set(id,page-1);renderHistoryPagination(card,data,true)});
+      pager.querySelector('[data-history-next]')?.addEventListener('click',()=>{historyPages.set(id,page+1);renderHistoryPagination(card,data,true)});
     }
+    const sentinel=document.createElement('span');
+    sentinel.hidden=true;
+    sentinel.dataset.historySentinelV414='1';
+    list.appendChild(sentinel);
   }
 
   async function refreshCard(card){
     const id=locationId(card);
     if(!id)return;
+    enhanceQuickChecklist(card);
     enhanceScore(card);
     moveNotesToComments(card);
     moveEconomyAndLaunch(card);
     await enhanceTaskForm(card);
-    const data=await getLocationData(id);
-    renderHistoryPagination(card,data);
+    renderHistoryPagination(card,await getLocationData(id));
   }
 
   async function enhanceAll(){
