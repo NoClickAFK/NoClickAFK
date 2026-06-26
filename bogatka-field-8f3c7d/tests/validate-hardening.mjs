@@ -21,7 +21,16 @@ const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks).filter(file=>file!=='decision-ui-v340.js'))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v407'"))errors.push('Service Worker cache version is not v407');
+if(!sw.includes("CACHE_NAME='bogatka-location-v408'"))errors.push('Service Worker cache version is not v408');
+const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
+for(const marker of ['bogatkaPendingInvite','emailRedirectTo:bogatkaInviteRedirectUrl()','bogatkaClearPendingInvite','invite.email'])if(!auth.includes(marker))errors.push(`auth-signup-fix-v31.js missing ${marker}`);
+const members=fs.readFileSync(path.join(root,'members-v32.js'),'utf8');
+for(const marker of ['create_project_invite','revoke_project_invite','bogatkaInviteLifetime','editor','viewer'])if(!members.includes(marker))errors.push(`members-v32.js missing ${marker}`);
+if(members.includes('<option value="owner">'))errors.push('Personal invite UI must not offer owner role');
+const inviteModule=fs.readFileSync(path.join(root,'invites-v408.js'),'utf8');
+for(const marker of ['Пригласить участника','one-email-one-personal-link'])if(!inviteModule.includes(marker))errors.push(`invites-v408.js missing ${marker}`);
+const loader=fs.readFileSync(path.join(root,'v23.js'),'utf8');
+if(!loader.includes("src:'./invites-v408.js'"))errors.push('v23.js does not load invites-v408.js');
 const config=fs.readFileSync(path.join(root,'config.js'),'utf8');
 if(!config.includes('APP_VERSION = "4.0.0"'))errors.push('config.js APP_VERSION is not 4.0.0');
 for(const legacy of ['workflow-v350.js','workflow-v350.css','workflow-report-v350.js']){
