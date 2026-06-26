@@ -20,11 +20,17 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
 
   const state = await page.evaluate(() => {
     const raw = localStorage.getItem('bogatka_selftest_v400');
+    const merged = window.BogatkaBackupImport?.mergeRecord(
+      { tasks:[{id:'local-task',title:'Local',updatedAt:'2026-01-01T00:00:00Z'}], comments:[{id:'removed-comment',text:'Old'}], deletedCommentIds:[] },
+      { tasks:[{id:'remote-task',title:'Remote',updatedAt:'2026-01-02T00:00:00Z'}], comments:[], deletedCommentIds:['removed-comment'] }
+    );
     return {
       selfTest: raw ? JSON.parse(raw) : null,
       archiveSync: Boolean(window.BogatkaCloudArchive?.enabled),
       normalized: window.BogatkaAddressFix?.normalizeAddress('Гродно, ул. Лидская, 34'),
       duplicate: window.BogatkaAddressFix?.findAddressDuplicate('г. Гродно, улица Лидская, 34')?.exact,
+      backupTaskIds: merged?.tasks?.map(item => item.id).sort(),
+      backupComments: merged?.comments?.length,
       weakPasswordError: window.bogatkaValidateNewPassword?.('weak123'),
       strongPasswordError: window.bogatkaValidateNewPassword?.('StrongPassword2026'),
     };
@@ -36,6 +42,8 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   expect(state.archiveSync).toBe(true);
   expect(state.normalized).toBe('лидская 34');
   expect(state.duplicate).toBe(true);
+  expect(state.backupTaskIds).toEqual(['local-task','remote-task']);
+  expect(state.backupComments).toBe(0);
   expect(state.weakPasswordError).toContain('12');
   expect(state.strongPasswordError).toBe('');
   expect(pageErrors).toEqual([]);
