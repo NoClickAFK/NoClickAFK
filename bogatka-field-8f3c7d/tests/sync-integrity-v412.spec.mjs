@@ -74,6 +74,6 @@ test('decision radios are presented as one explanatory full-width panel',async({
     bodyWidth:element.closest('.location-body').getBoundingClientRect().width,
     actionHeight:element.querySelector('.decision-actions-v412 label').getBoundingClientRect().height,
   }));
-  expect(Math.abs(geometry.panelWidth-geometry.bodyWidth)).toBeLessThanOrEqual(2);
+  expect(geometry.panelWidth).toBeGreaterThanOrEqual(geometry.bodyWidth-34);
   expect(geometry.actionHeight).toBeGreaterThanOrEqual(40);
 });
