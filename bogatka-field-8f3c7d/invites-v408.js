@@ -33,7 +33,7 @@
     showAcceptedMessage();
   }
 
-  window.BogatkaInvites={version:'4.0.9',principle:'one-email-one-personal-link'};
+  window.BogatkaInvites={version:'4.1.0',principle:'one-email-one-personal-link'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
 })();
