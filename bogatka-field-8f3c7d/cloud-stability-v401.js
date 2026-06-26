@@ -12,6 +12,7 @@
   const baseMarkGlobalDirty=cloudMarkGlobalDirty;
   const baseMarkMetaDirty=cloudMarkMetaDirty;
   const baseIdbDelete=idbDelete;
+  const baseIdbClear=idbClear;
 
   let lastInteractionAt=0;
   let pickerUntil=0;
@@ -27,6 +28,7 @@
   const deletedPhotoMutations=new Map();
   let globalMutationSeq=0;
   let metaMutationSeq=0;
+  let resetMutationSeq=0;
   let suppressedUiRefreshes=0;
   let executedAutomaticRuns=0;
   let skippedIdleRuns=0;
@@ -185,6 +187,12 @@
     return baseIdbDelete(store,key);
   };
 
+  idbClear=async function stableTrackedClear(store){
+    const result=await baseIdbClear(store);
+    if(!cloudApplyingRemote)resetMutationSeq=++mutationSeq;
+    return result;
+  };
+
   cloudPushLocations=async function eventDrivenPushLocations(remoteLocations,syncState){
     const remoteByClient=new Map(remoteLocations.map(item=>[item.client_id||item.id,item]));
     const dirty=new Set(syncState.dirtyLocations||[]);
@@ -260,6 +268,8 @@
     }
     if(globalMutationSeq>startSeq){state.stateDirty=true;needsAnotherSync=true}else if(globalMutationSeq)globalMutationSeq=0;
     if(metaMutationSeq>startSeq){state.metaDirty=true;needsAnotherSync=true}else if(metaMutationSeq)metaMutationSeq=0;
+    if(resetMutationSeq>startSeq){state.localResetAt=state.localResetAt||new Date().toISOString();needsAnotherSync=true}
+    else{delete state.localResetAt;if(resetMutationSeq)resetMutationSeq=0}
     cloudWriteState(state);
     return needsAnotherSync;
   }
@@ -309,7 +319,7 @@
     signalRemote(){remoteSignalSeq++;queueAutomaticSync(250)},
     markStartupHandled(){startupPullPending=false},
     get suppressedUiRefreshes(){return suppressedUiRefreshes},
-    get diagnostics(){return {executedAutomaticRuns,skippedIdleRuns,realtimeSignals,remoteSignalSeq,handledRemoteSeq,startupPullPending,hasLocalWork:hasPendingLocalChanges()}},
+    get diagnostics(){return {executedAutomaticRuns,skippedIdleRuns,realtimeSignals,remoteSignalSeq,handledRemoteSeq,startupPullPending,hasLocalWork:hasPendingLocalChanges(),resetMutationSeq}},
     principle:'event-driven-sync-with-no-idle-network-loop',
   };
 })();
