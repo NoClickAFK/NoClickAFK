@@ -11,6 +11,16 @@ async function waitForWorkflow(page){
   await page.waitForFunction(()=>document.querySelector('[data-location-card] .structured-notes-v414'));
 }
 
+async function openCollaborationPane(page,pane){
+  await page.evaluate(targetPane=>{
+    const card=document.querySelector('[data-location-card]');
+    const details=card?.querySelector('.collaboration-v400');
+    if(details)details.open=true;
+    const button=card?.querySelector(`[data-collab-tab="${targetPane}"]`);
+    if(button&&!button.classList.contains('active'))button.click();
+  },pane);
+}
+
 test('checklist and score explain different decisions',async({page})=>{
   await authorize(page);
   await page.goto(APP_URL,{waitUntil:'networkidle'});
@@ -48,6 +58,7 @@ test('task editor has participants, editable examples, and aligned controls',asy
   await authorize(page);
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await waitForWorkflow(page);
+  await openCollaborationPane(page,'tasks');
   const card=page.locator('[data-location-card]').first();
   const form=card.locator('.task-form-v400');
   await expect(form.locator('.task-field-v414')).toHaveCount(4);
@@ -83,6 +94,7 @@ test('history uses readable labels and ten entries per page',async({page})=>{
     await updateSummary();
     await window.BogatkaWorkflowV414.refreshCard(document.querySelector(`[data-location-card="${id}"]`));
   });
+  await openCollaborationPane(page,'history');
   const card=page.locator('[data-location-card]').first();
   const history=card.locator('[data-history-list]');
   await expect(history.locator('.history-item-v400')).toHaveCount(10);
