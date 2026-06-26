@@ -66,6 +66,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./visual-v411.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./decision-panel-v412.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-v414.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-fixes-v415.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -88,6 +89,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./visual-v411.js'});
   loadBogatkaPatch('script',{src:'./decision-panel-v412.js'});
   loadBogatkaPatch('script',{src:'./workflow-v414.js'});
+  loadBogatkaPatch('script',{src:'./workflow-fixes-v415.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
