@@ -37,7 +37,7 @@ function installSyncIntegrityGate(){
   const baseCloudInit=cloudInit;
   cloudInit=async function gatedCloudInit(){
     for(let attempt=0;attempt<300;attempt++){
-      if(window.BogatkaSyncIntegrity?.ready)return baseCloudInit();
+      if(window.BogatkaSyncIntegrity?.ready&&window.BogatkaSyncCompatibility?.ready)return baseCloudInit();
       await new Promise(resolve=>setTimeout(resolve,50));
     }
     throw new Error('Не загрузился модуль безопасной синхронизации. Выполните полное обновление страницы.');
