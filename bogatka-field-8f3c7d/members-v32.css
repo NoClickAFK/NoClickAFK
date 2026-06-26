@@ -1,36 +1,106 @@
-/* Premium project members UI */
+/* Premium project members and collaboration UI */
+#cloudModal .modal-card{width:min(900px,100%)}
 #cloudInviteForm{gap:14px}
 #cloudInviteForm>button[type="submit"]{min-height:56px;border:0;border-radius:16px;background:linear-gradient(135deg,#155a40,#1d7a55);color:#fff;font-size:17px;font-weight:800;box-shadow:0 12px 28px rgba(21,90,64,.2);transition:transform .16s ease,box-shadow .16s ease,filter .16s ease}
 #cloudInviteForm>button[type="submit"]:hover{transform:translateY(-1px);box-shadow:0 15px 32px rgba(21,90,64,.24);filter:saturate(1.04)}
 #cloudInviteForm>button[type="submit"]:active{transform:translateY(0);box-shadow:0 8px 18px rgba(21,90,64,.18)}
-.cloud-members{display:grid;gap:10px;margin-top:16px}
-.cloud-member-premium{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:14px;align-items:center;padding:15px 16px;border:1px solid #d4e2da;border-radius:18px;background:linear-gradient(180deg,#fff,#fbfdfc);box-shadow:0 8px 22px rgba(24,79,58,.055)}
-.cloud-member-avatar{width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(145deg,#dcefe5,#edf7f1);color:#17543c;font-size:20px;font-weight:900;box-shadow:inset 0 0 0 1px rgba(24,79,58,.06)}
-.cloud-member-identity{min-width:0;display:grid;gap:4px}
-.cloud-member-name{min-width:0;color:#17261f;font-size:17px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}
-.cloud-member-email{min-width:0;color:#6b7971;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
-.cloud-member-role{justify-self:end;align-self:center;display:inline-flex;align-items:center;min-height:34px;padding:6px 12px;border-radius:999px;background:#def0e6;color:#18543c;font-size:14px;font-weight:800;white-space:nowrap}
-.cloud-member-empty{padding:14px 16px;border:1px dashed #cddbd3;border-radius:16px;background:#f7faf8;color:#66756d;text-align:center}
 
+.collaboration-heading-v410{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:4px}
+.collaboration-heading-v410 h3{margin:0 0 5px}
 #bogatkaInviteForm{gap:14px}
 #bogatkaInviteForm>button[type="submit"]{width:100%;min-height:56px;border-radius:15px;font-size:17px;font-weight:800}
 .invite-grid-v408{display:grid;gap:12px}
-.invite-lifetime-help-v409{display:block;margin-top:8px;color:#66756d;font-size:13px;line-height:1.45;font-weight:500}
-.application-link-v408{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;margin:24px 0 26px;padding:16px 18px;border:1px solid #d4e2da;border-radius:16px;background:linear-gradient(180deg,#f8fbf9,#f3f8f5);box-shadow:0 8px 22px rgba(24,79,58,.045)}
-.application-link-copy-v409{min-width:0;display:grid;gap:4px}
-.application-link-copy-v409 b{display:block;color:#173d2f;font-size:16px;line-height:1.3}
-.application-link-copy-v409 small{display:block;color:#66756d;font-size:13px;line-height:1.45}
-.application-link-button-v409{min-width:136px;min-height:44px;padding:10px 20px!important;border-radius:12px!important;font-size:15px!important;font-weight:800!important}
-.invite-history-v408{margin-top:10px}
-.invite-result-v408{margin-top:14px}
+.invite-lifetime-help-v409{display:block;margin-top:8px;color:#66756d;font-size:13px;line-height:1.48;font-weight:500}
+
+.invite-result-v408{display:grid;gap:14px;margin-top:18px;padding:18px;border:1px solid #cfe0d6;border-radius:17px;background:linear-gradient(180deg,#fbfdfc,#f5faf7);box-shadow:0 10px 26px rgba(24,79,58,.055)}
+.invite-result-v408.hidden{display:none!important}
+.invite-result-head-v410{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.invite-result-head-v410 strong{color:#173d2f;font-size:17px}
+.invite-result-head-v410 span{display:inline-flex;padding:5px 10px;border-radius:999px;background:#def0e6;color:#18543c;font-size:13px;font-weight:800}
+.invite-result-summary-v410{margin:0;color:#26362f;line-height:1.5}
+.invite-link-input-v410{margin:0!important;padding:12px 13px!important;border-radius:12px!important;background:#fff!important}
+.invite-actions-v408{display:flex;flex-wrap:wrap;gap:10px;margin-top:1px}
+.invite-actions-v408 .btn{min-width:132px;min-height:44px}
+.invite-result-note-v410{margin:2px 0 0;padding-top:12px;border-top:1px solid #dce8e1;color:#66756d;font-size:13px;line-height:1.48}
+
+.application-link-v408{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;margin:24px 0 28px;padding:17px 19px;border:1px solid #d4e2da;border-radius:17px;background:linear-gradient(180deg,#f8fbf9,#f3f8f5);box-shadow:0 8px 22px rgba(24,79,58,.045)}
+.application-link-copy-v409{min-width:0;display:grid;gap:5px}
+.application-link-copy-v409 b{display:block;color:#173d2f;font-size:17px;line-height:1.3}
+.application-link-copy-v409 small{display:block;color:#66756d;font-size:13px;line-height:1.48}
+.application-link-button-v409{min-width:146px;min-height:46px;padding:11px 22px!important;border-radius:12px!important;font-size:15px!important;font-weight:800!important}
+
+.collaboration-list-section-v410{margin-top:24px}
+.collaboration-section-title-v410{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:11px}
+.collaboration-section-title-v410 h4{margin:0;color:#1b2932;font-size:18px}
+.collaboration-section-title-v410 span{color:#728078;font-size:12px;text-align:right}
+.invite-history-v408{display:grid;gap:11px;margin-top:0}
+.invite-history-v408[aria-busy="true"],.cloud-members[aria-busy="true"]{opacity:.65}
+.invite-row-v408{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:15px 16px;border:1px solid #d8e4dd;border-radius:16px;background:#fff;box-shadow:0 7px 19px rgba(24,79,58,.045)}
+.invite-row-v408.status-active{border-color:#c9dfd3;background:linear-gradient(180deg,#fff,#f8fcfa)}
+.invite-row-v408.status-accepted{border-color:#cde5d8}
+.invite-row-v408.status-removed,.invite-row-v408.status-revoked,.invite-row-v408.status-expired{background:#fafbfa;box-shadow:none}
+.invite-row-main-v410{min-width:0;display:grid;gap:7px}
+.invite-row-title-v410{display:flex;flex-wrap:wrap;align-items:center;gap:7px 8px}
+.invite-row-title-v410>b{min-width:0;color:#17261f;font-size:15px;overflow-wrap:anywhere}
+.invite-role-badge-v410,.invite-status-badge-v410{display:inline-flex;align-items:center;min-height:27px;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}
+.invite-role-badge-v410{background:#edf4f0;color:#315d49}
+.invite-status-badge-v410.status-active{background:#fff2cd;color:#76520b}
+.invite-status-badge-v410.status-accepted{background:#dff3e7;color:#17603f}
+.invite-status-badge-v410.status-removed{background:#fde8e8;color:#933838}
+.invite-status-badge-v410.status-revoked,.invite-status-badge-v410.status-expired{background:#edf0ee;color:#647169}
+.invite-row-meta-v410{color:#516158;font-size:13px;line-height:1.45}
+.invite-row-created-v410{color:#87928c;font-size:12px}
+.invite-revoke-v410{min-width:132px;min-height:40px;padding:9px 13px!important}
+
+.cloud-members{display:grid;gap:11px;margin-top:0}
+.cloud-member-premium{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:14px;align-items:center;padding:15px 16px;border:1px solid #d4e2da;border-radius:18px;background:linear-gradient(180deg,#fff,#fbfdfc);box-shadow:0 8px 22px rgba(24,79,58,.055)}
+.cloud-member-avatar{width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(145deg,#dcefe5,#edf7f1);color:#17543c;font-size:20px;font-weight:900;box-shadow:inset 0 0 0 1px rgba(24,79,58,.06)}
+.cloud-member-identity{min-width:0;display:grid;gap:3px}
+.cloud-member-name{min-width:0;color:#17261f;font-size:17px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}
+.cloud-member-email{min-width:0;color:#6b7971;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.cloud-member-since-v410{margin-top:3px;color:#8a958f;font-size:11px}
+.cloud-member-role{justify-self:end;align-self:center;display:inline-flex;align-items:center;min-height:34px;padding:6px 12px;border-radius:999px;background:#def0e6;color:#18543c;font-size:14px;font-weight:800;white-space:nowrap}
+.cloud-member-role.owner{background:#d9efe2}
+.member-controls-v410{display:grid;grid-template-columns:150px auto auto;gap:8px;align-items:end}
+.member-role-field-v410{display:grid;gap:4px;color:#657168;font-size:11px;font-weight:700}
+.member-role-field-v410 select{min-width:150px;margin:0;padding:8px 31px 8px 10px;border-radius:10px;font-size:13px}
+.member-save-v410{min-height:39px;padding:8px 12px!important;font-size:13px!important}
+.member-remove-v410{min-height:39px;padding:8px 12px;border:1px solid #ebcaca;border-radius:10px;background:#fff6f6;color:#963535;font-size:13px;font-weight:800;cursor:pointer}
+.member-remove-v410:hover{background:#ffecec}
+.member-remove-v410:disabled{opacity:.5;cursor:default}
+.cloud-member-empty{padding:16px;border:1px dashed #cddbd3;border-radius:16px;background:#f7faf8;color:#66756d;text-align:center}
+
+.cloud-account-pill-v410{margin-left:auto;max-width:min(430px,100%);border:1px solid rgba(255,255,255,.16);color:#fff;cursor:pointer}
+.cloud-account-pill-v410:hover{background:rgba(255,255,255,.22)}
+.cloud-account-pill-v410 .account-dot-v410{width:8px;height:8px;border-radius:50%;background:#8ee3b4;flex:0 0 auto}
+.cloud-account-pill-v410 .account-email-v410{max-width:290px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.cloud-account-pill-v410 .account-role-v410{color:#dcefe6;font-size:11px;white-space:nowrap}
+
+@media(max-width:760px){
+  .invite-row-v408{grid-template-columns:1fr}
+  .invite-revoke-v410{width:100%}
+  .cloud-member-premium{grid-template-columns:46px minmax(0,1fr);align-items:start;padding:13px}
+  .cloud-member-avatar{width:46px;height:46px;border-radius:14px}
+  .cloud-member-role{grid-column:2;justify-self:start;margin-top:5px}
+  .member-controls-v410{grid-column:1/-1;grid-template-columns:minmax(0,1fr) auto auto;width:100%;padding-top:5px}
+}
 
 @media(max-width:650px){
-  .cloud-member-premium{grid-template-columns:46px minmax(0,1fr);padding:13px}
-  .cloud-member-avatar{width:46px;height:46px;border-radius:14px}
-  .cloud-member-role{grid-column:2;justify-self:start;margin-top:2px}
+  #cloudInviteForm>button[type="submit"]{width:100%}
+  .invite-result-v408{padding:15px;gap:12px}
+  .invite-result-head-v410{align-items:flex-start;flex-direction:column}
+  .invite-actions-v408{display:grid;grid-template-columns:1fr 1fr}
+  .invite-actions-v408 .btn{min-width:0;width:100%}
+  .application-link-v408{grid-template-columns:1fr;gap:13px;margin:22px 0 25px;padding:15px}
+  .application-link-button-v409{width:100%;min-height:46px}
+  .collaboration-section-title-v410{align-items:flex-start;flex-direction:column;gap:2px}
+  .collaboration-section-title-v410 span{text-align:left}
   .cloud-member-name{font-size:16px}
   .cloud-member-email{font-size:13px}
-  #cloudInviteForm>button[type="submit"]{width:100%}
-  .application-link-v408{grid-template-columns:1fr;gap:12px;margin:22px 0 24px;padding:15px}
-  .application-link-button-v409{width:100%;min-height:46px}
+  .member-controls-v410{grid-template-columns:1fr 1fr}
+  .member-role-field-v410{grid-column:1/-1}
+  .member-role-field-v410 select{width:100%}
+  .member-save-v410,.member-remove-v410{width:100%}
+  .cloud-account-pill-v410{margin-left:0;max-width:100%}
+  .cloud-account-pill-v410 .account-email-v410{max-width:210px}
 }
