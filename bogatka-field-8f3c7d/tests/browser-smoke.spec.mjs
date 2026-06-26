@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=408';
+const APP_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=409';
 const RESET_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/reset/';
 
 async function authorize(page) {
@@ -42,7 +42,7 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   expect(state.selfTest?.ok).toBe(true);
   expect(state.selfTest?.checks?.length).toBeGreaterThan(10);
   expect(state.archiveSync).toBe(true);
-  expect(state.inviteManager).toBe('4.0.8');
+  expect(state.inviteManager).toBe('4.0.9');
   expect(state.normalized).toBe('лидская 34');
   expect(state.duplicate).toBe(true);
   expect(state.backupTaskIds).toEqual(['local-task','remote-task']);
@@ -52,10 +52,49 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
+test('owner invitation panel explains link lifetime and separates the application link', async ({ page }) => {
+  await authorize(page);
+  await page.goto(APP_URL, { waitUntil:'networkidle' });
+  await page.evaluate(() => {
+    cloudSession={user:{id:'00000000-0000-0000-0000-000000000001',email:'owner@example.com',user_metadata:{display_name:'Owner'}}};
+    cloudProjectId='00000000-0000-0000-0000-000000000001';
+    cloudRole='owner';
+    const chain=()=>({
+      data:[],
+      error:null,
+      select(){return this;},
+      eq(){return this;},
+      in(){return this;},
+      order(){return this;},
+      limit(){return Promise.resolve({data:[],error:null});},
+      single(){return Promise.resolve({data:{role:'owner'},error:null});},
+    });
+    cloudClient={from:()=>chain(),rpc:async()=>({data:null,error:null})};
+    cloudOpenModal();
+  });
+
+  await expect(page.locator('#bogatkaInviteForm')).toBeVisible();
+  await expect(page.locator('#bogatkaInviteForm')).toContainText('Срок действия ссылки');
+  await expect(page.locator('.invite-lifetime-help-v409')).toContainText('После регистрации доступ к проекту сохраняется');
+  await expect(page.locator('#bogatkaInviteLifetime option')).toHaveCount(3);
+  await expect(page.locator('#bogatkaInviteLifetime')).not.toContainText('30 дней');
+  await expect(page.locator('.application-link-copy-v409 b')).toHaveText('Постоянная ссылка на приложение');
+  await expect(page.locator('.application-link-copy-v409 small')).toContainText('не выдаёт доступ к проекту');
+  await expect(page.locator('#bogatkaCopyAppLink')).toHaveText('Копировать');
+  const layout=await page.locator('.application-link-v408').evaluate(element=>({
+    display:getComputedStyle(element).display,
+    marginTop:getComputedStyle(element).marginTop,
+    buttonWidth:getComputedStyle(element.querySelector('#bogatkaCopyAppLink')).minWidth,
+  }));
+  expect(layout.display).toBe('grid');
+  expect(parseFloat(layout.marginTop)).toBeGreaterThanOrEqual(20);
+  expect(parseFloat(layout.buttonWidth)).toBeGreaterThanOrEqual(130);
+});
+
 test('personal invitation preserves token and email for confirmation', async ({ page }) => {
   const token='a'.repeat(64);
   const email='worker@example.com';
-  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=408&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
+  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=409&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
   await page.waitForFunction(() => typeof window.bogatkaPendingInvite === 'function');
   const state=await page.evaluate(() => ({
     invite:window.bogatkaPendingInvite(),
@@ -63,7 +102,7 @@ test('personal invitation preserves token and email for confirmation', async ({ 
     authorized:localStorage.getItem('bogatka_access_authorized_v1'),
   }));
   expect(state.invite).toEqual({token,email});
-  expect(state.redirect).toContain('v=408');
+  expect(state.redirect).toContain('v=409');
   expect(state.redirect).toContain(`invite=${token}`);
   expect(state.redirect).toContain('email=worker%40example.com');
   expect(state.authorized).toBe('1');
@@ -72,7 +111,7 @@ test('personal invitation preserves token and email for confirmation', async ({ 
 test('personal invitation is accepted through the raw token RPC', async ({ page }) => {
   const token='b'.repeat(64);
   const email='worker@example.com';
-  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=408&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
+  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=409&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
   await page.waitForFunction(() => typeof window.bogatkaPendingInvite === 'function');
   const state=await page.evaluate(async ({token,email})=>{
     const calls=[];
