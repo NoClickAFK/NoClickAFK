@@ -1,4 +1,4 @@
-const APP_URL='../?v=311';
+const APP_URL='../?v=400';
 const statusBox=document.querySelector('#statusBox');
 const leadText=document.querySelector('#leadText');
 const form=document.querySelector('#passwordForm');
@@ -12,6 +12,13 @@ let readyForPassword=false;
 function setStatus(text,type='info'){
   statusBox.textContent=text;
   statusBox.className=`status status-${type}`;
+}
+
+function validateNewPassword(password=''){
+  const value=String(password||'');
+  if(value.length<12)return 'Пароль должен содержать не менее 12 символов.';
+  if(!/\p{L}/u.test(value)||!/[0-9]/.test(value))return 'Добавьте в пароль хотя бы одну букву и одну цифру.';
+  return '';
 }
 
 function showForm(){
@@ -82,7 +89,8 @@ form.addEventListener('submit',async event=>{
   if(!client||!readyForPassword)return;
   const password=document.querySelector('#newPassword').value;
   const repeat=document.querySelector('#repeatPassword').value;
-  if(password.length<8){setStatus('Пароль должен содержать не менее 8 символов.','error');return;}
+  const policyError=validateNewPassword(password);
+  if(policyError){setStatus(policyError,'error');return;}
   if(password!==repeat){setStatus('Пароли не совпадают.','error');return;}
 
   saveButton.disabled=true;
@@ -117,4 +125,5 @@ document.querySelectorAll('[data-toggle-password]').forEach(button=>{
 });
 
 requestAgainButton.addEventListener('click',()=>location.replace(APP_URL));
+window.bogatkaValidateRecoveryPassword=validateNewPassword;
 resolveRecoverySession();
