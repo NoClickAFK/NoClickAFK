@@ -17,5 +17,11 @@ const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
+if(!sw.includes("CACHE_NAME='bogatka-location-v403'"))errors.push('Service Worker cache version is not v403');
+const config=fs.readFileSync(path.join(root,'config.js'),'utf8');
+if(!config.includes('APP_VERSION = "4.0.0"'))errors.push('config.js APP_VERSION is not 4.0.0');
+for(const legacy of ['workflow-v350.js','workflow-v350.css','workflow-report-v350.js']){
+  if(fs.existsSync(path.join(root,legacy)))errors.push(`Legacy duplicate still exists: ${legacy}`);
+}
 if(errors.length){console.error(errors.join('\n'));process.exit(1)}
 console.log('Bogatka hardening validation passed.');
