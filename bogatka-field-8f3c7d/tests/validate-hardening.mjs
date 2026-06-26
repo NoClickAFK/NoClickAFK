@@ -22,8 +22,8 @@ const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks).filter(file=>file!=='decision-ui-v340.js'))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v410'"))errors.push('Service Worker cache version is not v410');
-for(const file of ['./invites-v408.js','./collaboration-v410.js'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
+if(!sw.includes("CACHE_NAME='bogatka-location-v411'"))errors.push('Service Worker cache version is not v411');
+for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
 
 const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
 for(const marker of [
@@ -53,12 +53,32 @@ for(const marker of [
   '.cloud-account-pill-v410',
 ])if(!membersCss.includes(marker))errors.push(`members-v32.css missing ${marker}`);
 
+const visualJsPath=path.join(root,'visual-v411.js');
+if(!fs.existsSync(visualJsPath))errors.push('Missing visual-v411.js');
+else{
+  const visualJs=fs.readFileSync(visualJsPath,'utf8');
+  for(const marker of ['collaboration-accordion-v411','inviteHistoryToggleV411','MutationObserver','BogatkaVisualPolish',"version:'4.1.1'"])if(!visualJs.includes(marker))errors.push(`visual-v411.js missing ${marker}`);
+  if(visualJs.includes('observe(document.body'))errors.push('Visual observer must be scoped to the cloud modal');
+}
+
+const visualCssPath=path.join(root,'visual-v411.css');
+if(!fs.existsSync(visualCssPath))errors.push('Missing visual-v411.css');
+else{
+  const visualCss=fs.readFileSync(visualCssPath,'utf8');
+  for(const marker of [
+    '.collaboration-accordion-panel-v411','grid-template-rows:0fr','grid-template-rows:1fr',
+    '.member-role-field-v410 .premium-select-trigger','height:44px!important',
+    '.summary-grid-v332 .metric','min-height:66px!important',
+    '.comparison-panel-v332','border:2px solid #d8b860!important','overflow:clip!important',
+  ])if(!visualCss.includes(marker))errors.push(`visual-v411.css missing ${marker}`);
+}
+
 const inviteModule=fs.readFileSync(path.join(root,'invites-v408.js'),'utf8');
 for(const marker of ['Пригласить участника','one-email-one-personal-link','bogatka:invite-accepted',"version:'4.1.0'"])if(!inviteModule.includes(marker))errors.push(`invites-v408.js missing ${marker}`);
 if(inviteModule.includes('new MutationObserver'))errors.push('Invite toolbar module must not install a global DOM observer');
 
 const loader=fs.readFileSync(path.join(root,'v23.js'),'utf8');
-if(!loader.includes("src:'./invites-v408.js'"))errors.push('v23.js does not load invites-v408.js');
+for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
 
 const secureMigrationPath=path.resolve('supabase/migrations/20260626000200_secure_personal_invites_v408.sql');
 if(!fs.existsSync(secureMigrationPath))errors.push('Missing secure personal invitations migration');
