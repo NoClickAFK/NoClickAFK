@@ -1,18 +1,26 @@
 const BOGATKA_INVITE_TOKEN_KEY='bogatka_pending_invite_v408';
 const BOGATKA_INVITE_EMAIL_KEY='bogatka_pending_invite_email_v408';
 
+function bogatkaNormalizeInviteEmail(value=''){
+  const email=String(value||'').trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)?email:'';
+}
+
 function bogatkaPendingInvite(){
   const params=new URLSearchParams(location.search);
   const token=String(params.get('invite')||'').trim().toLowerCase();
-  const email=String(params.get('email')||'').trim().toLowerCase();
+  const email=bogatkaNormalizeInviteEmail(params.get('email'));
   if(/^[0-9a-f]{64}$/.test(token)){
     localStorage.setItem(BOGATKA_INVITE_TOKEN_KEY,token);
     if(email)localStorage.setItem(BOGATKA_INVITE_EMAIL_KEY,email);
-    localStorage.setItem('bogatka_access_authorized_v1','1');
+    if(email)localStorage.setItem('bogatka_access_authorized_v1','1');
   }
-  const saved=String(localStorage.getItem(BOGATKA_INVITE_TOKEN_KEY)||'').toLowerCase();
+  const saved=String(localStorage.getItem(BOGATKA_INVITE_TOKEN_KEY)||'').trim().toLowerCase();
   if(!/^[0-9a-f]{64}$/.test(saved))return null;
-  return {token:saved,email:String(localStorage.getItem(BOGATKA_INVITE_EMAIL_KEY)||email).toLowerCase()};
+  return {
+    token:saved,
+    email:bogatkaNormalizeInviteEmail(localStorage.getItem(BOGATKA_INVITE_EMAIL_KEY)),
+  };
 }
 
 function bogatkaClearPendingInvite(){
@@ -44,6 +52,20 @@ function bogatkaValidateNewPassword(password=''){
   return '';
 }
 
+function bogatkaBuildInviteNote(invite){
+  const note=document.createElement('div');
+  note.className='invite-auth-v408';
+  const title=document.createElement('strong');
+  title.textContent='Персональное приглашение';
+  const text=document.createElement('p');
+  text.append(document.createTextNode('Войдите или зарегистрируйтесь под email '));
+  const email=document.createElement('b');
+  email.textContent=invite.email||'из приглашения';
+  text.append(email,document.createTextNode('. После входа доступ подключится автоматически.'));
+  note.append(title,text);
+  return note;
+}
+
 function bogatkaRefreshPasswordField(){
   const form=document.querySelector('#cloudAuthForm');
   const input=document.querySelector('#cloudPassword');
@@ -56,12 +78,12 @@ function bogatkaRefreshPasswordField(){
   const invite=bogatkaPendingInvite();
   if(invite&&form.dataset.inviteV408!=='1'){
     form.dataset.inviteV408='1';
-    const note=document.createElement('div');
-    note.className='invite-auth-v408';
-    note.innerHTML=`<strong>Персональное приглашение</strong><p>Войдите или зарегистрируйтесь под email <b>${invite.email||'из приглашения'}</b>. После входа доступ подключится автоматически.</p>`;
-    form.prepend(note);
+    form.prepend(bogatkaBuildInviteNote(invite));
     const emailInput=document.querySelector('#cloudEmail');
-    if(emailInput&&invite.email){emailInput.value=invite.email;emailInput.readOnly=true}
+    if(emailInput&&invite.email){
+      emailInput.value=invite.email;
+      emailInput.readOnly=true;
+    }
     const title=document.querySelector('#cloudModal h2');
     if(title)title.textContent='Вход по персональному приглашению';
   }
@@ -71,14 +93,20 @@ if(typeof cloudEnsureProject==='function'){
   const bogatkaBaseEnsureProject=cloudEnsureProject;
   cloudEnsureProject=async function(){
     const invite=bogatkaPendingInvite();
-    if(invite&&cloudSession?.user?.email&&invite.email!==String(cloudSession.user.email).toLowerCase()){
+    if(!invite)return bogatkaBaseEnsureProject();
+    if(!cloudSession?.user)throw new Error('Сначала войдите под аккаунтом из персонального приглашения.');
+    const sessionEmail=bogatkaNormalizeInviteEmail(cloudSession.user.email);
+    if(invite.email&&invite.email!==sessionEmail){
       throw new Error(`Эта ссылка выдана для ${invite.email}. Войдите под этим email.`);
     }
+    const accepted=await cloudClient.rpc('accept_bogatka_project_invite',{p_token:invite.token});
+    if(accepted.error)throw new Error(accepted.error.message);
+    if(!accepted.data)throw new Error('Не удалось принять персональное приглашение.');
+    cloudProjectId=accepted.data;
     const projectId=await bogatkaBaseEnsureProject();
-    if(invite){
-      bogatkaClearPendingInvite();
-      sessionStorage.setItem('bogatka_invite_accepted_v408','1');
-    }
+    bogatkaClearPendingInvite();
+    sessionStorage.setItem('bogatka_invite_accepted_v408','1');
+    window.dispatchEvent(new CustomEvent('bogatka:invite-accepted'));
     return projectId;
   };
   window.cloudEnsureProject=cloudEnsureProject;
@@ -88,10 +116,10 @@ if(typeof cloudHandleAuth==='function'){
   cloudHandleAuth=async function(event,mode){
     event.preventDefault();
     const invite=bogatkaPendingInvite();
-    const email=document.querySelector('#cloudEmail')?.value.trim().toLowerCase();
+    const email=bogatkaNormalizeInviteEmail(document.querySelector('#cloudEmail')?.value);
     const password=document.querySelector('#cloudPassword')?.value||'';
     const displayName=document.querySelector('#cloudDisplayName')?.value.trim()||'';
-    if(!email)return cloudSetMessage('Укажите email.','error');
+    if(!email)return cloudSetMessage('Укажите корректный email.','error');
     if(invite?.email&&email!==invite.email)return cloudSetMessage(`Эта ссылка выдана для ${invite.email}.`,'error');
     if(mode==='signup'){
       const policyError=bogatkaValidateNewPassword(password);
@@ -121,11 +149,18 @@ document.addEventListener('click',event=>{
   if(event.target.closest('[data-cloud-tab]'))setTimeout(bogatkaRefreshPasswordField,0);
 });
 
+function bogatkaInstallPasswordObserver(){
+  const modal=document.querySelector('#cloudModal');
+  if(!modal||modal.dataset.inviteObserverV408==='1')return;
+  modal.dataset.inviteObserverV408='1';
+  const observer=new MutationObserver(bogatkaRefreshPasswordField);
+  observer.observe(modal,{childList:true,subtree:true});
+  bogatkaRefreshPasswordField();
+}
+
 bogatkaPendingInvite();
-const bogatkaPasswordObserver=new MutationObserver(bogatkaRefreshPasswordField);
-bogatkaPasswordObserver.observe(document.documentElement,{childList:true,subtree:true});
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bogatkaRefreshPasswordField,{once:true});
-else bogatkaRefreshPasswordField();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bogatkaInstallPasswordObserver,{once:true});
+else bogatkaInstallPasswordObserver();
 
 window.bogatkaValidateNewPassword=bogatkaValidateNewPassword;
 window.bogatkaPendingInvite=bogatkaPendingInvite;
