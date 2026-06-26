@@ -8,6 +8,16 @@ async function openApp(page){
   await page.waitForFunction(()=>Boolean(window.BogatkaCloudStability&&window.BogatkaUIStability&&window.BogatkaSuite));
 }
 
+async function openCollaborationPane(page,pane){
+  await page.evaluate(targetPane=>{
+    const card=document.querySelector('[data-location-card]');
+    const details=card?.querySelector('.collaboration-v400');
+    if(details)details.open=true;
+    const button=card?.querySelector(`[data-collab-tab="${targetPane}"]`);
+    if(button&&!button.classList.contains('active'))button.click();
+  },pane);
+}
+
 test('background sync cannot replace or overwrite an active form control',async({page})=>{
   await openApp(page);
   const locationId=await page.evaluate(async()=>{
@@ -103,6 +113,7 @@ test('automatic sync waits while a field or native picker is active',async({page
 
 test('textarea accepts a complete word without losing focus after each autosave',async({page})=>{
   await openApp(page);
+  await openCollaborationPane(page,'comments');
   const result=await page.evaluate(async()=>{
     const input=document.querySelector('[data-location][data-field="pros"]');
     const id=input.dataset.location;
