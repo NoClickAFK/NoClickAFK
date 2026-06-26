@@ -31,6 +31,20 @@ function upgradeAccessScreen(){
   if(input){input.placeholder='Введите 6 цифр';input.setAttribute('aria-label','Шестизначный код доступа')}
 }
 
+function installSyncIntegrityGate(){
+  if(window.__bogatkaSyncIntegrityGateV412||typeof cloudInit!=='function')return;
+  window.__bogatkaSyncIntegrityGateV412=true;
+  const baseCloudInit=cloudInit;
+  cloudInit=async function gatedCloudInit(){
+    for(let attempt=0;attempt<300;attempt++){
+      if(window.BogatkaSyncIntegrity?.ready)return baseCloudInit();
+      await new Promise(resolve=>setTimeout(resolve,50));
+    }
+    throw new Error('Не загрузился модуль безопасной синхронизации. Выполните полное обновление страницы.');
+  };
+  window.cloudInit=cloudInit;
+}
+
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
@@ -38,6 +52,7 @@ function applyVersion23Enhancements(){
   const accessButton=document.getElementById('shareAccessBtn');
   if(accessButton)accessButton.textContent='Пригласить участника';
   upgradeAccessScreen();
+  installSyncIntegrityGate();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./members-v32.css'});
