@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=400';
+const APP_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=408';
 const RESET_URL = 'http://127.0.0.1:4173/bogatka-field-8f3c7d/reset/';
 
 async function authorize(page) {
@@ -67,6 +67,47 @@ test('personal invitation preserves token and email for confirmation', async ({ 
   expect(state.redirect).toContain(`invite=${token}`);
   expect(state.redirect).toContain('email=worker%40example.com');
   expect(state.authorized).toBe('1');
+});
+
+test('personal invitation is accepted through the raw token RPC', async ({ page }) => {
+  const token='b'.repeat(64);
+  const email='worker@example.com';
+  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=408&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
+  await page.waitForFunction(() => typeof window.bogatkaPendingInvite === 'function');
+  const state=await page.evaluate(async ({token,email})=>{
+    const calls=[];
+    cloudSession={user:{id:'00000000-0000-0000-0000-000000000002',email}};
+    cloudProjectId=null;
+    cloudRole=null;
+    cloudClient={
+      rpc:async(name,args)=>{
+        calls.push({name,args:args||null});
+        if(name==='accept_bogatka_project_invite')return {data:'00000000-0000-0000-0000-000000000001',error:null};
+        if(name==='claim_bogatka_project')return {data:'00000000-0000-0000-0000-000000000001',error:null};
+        return {data:null,error:{message:`Unexpected RPC ${name}`}};
+      },
+      from:()=>({
+        select(){return this;},
+        eq(){return this;},
+        async single(){return {data:{role:'editor'},error:null};},
+      }),
+    };
+    const projectId=await cloudEnsureProject();
+    return {
+      projectId,
+      role:cloudRole,
+      calls,
+      pending:window.bogatkaPendingInvite(),
+      url:location.href,
+    };
+  },{token,email});
+  expect(state.projectId).toBe('00000000-0000-0000-0000-000000000001');
+  expect(state.role).toBe('editor');
+  expect(state.calls[0]).toEqual({name:'accept_bogatka_project_invite',args:{p_token:token}});
+  expect(state.calls[1]?.name).toBe('claim_bogatka_project');
+  expect(state.pending).toBeNull();
+  expect(state.url).not.toContain('invite=');
+  expect(state.url).not.toContain('email=');
 });
 
 test('mobile layout does not create page-level horizontal overflow', async ({ page }) => {
