@@ -15,6 +15,7 @@ const required = [
   'archive-label-v400.js',
   'backup-v400.js',
   'cloud-archive-v400.js',
+  'address-fix-v400.js',
   'viewer-extra-v400.js',
   'report-v400.js',
   'access-version-v400.js',
@@ -45,12 +46,12 @@ if (!failures.length) {
   }
 
   const backup = read('backup-v400.js');
-  for (const file of ['cloud-archive-v400.js','viewer-extra-v400.js','selftest-v400.js']) {
+  for (const file of ['cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','selftest-v400.js']) {
     if (!backup.includes(file)) failures.push(`backup-v400.js does not load ${file}`);
   }
 
   const serviceWorker = read('sw-v340.js');
-  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','reset/index.html','reset/reset.js']) {
+  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','reset/index.html','reset/reset.js']) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
 
@@ -76,6 +77,11 @@ if (!failures.length) {
   const cloudArchive = read('cloud-archive-v400.js');
   for (const marker of ['archived_at','cloudFetchRemoteWithArchive','cloudPushLocationsWithArchive','BogatkaCloudArchive']) {
     if (!cloudArchive.includes(marker)) failures.push(`cloud-archive-v400.js is missing ${marker}`);
+  }
+
+  const addressFix = read('address-fix-v400.js');
+  for (const marker of ['STOP_WORDS','normalizeAddress','saveLocationFromModalFixed','BogatkaAddressFix']) {
+    if (!addressFix.includes(marker)) failures.push(`address-fix-v400.js is missing ${marker}`);
   }
 
   const viewer = read('viewer-extra-v400.js');
