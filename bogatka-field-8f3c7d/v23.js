@@ -35,6 +35,8 @@ function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
   if(versionLabel)versionLabel.textContent='4.0.0';
+  const accessButton=document.getElementById('shareAccessBtn');
+  if(accessButton)accessButton.textContent='Пригласить участника';
   upgradeAccessScreen();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
@@ -49,6 +51,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
+  loadBogatkaPatch('script',{src:'./invites-v408.js'});
   loadBogatkaPatch('script',{src:'./stability-v33.js'});
   loadBogatkaPatch('script',{src:'./stability-v331.js'});
   loadBogatkaPatch('script',{src:'./polish-v34.js'});
