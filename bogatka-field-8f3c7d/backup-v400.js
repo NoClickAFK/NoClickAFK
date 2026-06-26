@@ -52,7 +52,7 @@
   }
 
   function loadSupportModules(){
-    for(const src of ['./cloud-archive-v400.js','./viewer-extra-v400.js','./selftest-v400.js']){
+    for(const src of ['./cloud-archive-v400.js','./address-fix-v400.js','./viewer-extra-v400.js','./selftest-v400.js']){
       if(document.querySelector(`script[src="${src}"]`))continue;
       const script=document.createElement('script');
       script.src=src;
