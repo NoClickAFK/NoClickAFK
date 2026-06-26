@@ -49,6 +49,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
+  loadBogatkaPatch('script',{src:'./invites-v408.js'});
   loadBogatkaPatch('script',{src:'./stability-v33.js'});
   loadBogatkaPatch('script',{src:'./stability-v331.js'});
   loadBogatkaPatch('script',{src:'./polish-v34.js'});
