@@ -1,0 +1,78 @@
+/* Bogatka 4.1.4 — evaluation and collaboration workflow */
+
+/* Quick checklist and comparative score serve different purposes. */
+.checklist-guide-v414{margin:0 0 14px;padding:12px 14px;border:1px solid #d6e4dc;border-radius:13px;background:#f4f9f6;color:#53675c;font-size:12px;line-height:1.5}
+.checklist-guide-v414 strong{color:#174f3a}
+.score-guide-v414{padding:16px!important}
+.score-guide-v414 p{max-width:1100px;line-height:1.55}
+.score-table td:first-child{width:58%}
+.score-label-v414{display:grid;gap:7px}
+.score-label-v414>strong{color:#173f30;font-size:13px;line-height:1.3}
+.score-label-v414>small{display:grid;grid-template-columns:1fr 1fr;gap:8px;color:#74827a;font-size:10px;line-height:1.35}
+.score-label-v414>small span{padding:6px 8px;border-radius:8px;background:#f5f8f6}
+.score-label-v414>small span:last-child{background:#edf7f1;color:#2f684f}
+
+/* Structured notes live inside the Comments tab and stay compact until expanded manually. */
+.structured-notes-v414{display:grid;gap:10px;margin-bottom:18px;padding:14px;border:1px solid #d5e2da;border-radius:15px;background:linear-gradient(180deg,#f8fbf9,#f2f7f4)}
+.structured-notes-head-v414,.project-comments-title-v414,.task-form-help-v414{display:grid;gap:3px}
+.structured-notes-head-v414 strong,.project-comments-title-v414 strong,.task-form-help-v414 strong{color:#174f3a;font-size:14px}
+.structured-notes-head-v414 span,.project-comments-title-v414 span,.task-form-help-v414 span{color:#6d7c74;font-size:11px;line-height:1.45}
+.structured-note-v414{display:grid;gap:5px}
+.structured-note-v414>span{color:#234c39;font-size:12px;font-weight:800}
+.structured-note-v414 textarea{min-height:58px!important;height:58px;padding:11px 13px!important;font-size:12px!important;line-height:1.45!important;resize:vertical!important}
+.project-comments-title-v414{margin:2px 0 9px}
+.comment-form-v400{grid-template-columns:minmax(0,1fr) 120px!important;align-items:stretch;gap:9px!important;margin-bottom:12px!important}
+.comment-form-v400 textarea{min-height:58px!important;height:58px;padding:11px 13px!important;font-size:12px!important;line-height:1.45!important;resize:vertical!important}
+.comment-form-v400 .btn{min-height:58px!important;height:58px!important;padding:0 15px!important;font-size:12px!important;border-radius:13px!important}
+
+/* Task editor: visible captions, equal control heights, member selector, editable examples. */
+.task-form-help-v414{margin:0 0 9px}
+.task-form-v400{grid-template-columns:minmax(260px,2.2fr) minmax(190px,1.25fr) 150px 180px 116px!important;align-items:end!important;gap:9px!important;margin-bottom:10px!important}
+.task-field-v414{display:grid;min-width:0;gap:5px;color:#244d3a;font-size:11px;font-weight:800}
+.task-field-v414 textarea,.task-field-v414 input,.task-field-v414 .premium-select-trigger,.task-submit-v414{min-height:52px!important;height:52px!important;max-height:52px!important;margin:0!important;border-radius:13px!important}
+.task-field-v414 textarea{padding:9px 12px!important;font-size:12px!important;line-height:1.35!important;resize:vertical!important;max-height:none!important}
+.task-field-v414 input{padding:0 12px!important;font-size:12px!important}
+.task-field-v414 .premium-select-trigger{padding:0 12px!important;font-size:12px!important}
+.task-submit-v414{display:flex!important;align-items:center!important;justify-content:center!important;padding:0 12px!important;font-size:12px!important;white-space:nowrap}
+.task-examples-v414{margin:0 0 13px;border:1px dashed #cfddd5;border-radius:13px;background:#fbfdfc;overflow:hidden}
+.task-examples-v414>summary{min-height:40px;display:flex;align-items:center;padding:9px 12px;color:#42604f;font-size:11px;font-weight:800;cursor:pointer}
+.task-examples-v414>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:0 11px 11px}
+.task-examples-v414 section{display:grid;align-content:start;gap:6px;padding:9px;border:1px solid #e0e9e4;border-radius:10px;background:#fff}
+.task-examples-v414 section>strong{color:#5b6b62;font-size:10px;text-transform:uppercase;letter-spacing:.03em}
+.task-examples-v414 button{padding:7px 8px;border:0;border-radius:8px;background:#f1f6f3;color:#24513d;font-size:10px;line-height:1.35;text-align:left;cursor:pointer}
+.task-examples-v414 button:hover{background:#e4f1e9}
+
+/* Premium dropdown options remain rounded regardless of their position. */
+.premium-select-menu{padding:7px!important}
+.premium-select-option,.premium-select-option+.premium-select-option{margin:2px 0!important;border-top:0!important;border-radius:10px!important}
+.premium-select-option.selected{border-radius:10px!important;background:#dfeee5!important;box-shadow:inset 0 0 0 1px #c7dfd1}
+
+/* History shows ten readable entries per page. */
+.history-pagination-v414{display:grid;grid-template-columns:90px minmax(0,1fr) 90px;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid #e5ede8}
+.history-pagination-v414 span{color:#718078;font-size:11px;text-align:center}
+.history-pagination-v414 button{min-height:36px;border:1px solid #cfddd5;border-radius:10px;background:#f5f9f7;color:#24543e;font-size:11px;font-weight:800;cursor:pointer}
+.history-pagination-v414 button:disabled{opacity:.45;cursor:default}
+.history-item-v400 strong{font-size:12px!important;line-height:1.4}
+.history-item-v400 small{font-size:10px!important}
+
+/* Economy is visually treated as the bridge between the location decision and launch project. */
+.decision-panel-v412+.economy-v400{margin-top:14px}
+.economy-v400+.launch-project-v400{margin-top:12px}
+
+@media(max-width:1200px){
+  .task-form-v400{grid-template-columns:minmax(240px,2fr) minmax(180px,1.2fr) 145px 170px!important}
+  .task-submit-v414{grid-column:4;justify-self:end;width:116px}
+}
+@media(max-width:900px){
+  .score-label-v414>small{grid-template-columns:1fr}
+  .task-form-v400{grid-template-columns:1fr 1fr!important}
+  .task-submit-v414{grid-column:auto;justify-self:stretch;width:100%}
+  .task-examples-v414>div{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  .comment-form-v400,.task-form-v400{grid-template-columns:1fr!important}
+  .comment-form-v400 .btn,.task-submit-v414{width:100%!important}
+  .score-table td:first-child{width:64%}
+  .score-label-v414>strong{font-size:12px}
+  .score-label-v414>small{font-size:9px}
+}
