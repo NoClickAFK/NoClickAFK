@@ -1,0 +1,68 @@
+/* Bogatka 4.1.5 — compact comments and uniform task priorities */
+
+.comment-form-v400{
+  grid-template-columns:minmax(0,1fr) 108px!important;
+  align-items:end!important;
+  gap:8px!important;
+  margin-bottom:12px!important;
+}
+.comment-form-v400 textarea{
+  min-height:46px!important;
+  height:46px!important;
+  padding:9px 12px!important;
+  font-size:12px!important;
+  line-height:1.35!important;
+  resize:vertical!important;
+}
+.comment-form-v400 .btn{
+  min-height:46px!important;
+  height:46px!important;
+  align-self:end!important;
+  padding:0 12px!important;
+  border-radius:12px!important;
+  font-size:12px!important;
+  line-height:1!important;
+}
+
+.task-form-v400{
+  grid-template-columns:minmax(250px,1.65fr) minmax(170px,.9fr) 145px 220px 112px!important;
+  column-gap:9px!important;
+}
+.task-priority-trigger-v415 .premium-select-value{
+  overflow:visible!important;
+  text-overflow:clip!important;
+  white-space:nowrap!important;
+}
+body:has(.task-priority-trigger-v415.open) .premium-select-menu{
+  min-width:220px!important;
+}
+body:has(.task-priority-trigger-v415.open) .premium-select-option,
+.premium-select-menu.task-priority-menu-v415 .premium-select-option{
+  min-height:40px!important;
+  height:40px!important;
+  margin:2px 0!important;
+  padding:0 12px!important;
+  border-radius:10px!important;
+  font-size:12px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+body:has(.task-priority-trigger-v415.open) .premium-select-option.selected,
+.premium-select-menu.task-priority-menu-v415 .premium-select-option.selected{
+  min-height:40px!important;
+  height:40px!important;
+  border-radius:10px!important;
+}
+
+@media(max-width:1200px){
+  .task-form-v400{grid-template-columns:minmax(230px,1.5fr) minmax(165px,.9fr) 140px 205px!important}
+  .task-submit-v414{grid-column:4!important;justify-self:end!important;width:112px!important}
+}
+@media(max-width:900px){
+  .task-form-v400{grid-template-columns:1fr 1fr!important}
+  .task-submit-v414{grid-column:auto!important;justify-self:stretch!important;width:100%!important}
+}
+@media(max-width:700px){
+  .comment-form-v400,.task-form-v400{grid-template-columns:1fr!important}
+  .comment-form-v400 .btn,.task-submit-v414{width:100%!important}
+}
