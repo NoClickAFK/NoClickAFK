@@ -35,6 +35,8 @@ function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
   if(versionLabel)versionLabel.textContent='4.0.0';
+  const accessButton=document.getElementById('shareAccessBtn');
+  if(accessButton)accessButton.textContent='Пригласить участника';
   upgradeAccessScreen();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
