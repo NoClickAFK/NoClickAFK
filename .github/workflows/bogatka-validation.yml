@@ -17,9 +17,9 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  static-validation:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -35,13 +35,30 @@ jobs:
       - name: Validate feature integration
         run: node bogatka-field-8f3c7d/tests/validate-files.mjs
 
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Install browser test dependencies
         run: |
-          npm install --no-save @playwright/test@1.52.0
-          npx playwright install --with-deps chromium
+          npm install --no-save --silent @playwright/test@1.52.0
+          npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
 
       - name: Run browser smoke tests
+        id: smoke
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/playwright-results.json
         run: |
+          mkdir -p test-results
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
@@ -51,4 +68,40 @@ jobs:
             fi
             sleep 1
           done
-          npx playwright test bogatka-field-8f3c7d/tests/browser-smoke.spec.mjs --reporter=line
+          npx playwright test bogatka-field-8f3c7d/tests/browser-smoke.spec.mjs --reporter=json > /tmp/playwright-output.log 2>&1
+
+      - name: Upload browser test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bogatka-browser-diagnostics
+          path: |
+            test-results/playwright-results.json
+            /tmp/playwright-output.log
+            /tmp/bogatka-http.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Fail when browser smoke tests failed
+        if: steps.smoke.outcome != 'success'
+        run: |
+          echo 'Bogatka browser smoke tests failed. Diagnostics were uploaded as an artifact.'
+          if [ -f test-results/playwright-results.json ]; then
+            node - <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('test-results/playwright-results.json','utf8'));
+          for (const suite of report.suites || []) {
+            for (const spec of suite.specs || []) {
+              for (const test of spec.tests || []) {
+                for (const result of test.results || []) {
+                  if (result.status !== 'passed') {
+                    console.error(`FAILED: ${spec.title}`);
+                    for (const error of result.errors || []) console.error(error.message || error.stack || error);
+                  }
+                }
+              }
+            }
+          }
+          NODE
+          fi
+          exit 1
