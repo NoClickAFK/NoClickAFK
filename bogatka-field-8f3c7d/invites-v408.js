@@ -8,7 +8,7 @@
   }
 
   function showAcceptedMessage(){
-    if(!sessionStorage.getItem('bogatka_invite_accepted_v408')||!window.cloudSession)return;
+    if(!sessionStorage.getItem('bogatka_invite_accepted_v408')||typeof cloudSession==='undefined'||!cloudSession)return;
     sessionStorage.removeItem('bogatka_invite_accepted_v408');
     if(typeof cloudSetMessage==='function')cloudSetMessage('Персональное приглашение принято. Доступ к проекту подключён.','success');
   }
@@ -20,8 +20,8 @@
     if(typeof cloudOpenModal==='function')cloudOpenModal();
     else document.querySelector('#cloudModal')?.classList.remove('hidden');
     setTimeout(()=>{
-      if(!window.cloudSession&&typeof cloudSetMessage==='function')cloudSetMessage('Войдите в облачный аккаунт. Персональные ссылки создаёт владелец проекта.','info');
-      else if(window.cloudRole!=='owner'&&typeof cloudSetMessage==='function')cloudSetMessage('Создавать персональные ссылки может только владелец проекта.','error');
+      if((typeof cloudSession==='undefined'||!cloudSession)&&typeof cloudSetMessage==='function')cloudSetMessage('Войдите в облачный аккаунт. Персональные ссылки создаёт владелец проекта.','info');
+      else if((typeof cloudRole==='undefined'||cloudRole!=='owner')&&typeof cloudSetMessage==='function')cloudSetMessage('Создавать персональные ссылки может только владелец проекта.','error');
       if(typeof bogatkaEnhanceMembers==='function')bogatkaEnhanceMembers();
     },0);
   },true);
