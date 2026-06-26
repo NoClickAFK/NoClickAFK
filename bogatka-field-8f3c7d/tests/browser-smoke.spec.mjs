@@ -15,6 +15,7 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
 
   await expect(page.locator('#app')).toBeVisible();
   await expect(page.locator('#versionLabel')).toHaveText('4.0.0');
+  await expect(page.locator('#shareAccessBtn')).toHaveText('Пригласить участника', { timeout: 10_000 });
   await expect(page.locator('[data-location-card]')).toHaveCount(7);
   await expect(page.locator('#diagnosticsPillV400')).toHaveText('Самопроверка: OK', { timeout: 20_000 });
 
@@ -27,6 +28,7 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
     return {
       selfTest,
       archiveSync: Boolean(window.BogatkaCloudArchive?.enabled),
+      inviteManager: window.BogatkaInviteManager?.version,
       normalized: window.BogatkaAddressFix?.normalizeAddress('Гродно, ул. Лидская, 34'),
       duplicate: window.BogatkaAddressFix?.findAddressDuplicate('г. Гродно, улица Лидская, 34')?.exact,
       backupTaskIds: merged?.tasks?.map(item => item.id).sort(),
@@ -40,6 +42,7 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   expect(state.selfTest?.ok).toBe(true);
   expect(state.selfTest?.checks?.length).toBeGreaterThan(10);
   expect(state.archiveSync).toBe(true);
+  expect(state.inviteManager).toBe('4.0.8');
   expect(state.normalized).toBe('лидская 34');
   expect(state.duplicate).toBe(true);
   expect(state.backupTaskIds).toEqual(['local-task','remote-task']);
@@ -47,6 +50,23 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   expect(state.weakPasswordError).toContain('12');
   expect(state.strongPasswordError).toBe('');
   expect(pageErrors).toEqual([]);
+});
+
+test('personal invitation preserves token and email for confirmation', async ({ page }) => {
+  const token='a'.repeat(64);
+  const email='worker@example.com';
+  await page.goto(`http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=408&invite=${token}&email=${encodeURIComponent(email)}`, { waitUntil:'networkidle' });
+  await page.waitForFunction(() => typeof window.bogatkaPendingInvite === 'function');
+  const state=await page.evaluate(() => ({
+    invite:window.bogatkaPendingInvite(),
+    redirect:window.bogatkaInviteRedirectUrl(),
+    authorized:localStorage.getItem('bogatka_access_authorized_v1'),
+  }));
+  expect(state.invite).toEqual({token,email});
+  expect(state.redirect).toContain('v=408');
+  expect(state.redirect).toContain(`invite=${token}`);
+  expect(state.redirect).toContain('email=worker%40example.com');
+  expect(state.authorized).toBe('1');
 });
 
 test('mobile layout does not create page-level horizontal overflow', async ({ page }) => {
