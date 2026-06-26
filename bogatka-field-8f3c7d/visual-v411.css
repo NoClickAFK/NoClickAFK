@@ -1,0 +1,118 @@
+/* Bogatka 4.1.1 — compact summary, emphasized comparison entry, and smooth collaboration accordion */
+
+/* Invitation history: one compact row that expands smoothly and pushes the content below it. */
+.collaboration-accordion-v411{
+  margin-top:24px;
+  overflow:clip;
+  border:1px solid #d3e1d8;
+  border-radius:17px;
+  background:#fff;
+  box-shadow:0 8px 22px rgba(24,79,58,.045);
+}
+.collaboration-accordion-trigger-v411{
+  width:100%;
+  min-height:68px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto 18px;
+  align-items:center;
+  gap:14px;
+  padding:14px 16px;
+  border:0;
+  background:linear-gradient(180deg,#fbfdfc,#f3f8f5);
+  color:#1b2932;
+  text-align:left;
+  cursor:pointer;
+  transition:background-color .2s ease,box-shadow .2s ease;
+}
+.collaboration-accordion-trigger-v411:hover{background:linear-gradient(180deg,#f7fbf8,#edf6f1)}
+.collaboration-accordion-trigger-v411:focus-visible{outline:3px solid rgba(34,113,80,.18);outline-offset:-3px}
+.collaboration-accordion-copy-v411{min-width:0;display:flex;flex-direction:column;gap:2px}
+.collaboration-accordion-copy-v411 strong{color:#1b2932;font-size:18px;line-height:1.25}
+.collaboration-accordion-copy-v411 small{color:#728078;font-size:12px;line-height:1.35}
+.collaboration-accordion-count-v411{display:inline-flex;align-items:center;justify-content:center;min-width:34px;min-height:30px;padding:4px 9px;border:1px solid #cfddd5;border-radius:999px;background:#fff;color:#285f49;font-size:12px;font-weight:800;white-space:nowrap}
+.collaboration-accordion-chevron-v411{width:11px;height:11px;border-right:2px solid #15543b;border-bottom:2px solid #15543b;transform:rotate(45deg) translateY(-3px);transition:transform .28s cubic-bezier(.2,.75,.25,1)}
+.collaboration-accordion-v411.open .collaboration-accordion-chevron-v411{transform:rotate(225deg) translate(-2px,-2px)}
+.collaboration-accordion-panel-v411{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .34s cubic-bezier(.22,.78,.25,1),opacity .22s ease}
+.collaboration-accordion-v411.open .collaboration-accordion-panel-v411{grid-template-rows:1fr;opacity:1}
+.collaboration-accordion-inner-v411{min-height:0;overflow:hidden}
+.collaboration-accordion-v411.open .collaboration-accordion-trigger-v411{border-bottom:1px solid #d9e5de;background:linear-gradient(180deg,#f5faf7,#edf6f1)}
+.collaboration-accordion-v411 .invite-history-v408{padding:14px;display:grid;gap:11px}
+
+/* Member controls: role selector and both actions share one exact visual height. */
+#cloudModal .member-role-field-v410 select,
+#cloudModal .member-role-field-v410 .premium-select-trigger,
+#cloudModal .member-save-v410,
+#cloudModal .member-remove-v410{
+  height:44px!important;
+  min-height:44px!important;
+  max-height:44px!important;
+}
+#cloudModal .member-role-field-v410 .premium-select-trigger{
+  margin-top:0!important;
+  padding:0 12px!important;
+  border-radius:11px!important;
+  font-size:13px!important;
+  line-height:1!important;
+}
+#cloudModal .member-role-field-v410 select{margin:0!important;padding:0 32px 0 11px!important;border-radius:11px!important;font-size:13px!important}
+#cloudModal .member-save-v410,#cloudModal .member-remove-v410{display:flex;align-items:center;justify-content:center;padding:0 13px!important;border-radius:11px!important;line-height:1!important}
+.member-role-field-v410{gap:5px!important}
+
+/* Compact top metrics: preserve readability while giving back vertical space. */
+.summary-grid.summary-grid-v332{gap:8px!important}
+.summary-grid-v332 .metric{
+  min-height:66px!important;
+  padding:8px 12px!important;
+  border-radius:12px!important;
+}
+.summary-grid-v332 .metric strong{font-size:20px!important;line-height:1.1!important}
+.summary-grid-v332 .metric span{margin-top:4px;font-size:12px!important;line-height:1.25!important}
+.summary-grid-v332 .metric:has(#storageUsage) strong{font-size:18px!important}
+
+/* Comparison entry: warmer accent, stronger frame, taller target, and clean clipped corners. */
+.comparison-panel-v332{
+  margin:13px 0 0!important;
+  overflow:clip!important;
+  isolation:isolate;
+  border:2px solid #d8b860!important;
+  border-radius:18px!important;
+  background:#fffaf0!important;
+  box-shadow:0 10px 26px rgba(111,83,18,.09),0 2px 7px rgba(24,79,58,.035)!important;
+}
+.comparison-panel-v332>summary{
+  min-height:80px!important;
+  padding:16px 18px!important;
+  border-radius:16px!important;
+  background:linear-gradient(180deg,#fffaf0,#fff3d6)!important;
+  background-clip:padding-box!important;
+}
+.comparison-panel-v332>summary:hover{background:linear-gradient(180deg,#fff7e8,#ffefc8)!important}
+.comparison-panel-v332[open]>summary{
+  border-bottom:1px solid #e1c982!important;
+  border-radius:16px 16px 0 0!important;
+  background:linear-gradient(180deg,#fff8e8,#ffedc0)!important;
+}
+.comparison-summary-copy strong{font-size:17px!important;color:#174f3a!important}
+.comparison-summary-copy small{color:#725f32!important;font-size:12px!important}
+.comparison-count-v332{min-height:33px!important;border-color:#d8bf78!important;background:rgba(255,255,255,.86)!important;color:#5f4b17!important}
+.comparison-chevron-v332{border-color:#6a541d!important}
+
+@media(max-width:760px){
+  .collaboration-accordion-trigger-v411{grid-template-columns:minmax(0,1fr) auto 16px;gap:10px;padding:13px 14px}
+  .collaboration-accordion-copy-v411 strong{font-size:17px}
+  .summary-grid-v332 .metric{min-height:62px!important;padding:8px 10px!important}
+  .summary-grid-v332 .metric strong{font-size:19px!important}
+}
+
+@media(max-width:650px){
+  .collaboration-accordion-trigger-v411{grid-template-columns:minmax(0,1fr) 16px}
+  .collaboration-accordion-count-v411{grid-column:1/-1;grid-row:2;justify-self:start;min-height:26px}
+  .collaboration-accordion-chevron-v411{grid-column:2;grid-row:1}
+  .collaboration-accordion-v411 .invite-history-v408{padding:11px}
+  #cloudModal .member-role-field-v410 .premium-select-trigger,#cloudModal .member-save-v410,#cloudModal .member-remove-v410{height:46px!important;min-height:46px!important;max-height:46px!important}
+  .comparison-panel-v332>summary{min-height:84px!important;padding:15px 14px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .collaboration-accordion-panel-v411,.collaboration-accordion-chevron-v411{transition:none}
+}
