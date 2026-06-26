@@ -29,14 +29,14 @@ function bogatkaClearPendingInvite(){
   const url=new URL(location.href);
   url.searchParams.delete('invite');
   url.searchParams.delete('email');
-  url.searchParams.set('v','408');
+  url.searchParams.set('v','409');
   history.replaceState(null,'',url.pathname+url.search+url.hash);
 }
 
 function bogatkaInviteRedirectUrl(){
   const invite=bogatkaPendingInvite();
   const url=new URL(location.origin+location.pathname);
-  url.searchParams.set('v','408');
+  url.searchParams.set('v','409');
   url.searchParams.set('auth','confirmed');
   if(invite){
     url.searchParams.set('invite',invite.token);
