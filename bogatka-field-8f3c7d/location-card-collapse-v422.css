@@ -1,0 +1,163 @@
+/* Bogatka 4.2.2 — compact whole-location cards and aligned header metrics */
+
+.location-head-side-v422{
+  position:relative;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(78px,88px)) 34px;
+  grid-template-rows:auto auto;
+  align-items:stretch;
+  justify-content:end;
+  gap:8px;
+  flex:0 0 auto;
+  min-width:0;
+}
+
+.location-head-side-v422>.scorebox{
+  grid-column:1;
+  grid-row:1;
+}
+
+.location-head-side-v422>.decision-head-v340{
+  display:contents!important;
+  width:auto!important;
+}
+
+.location-head-side-v422 .decision-score-v340{
+  grid-column:2;
+  grid-row:1;
+}
+
+.location-head-side-v422 .decision-complete-v340{
+  grid-column:3;
+  grid-row:1;
+}
+
+.location-head-side-v422 .decision-recommendation-v340{
+  grid-column:1/4;
+  grid-row:2;
+}
+
+.location-head-side-v422>.scorebox,
+.location-head-side-v422 .decision-score-v340,
+.location-head-side-v422 .decision-complete-v340{
+  width:100%;
+  min-width:0!important;
+  height:88px;
+  min-height:88px!important;
+  margin:0;
+  padding:8px!important;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+
+.location-head-side-v422>.scorebox strong,
+.location-head-side-v422 .decision-score-v340 strong,
+.location-head-side-v422 .decision-complete-v340 strong{
+  display:block;
+  margin:0;
+  color:#174f3a;
+  font-size:23px!important;
+  font-weight:800;
+  line-height:1.05!important;
+}
+
+.location-head-side-v422>.scorebox small,
+.location-head-side-v422 .decision-score-v340 small,
+.location-head-side-v422 .decision-score-v340 span,
+.location-head-side-v422 .decision-complete-v340 span{
+  display:block;
+  margin:3px 0 0;
+  color:#718078;
+  font-size:10px!important;
+  line-height:1.2;
+}
+
+.location-head-side-v422 .decision-recommendation-v340{
+  min-height:31px;
+  margin:0;
+}
+
+.location-collapse-toggle-v422{
+  grid-column:4;
+  grid-row:1/3;
+  align-self:start;
+  justify-self:center;
+  width:34px;
+  height:34px;
+  margin:4px 0 0;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:#174f3a;
+  cursor:pointer;
+}
+
+.location-collapse-toggle-v422:hover{
+  background:#eef6f1;
+}
+
+.location-collapse-toggle-v422:focus-visible{
+  outline:3px solid rgba(23,79,58,.18);
+  outline-offset:2px;
+}
+
+.location-collapse-chevron-v422{
+  width:11px;
+  height:11px;
+  display:block;
+  box-sizing:border-box;
+  border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;
+  transform:rotate(225deg) translate(-2px,-2px);
+  transform-origin:center;
+  transition:transform .18s ease;
+}
+
+.location-card-collapsed-v422 .location-collapse-chevron-v422{
+  transform:rotate(45deg) translateY(-3px);
+}
+
+.location-card-collapsed-v422>.location-body{
+  display:none!important;
+}
+
+@media(max-width:900px){
+  .location-head-side-v422{
+    width:100%;
+    grid-template-columns:repeat(3,minmax(0,1fr)) 34px;
+    justify-content:stretch;
+  }
+}
+
+@media(max-width:650px){
+  .location-head-side-v422{
+    gap:7px;
+  }
+  .location-head-side-v422>.scorebox,
+  .location-head-side-v422 .decision-score-v340,
+  .location-head-side-v422 .decision-complete-v340{
+    height:80px;
+    min-height:80px!important;
+  }
+  .location-head-side-v422>.scorebox strong,
+  .location-head-side-v422 .decision-score-v340 strong,
+  .location-head-side-v422 .decision-complete-v340 strong{
+    font-size:21px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .location-collapse-chevron-v422{transition:none}
+}
+
+@media print{
+  .location-collapse-toggle-v422{display:none!important}
+  .location-card-collapsed-v422>.location-body{display:block!important}
+}
