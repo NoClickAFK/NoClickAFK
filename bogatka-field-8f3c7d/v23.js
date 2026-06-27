@@ -100,6 +100,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./object-type-normalize-v416.js'});
   loadBogatkaPatch('script',{src:'./location-profile-v416.js'});
   loadBogatkaPatch('script',{src:'./location-overview-v417.js?v=418'});
+  loadBogatkaPatch('script',{src:'./location-overview-guard-v418.js?v=418'});
   loadBogatkaPatch('script',{src:'./location-overview-init-v417.js?v=418'});
 
   document.addEventListener('keydown',event=>{
