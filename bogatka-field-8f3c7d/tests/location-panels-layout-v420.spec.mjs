@@ -24,12 +24,13 @@ test('location panel header matches the comparison accordion visual pattern',asy
   const card=page.locator('[data-location-card]').first();
   const panel=card.locator('.inspection-card-v416');
   const toggle=panel.locator(':scope > .panel-toggle-v419');
-  const chevron=toggle.locator('.panel-chevron-v419');
   const comparison=page.locator('#locationComparisonPanel');
   const comparisonSummary=comparison.locator(':scope > summary');
 
   await setPanel(page,'.inspection-card-v416',false);
   if(await comparison.evaluate(element=>element.open))await comparisonSummary.click();
+  await page.mouse.move(1,1);
+  await page.waitForTimeout(80);
 
   const styles=await page.evaluate(()=>{
     const panel=document.querySelector('[data-location-card] .inspection-card-v416');
