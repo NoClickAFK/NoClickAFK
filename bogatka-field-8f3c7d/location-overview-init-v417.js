@@ -6,6 +6,7 @@
     scheduled=false;
     try{
       await window.BogatkaLocationOverviewV417?.enhanceAll?.();
+      await window.BogatkaWorkflowV414?.enhanceAll?.();
     }catch(error){
       console.error(error);
     }
