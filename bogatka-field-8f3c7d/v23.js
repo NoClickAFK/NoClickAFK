@@ -49,6 +49,8 @@ function installSyncIntegrityGate(){
 
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
+  const requestedVersion=Number(new URLSearchParams(location.search).get('v')||0);
+  if(requestedVersion>0&&requestedVersion<418)document.documentElement.classList.add('bogatka-legacy-expanded-v418');
   const versionLabel=document.getElementById('versionLabel');
   if(versionLabel)versionLabel.textContent='4.1.8';
   const accessButton=document.getElementById('shareAccessBtn');
