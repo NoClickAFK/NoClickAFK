@@ -25,8 +25,8 @@ const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks).filter(file=>file!=='decision-ui-v340.js'))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v414'"))errors.push('Service Worker cache version is not v414');
-for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
+if(!sw.includes("CACHE_NAME='bogatka-location-v419'"))errors.push('Service Worker cache version is not v419');
+for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css','./location-panels-v419.js','./location-panels-v419.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
 
 const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
 for(const marker of [
@@ -99,12 +99,23 @@ else{
   for(const marker of ['.score-label-v414','.structured-notes-v414','.task-field-v414','.history-pagination-v414','.premium-select-option.selected'])if(!workflowCss.includes(marker))errors.push(`workflow-v414.css missing ${marker}`);
 }
 
+const panelsJsPath=path.join(root,'location-panels-v419.js');
+if(!fs.existsSync(panelsJsPath))errors.push('Missing location-panels-v419.js');
+else{
+  const panelsJs=fs.readFileSync(panelsJsPath,'utf8');
+  for(const marker of ["VERSION='4.1.9'",'INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','BogatkaLocationPanelsV419'])if(!panelsJs.includes(marker))errors.push(`location-panels-v419.js missing ${marker}`);
+  if(panelsJs.includes('if(wrapper)wrapper.remove();'))errors.push('Location panel must hide compatibility fields instead of removing them');
+}
+const panelsCssPath=path.join(root,'location-panels-v419.css');
+if(!fs.existsSync(panelsCssPath))errors.push('Missing location-panels-v419.css');
+else if(!fs.readFileSync(panelsCssPath,'utf8').includes('.panel-hidden-v419'))errors.push('location-panels-v419.css missing compatibility hiding rule');
+
 const inviteModule=fs.readFileSync(path.join(root,'invites-v408.js'),'utf8');
 for(const marker of ['Пригласить участника','one-email-one-personal-link','bogatka:invite-accepted',"version:'4.1.0'"])if(!inviteModule.includes(marker))errors.push(`invites-v408.js missing ${marker}`);
 if(inviteModule.includes('new MutationObserver'))errors.push('Invite toolbar module must not install a global DOM observer');
 
 const loader=fs.readFileSync(path.join(root,'v23.js'),'utf8');
-for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'","href:'./decision-panel-v412.css'","src:'./decision-panel-v412.js'","href:'./workflow-v414.css'","src:'./workflow-v414.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
+for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'","href:'./decision-panel-v412.css'","src:'./decision-panel-v412.js'","href:'./workflow-v414.css'","src:'./workflow-v414.js'","href:'./location-panels-v419.css'","src:'./location-panels-v419.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
 for(const marker of ["'./sync-merge-v412.js'","'./sync-state-v412.js'","'./sync-runtime-v412.js'"])if(!backup.includes(marker))errors.push(`backup-v400.js missing ${marker}`);
 
 const secureMigrationPath=path.resolve('supabase/migrations/20260626000200_secure_personal_invites_v408.sql');
