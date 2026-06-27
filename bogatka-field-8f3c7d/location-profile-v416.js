@@ -47,7 +47,21 @@
     control.addEventListener(eventName,()=>{
       showSaving();
       clearTimeout(control._profileSaveTimerV416);
-      control._profileSaveTimerV416=setTimeout(()=>saveField(control).catch(showError),250);
+      const revision=Number(control.dataset.profileRevisionV416||0)+1;
+      control.dataset.profileRevisionV416=String(revision);
+      control.dataset.profileDirtyV416='1';
+      control._profileSaveTimerV416=setTimeout(async()=>{
+        try{
+          await saveField(control);
+        }catch(error){
+          showError(error);
+        }finally{
+          if(control.dataset.profileRevisionV416===String(revision)){
+            delete control.dataset.profileDirtyV416;
+            control._profileSaveTimerV416=null;
+          }
+        }
+      },250);
     });
   }
 
@@ -73,13 +87,19 @@
 
   function syncPremium(select){
     const trigger=select?.nextElementSibling;
-    if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
-    else window.BogatkaSelectSync?.syncVisibleSelect?.(select);
+    if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
+    else if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
+      bogatkaSyncPremiumSelect(select,trigger);
+      trigger.dataset.syncedValue=select.value;
+    }
   }
 
   function ensureObjectType(locationId,select){
-    const street=[...select.options].find(option=>option.value==='Стрит-ритейл'||option.textContent.trim()==='Стрит-ритейл');
-    if(street&&street.textContent!==FRIENDLY_STREET)street.textContent=FRIENDLY_STREET;
+    const street=[...select.options].find(option=>option.value==='Стрит-ритейл'||option.textContent.trim()==='Стрит-ритейл'||option.textContent.trim()===FRIENDLY_STREET);
+    if(street){
+      street.value='Стрит-ритейл';
+      if(street.textContent!==FRIENDLY_STREET)street.textContent=FRIENDLY_STREET;
+    }
     select.setAttribute('aria-label','Тип объекта');
     syncPremium(select);
 
@@ -129,7 +149,7 @@
     const id=card.dataset.locationCard;
     const data=await getLocationData(id);
     card.querySelectorAll('[data-profile-v416][data-field]').forEach(control=>{
-      if(control===document.activeElement)return;
+      if(control===document.activeElement||control.dataset.profileDirtyV416==='1')return;
       const value=getNested(data,control.dataset.field);
       const next=value===undefined||value===null?'':String(value);
       if(control.value!==next)control.value=next;
