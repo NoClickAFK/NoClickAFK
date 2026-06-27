@@ -33,10 +33,16 @@
         return option.value==='Стрит-ритейл'||text==='Стрит-ритейл'||text===FRIENDLY_STREET;
       });
       if(!street)return;
-      if(street.value!=='Стрит-ритейл')street.value='Стрит-ритейл';
-      if(street.textContent!==FRIENDLY_STREET)street.textContent=FRIENDLY_STREET;
+      let changed=false;
+      if(street.value!=='Стрит-ритейл'){street.value='Стрит-ритейл';changed=true}
+      if(street.textContent!==FRIENDLY_STREET){street.textContent=FRIENDLY_STREET;changed=true}
       const trigger=select.nextElementSibling;
-      if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+      const triggerLabel=trigger?.querySelector?.('.premium-select-value');
+      const selectedText=select.selectedOptions?.[0]?.textContent||'';
+      const needsVisibleSync=trigger?.classList.contains('premium-select-trigger')&&(
+        changed||trigger.dataset.syncedValue!==select.value||triggerLabel?.textContent!==selectedText
+      );
+      if(needsVisibleSync&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
     });
   }
 
