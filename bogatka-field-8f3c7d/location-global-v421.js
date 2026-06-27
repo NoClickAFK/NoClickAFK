@@ -42,13 +42,14 @@
 
   function syncPremium(select){
     if(!select||select.tagName!=='SELECT')return;
+    const trigger=select.nextElementSibling;
+    const selectedText=select.selectedOptions?.[0]?.textContent||'';
+    const valueNode=trigger?.classList?.contains('premium-select-trigger')?trigger.querySelector('.premium-select-value'):null;
+    if(trigger?.dataset.syncedValue===select.value&&valueNode?.textContent===selectedText)return;
     if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-    else{
-      const trigger=select.nextElementSibling;
-      if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
-        bogatkaSyncPremiumSelect(select,trigger);
-        trigger.dataset.syncedValue=select.value;
-      }
+    else if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
+      bogatkaSyncPremiumSelect(select,trigger);
+      trigger.dataset.syncedValue=select.value;
     }
   }
 
@@ -123,7 +124,7 @@
       caption.className='profile-caption-v416';
       wrapper.prepend(caption);
     }
-    caption.textContent=text;
+    if(caption.textContent!==text)caption.textContent=text;
   }
 
   function ensureField(card,grid,field,label,options){
@@ -151,10 +152,11 @@
   function applyVisualOrder(grid,card){
     ORDER.forEach((field,index)=>{
       const wrapper=wrapperOf(controlOf(card,field));
-      if(wrapper)wrapper.style.order=String((index+1)*10);
+      const order=String((index+1)*10);
+      if(wrapper&&wrapper.style.order!==order)wrapper.style.order=order;
     });
     const note=grid.querySelector('.inspection-note-v416');
-    if(note)note.style.order='999';
+    if(note&&note.style.order!=='999')note.style.order='999';
   }
 
   function syncPairState(card){
