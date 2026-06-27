@@ -82,7 +82,7 @@ const panelsJsPath=path.join(root,'location-panels-v419.js');
 if(!fs.existsSync(panelsJsPath))errors.push('Missing location-panels-v419.js');
 else{
   const panelsJs=fs.readFileSync(panelsJsPath,'utf8');
-  for(const marker of ["VERSION='4.1.9'",'INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','BogatkaLocationPanelsV419'])if(!panelsJs.includes(marker))errors.push(`location-panels-v419.js missing ${marker}`);
+  for(const marker of ["VERSION='4.2.1'",'INSPECTION_HIDE','premiseAvailability','landlordReadiness','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','BogatkaLocationPanelsV419'])if(!panelsJs.includes(marker))errors.push(`location-panels-v419.js missing ${marker}`);
   if(panelsJs.includes('if(wrapper)wrapper.remove();'))errors.push('Location panel must hide compatibility fields instead of removing them');
 }
 const panelsCssPath=path.join(root,'location-panels-v419.css');
@@ -102,7 +102,7 @@ const globalCssPath=path.join(root,'location-global-v421.css');
 if(!fs.existsSync(globalCssPath))errors.push('Missing location-global-v421.css');
 else{
   const globalCss=fs.readFileSync(globalCssPath,'utf8');
-  for(const marker of ['gap:6px!important','margin-top:0!important','.panels-both-open-v421','height:100%!important'])if(!globalCss.includes(marker))errors.push(`location-global-v421.css missing ${marker}`);
+  for(const marker of ['gap:6px!important','margin-top:0!important','.panels-both-open-v421','align-self:stretch!important','height:100%!important'])if(!globalCss.includes(marker))errors.push(`location-global-v421.css missing ${marker}`);
 }
 
 const objectNormalizePath=path.join(root,'object-type-normalize-v416.js');
