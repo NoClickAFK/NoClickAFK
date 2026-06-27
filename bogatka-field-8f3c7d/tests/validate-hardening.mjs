@@ -23,12 +23,12 @@ for(const [file,markers] of Object.entries(checks)){
 }
 const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks).filter(file=>file!=='decision-ui-v340.js'))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
-if(!backup.includes("'./location-global-v421.js'"))errors.push('backup-v400.js does not load location-global-v421.js');
+for(const marker of ["'./location-global-v421.js'","'./location-card-collapse-v422.js'"])if(!backup.includes(marker))errors.push(`backup-v400.js missing ${marker}`);
 
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v421'"))errors.push('Service Worker cache version is not v421');
-for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css','./location-panels-v419.js','./location-panels-v419.css','./location-global-v421.js','./location-global-v421.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
+if(!sw.includes("CACHE_NAME='bogatka-location-v422'"))errors.push('Service Worker cache version is not v422');
+for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css','./location-panels-v419.js','./location-panels-v419.css','./location-global-v421.js','./location-global-v421.css','./location-card-collapse-v422.js','./location-card-collapse-v422.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
 
 const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
 for(const marker of ['bogatkaPendingInvite','emailRedirectTo:bogatkaInviteRedirectUrl()','bogatkaClearPendingInvite','invite.email','accept_bogatka_project_invite','p_token:invite.token',"url.searchParams.set('v','410')",'bogatkaInviteAcceptancePromise','bogatkaOpenInviteAuth','bogatkaScheduleInviteAuth',"?'login':'signup'"])if(!auth.includes(marker))errors.push(`auth-signup-fix-v31.js missing ${marker}`);
@@ -105,6 +105,19 @@ else{
   for(const marker of ['gap:6px!important','margin-top:0!important','.panels-both-open-v421','align-self:stretch!important','height:100%!important'])if(!globalCss.includes(marker))errors.push(`location-global-v421.css missing ${marker}`);
 }
 
+const collapseJsPath=path.join(root,'location-card-collapse-v422.js');
+if(!fs.existsSync(collapseJsPath))errors.push('Missing location-card-collapse-v422.js');
+else{
+  const collapseJs=fs.readFileSync(collapseJsPath,'utf8');
+  for(const marker of ["VERSION='4.2.2'",'STORAGE_PREFIX','location-card-collapsed-v422','location-head-side-v422','setCollapsed','BogatkaLocationCardCollapseV422'])if(!collapseJs.includes(marker))errors.push(`location-card-collapse-v422.js missing ${marker}`);
+}
+const collapseCssPath=path.join(root,'location-card-collapse-v422.css');
+if(!fs.existsSync(collapseCssPath))errors.push('Missing location-card-collapse-v422.css');
+else{
+  const collapseCss=fs.readFileSync(collapseCssPath,'utf8');
+  for(const marker of ['repeat(3,minmax(78px,88px)) 34px','height:88px','font-size:23px!important','.location-card-collapsed-v422>.location-body','.location-collapse-chevron-v422'])if(!collapseCss.includes(marker))errors.push(`location-card-collapse-v422.css missing ${marker}`);
+}
+
 const objectNormalizePath=path.join(root,'object-type-normalize-v416.js');
 if(!fs.existsSync(objectNormalizePath))errors.push('Missing object-type-normalize-v416.js');
 else{
@@ -117,8 +130,7 @@ for(const marker of ['Пригласить участника','one-email-one-pe
 if(inviteModule.includes('new MutationObserver'))errors.push('Invite toolbar module must not install a global DOM observer');
 
 const loader=fs.readFileSync(path.join(root,'v23.js'),'utf8');
-for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'","href:'./decision-panel-v412.css'","src:'./decision-panel-v412.js'","href:'./workflow-v414.css'","src:'./workflow-v414.js'","href:'./location-panels-v419.css'","src:'./location-panels-v419.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
-for(const marker of ["'./sync-merge-v412.js'","'./sync-state-v412.js'","'./sync-runtime-v412.js'","'./location-global-v421.js'"])if(!backup.includes(marker))errors.push(`backup-v400.js missing ${marker}`);
+for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'","href:'./decision-panel-v412.css'","src:'./decision-panel-v412.js'","href:'./workflow-v414.css'","src:'./workflow-v414.js'","href:'./location-panels-v419.css'","src:'./location-panels-v419.js'","href:'./location-card-collapse-v422.css'","src:'./location-card-collapse-v422.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
 
 for(const migrationPath of [
   'supabase/migrations/20260626000200_secure_personal_invites_v408.sql',
