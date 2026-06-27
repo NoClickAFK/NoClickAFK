@@ -6,7 +6,7 @@ const FRIENDLY_STREET='Магазин с отдельным входом с ул
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaLocationProfileV416?.ready&&window.BogatkaSyncFieldCompatV416?.ready);
+  await page.waitForFunction(()=>window.BogatkaLocationProfileV416?.ready&&window.BogatkaSyncFieldCompatV416?.ready&&window.BogatkaFieldIntegrityV416?.ready&&window.BogatkaObjectTypeNormalizeV416?.ready);
   await page.waitForFunction(()=>document.querySelector('[data-location-card] .location-overview-v416'));
 }
 
@@ -16,6 +16,7 @@ test('location profile renders friendly object type and all structured fields',a
   await expect(card.locator('.inspection-card-v416')).toBeVisible();
   await expect(card.locator('.landlord-card-v416')).toBeVisible();
   await expect(card.locator('[data-field="objectType"] option')).toContainText(['Не выбран','Торговый центр',FRIENDLY_STREET,'Первый этаж жилого дома','Рынок / павильон','Отдельное здание','Другое']);
+  await expect(card.locator('[data-field="objectType"] option').nth(2)).toHaveAttribute('value','Стрит-ритейл');
 
   const audit=await page.evaluate(()=>window.BogatkaLocationProfileV416.audit());
   expect(audit.ok).toBe(true);
@@ -39,7 +40,7 @@ test('top location fields persist together and restore after a full rerender',as
   await card.locator('[data-field="contactMessenger"]').fill('Telegram @anton');
   await card.locator('[data-field="rentConditions"]').fill('Депозит один месяц, каникулы 30 дней');
   await card.locator('[data-field="contactNotes"]').fill('Связываться после 10:00');
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(1400);
 
   const saved=await page.evaluate(async locationId=>getLocationData(locationId),id);
   expect(saved).toMatchObject({
@@ -66,18 +67,34 @@ test('other object type exposes a dedicated synchronized description field',asyn
   const custom=card.locator('[data-field="objectTypeOther"]');
   await expect(custom).toBeVisible();
   await custom.fill('Помещение при автозаправочной станции');
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(900);
   const saved=await page.evaluate(async locationId=>getLocationData(locationId),id);
   expect(saved.objectType).toBe('Другое');
   expect(saved.objectTypeOther).toBe('Помещение при автозаправочной станции');
 });
 
-test('remote row columns restore status and object type when form_data omits them',async({page})=>{
+test('remote row columns restore canonical status and object type',async({page})=>{
   await openApp(page);
   const result=await page.evaluate(()=>window.BogatkaSyncFieldCompatV416.hydrateRow({
-    id:'remote-row',status:'Осмотрена',object_type:'Стрит-ритейл',form_data:{date:'2026-06-27',rent:'1200'},
+    id:'remote-row',status:'Осмотрена',object_type:'Магазин с отдельным входом с улицы',form_data:{date:'2026-06-27',rent:'1200',objectType:'Street retail'},
   }));
-  expect(result.form_data).toEqual({date:'2026-06-27',rent:'1200',status:'Осмотрена',objectType:'Стрит-ритейл'});
+  expect(result.object_type).toBe('Стрит-ритейл');
+  expect(result.form_data).toEqual({date:'2026-06-27',rent:'1200',objectType:'Стрит-ритейл',status:'Осмотрена'});
+});
+
+test('legacy local object type is repaired without losing its selection',async({page})=>{
+  await openApp(page);
+  const card=page.locator('[data-location-card]').first();
+  const id=await card.getAttribute('data-location-card');
+  await page.evaluate(async locationId=>{
+    const data=await getLocationData(locationId);
+    data.objectType='Магазин с отдельным входом с улицы';
+    await idbPut(STORE,data,'location:'+locationId);
+    await window.BogatkaObjectTypeNormalizeV416.repair();
+  },id);
+  await expect(card.locator('[data-field="objectType"]')).toHaveValue('Стрит-ритейл');
+  const saved=await page.evaluate(async locationId=>getLocationData(locationId),id);
+  expect(saved.objectType).toBe('Стрит-ритейл');
 });
 
 test('new location modal creates a complete profile card',async({page})=>{
@@ -105,7 +122,7 @@ test('generated report uses friendly object type and structured landlord details
   await card.locator('[data-field="objectType"]').selectOption('Стрит-ритейл');
   await card.locator('[data-field="ownerName"]').fill('ООО Отчёт');
   await card.locator('[data-field="contactPhone"]').fill('+375 29 555-55-55');
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(900);
   const html=await page.evaluate(()=>buildReportHtml());
   expect(html).toContain(FRIENDLY_STREET);
   expect(html).toContain('ООО Отчёт');
