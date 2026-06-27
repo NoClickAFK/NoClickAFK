@@ -1,0 +1,44 @@
+/* Bogatka 4.1.7 — inspection overview and consistent contact spacing */
+
+.inspection-card-v416,
+.landlord-card-v416{
+  height:100%;
+}
+
+.inspection-grid-v416 .overview-field-v417{
+  min-width:0;
+  margin:0;
+}
+
+.inspection-grid-v416 .overview-field-v417 input,
+.inspection-grid-v416 .overview-field-v417 textarea,
+.inspection-grid-v416 .overview-field-v417 select,
+.inspection-grid-v416 .overview-field-v417 .premium-select-trigger{
+  width:100%;
+  box-sizing:border-box;
+}
+
+.inspection-grid-v416 .overview-field-v417 textarea{
+  min-height:78px;
+  padding:10px 12px;
+  border-radius:12px;
+  line-height:1.45;
+  resize:vertical;
+}
+
+.inspection-action-v417{
+  grid-column:1/-1;
+}
+
+.landlord-grid-v416 input[type="tel"],
+.landlord-grid-v416 input[type="email"]{
+  padding-left:12px!important;
+  padding-right:12px!important;
+  box-sizing:border-box;
+}
+
+@media(max-width:700px){
+  .inspection-action-v417{
+    grid-column:auto;
+  }
+}
