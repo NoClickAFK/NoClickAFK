@@ -15,24 +15,42 @@
     document.querySelectorAll('input[data-location][data-field="contact"]').forEach(input=>input.placeholder='Имя и должность');
   }
 
+  function syncVisible(select){
+    if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
+    else{
+      const trigger=select.nextElementSibling;
+      if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
+        bogatkaSyncPremiumSelect(select,trigger);
+        trigger.dataset.syncedValue=select.value;
+      }
+    }
+  }
+
   async function repair(){
     polishProfileInputs();
     if(typeof getLocationData!=='function'||typeof idbPut!=='function'||typeof STORE==='undefined')return;
     for(const select of document.querySelectorAll('select[data-location][data-field="objectType"]')){
       const id=select.dataset.location;
-      if(!id||running.has(id)||document.activeElement===select)continue;
+      if(!id||running.has(id)||document.activeElement===select||select.dataset.profileDirtyV416==='1')continue;
       running.add(id);
       try{
         const data=await getLocationData(id);
-        const canonical=normalize(data.objectType);
-        if(data.objectType&&canonical&&data.objectType!==canonical){
+        const stored=data.objectType;
+        const canonical=normalize(stored);
+        const repaired=Boolean(stored&&canonical&&stored!==canonical);
+        if(repaired){
           data.objectType=canonical;
           data.updatedAt=new Date().toISOString();
           await idbPut(STORE,data,'location:'+id);
         }
-        if(canonical&&select.value!==canonical){
+
+        const current=select.value;
+        const currentIsEmpty=!current;
+        const currentIsLegacy=current===stored&&repaired;
+        if(canonical&&(currentIsEmpty||currentIsLegacy)){
           select.value=canonical;
-          window.BogatkaSelectSync?.syncVisibleSelect?.(select);
+          syncVisible(select);
+          select.dispatchEvent(new CustomEvent('bogatka:object-type-restored',{bubbles:true,detail:{value:canonical}}));
         }
       }catch(error){console.warn('Не удалось нормализовать тип объекта',error)}
       finally{running.delete(id)}
@@ -41,7 +59,7 @@
 
   function schedule(){
     clearTimeout(timer);
-    timer=setTimeout(()=>repair().catch(console.error),20);
+    timer=setTimeout(()=>repair().catch(console.error),60);
   }
 
   function install(){
@@ -52,5 +70,5 @@
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
-  window.BogatkaObjectTypeNormalizeV416={version:'4.1.6',ready:true,normalize,repair,polishProfileInputs};
+  window.BogatkaObjectTypeNormalizeV416={version:'4.1.7',ready:true,normalize,repair,polishProfileInputs};
 })();
