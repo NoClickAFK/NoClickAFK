@@ -19,8 +19,8 @@
 
   function scheduleRefresh(){
     const revision=++refreshRevision;
-    setTimeout(()=>refreshAfterRender(revision),80);
-    setTimeout(()=>refreshAfterRender(revision),420);
+    setTimeout(()=>refreshAfterRender(revision),900);
+    setTimeout(()=>refreshAfterRender(revision),1600);
   }
 
   function installRenderHook(){
