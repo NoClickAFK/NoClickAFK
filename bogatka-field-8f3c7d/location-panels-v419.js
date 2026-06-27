@@ -17,6 +17,13 @@
     return section?.dataset.panelOpenV419!=='0';
   }
 
+  function isEditing(){
+    if(window.BogatkaUIStability?.isEditing?.())return true;
+    const active=document.activeElement;
+    const root=document.getElementById('locations');
+    return Boolean(active&&root?.contains(active)&&active.matches?.('input,textarea,select,[contenteditable="true"]'));
+  }
+
   function controlOfField(card,field){
     return card.querySelector(`[data-field="${field}"]`);
   }
@@ -311,11 +318,16 @@
     try{buildReportHtml=wrapped}catch(_){}
   }
 
-  async function enhanceAll(){
+  async function enhanceAll(options={}){
+    if(!options.force&&isEditing()){
+      schedule(350);
+      return false;
+    }
     const labels=window.BogatkaWorkflowV414?.FIELD_LABELS;
     if(labels)Object.assign(labels,FIELD_LABELS);
     addReportPatch();
     for(const card of document.querySelectorAll('[data-location-card]'))await enhanceCard(card);
+    return true;
   }
 
   function schedule(delay=80){
