@@ -27,6 +27,11 @@
     }
   }
 
+  function previousVisibleValue(select){
+    const trigger=select.nextElementSibling;
+    return select.dataset.objectTypeLastValueV421||trigger?.dataset?.syncedValue||'';
+  }
+
   async function persistIntentionalEmpty(select,revision){
     const id=select.dataset.location;
     try{
@@ -37,6 +42,7 @@
         data.updatedAt=new Date().toISOString();
         await idbPut(STORE,data,'location:'+id);
       }
+      select.dataset.objectTypeLastValueV421='';
     }catch(error){
       if(typeof showError==='function')showError(error);
       else console.error(error);
@@ -54,13 +60,16 @@
   function handleObjectTypeChange(select){
     const id=select?.dataset.location;
     if(!id)return;
+    const previous=previousVisibleValue(select);
     const revision=Number(select.dataset.objectTypeResetRevisionV421||0)+1;
     select.dataset.objectTypeResetRevisionV421=String(revision);
     if(select.value!==''){
+      select.dataset.objectTypeLastValueV421=select.value;
       pendingEmptyResets.delete(id);
       delete select.dataset.objectTypeResetPendingV421;
       return;
     }
+    if(!previous)return;
     pendingEmptyResets.add(id);
     select.dataset.objectTypeResetPendingV421='1';
     select.dataset.profileDirtyV416='1';
@@ -91,8 +100,13 @@
         const currentIsLegacy=current===stored&&repaired;
         if(canonical&&(currentIsEmpty||currentIsLegacy)){
           select.value=canonical;
+          select.dataset.objectTypeLastValueV421=canonical;
           syncVisible(select);
           select.dispatchEvent(new CustomEvent('bogatka:object-type-restored',{bubbles:true,detail:{value:canonical}}));
+        }else if(canonical){
+          select.dataset.objectTypeLastValueV421=canonical;
+        }else if(!stored){
+          select.dataset.objectTypeLastValueV421='';
         }
       }catch(error){console.warn('Не удалось нормализовать тип объекта',error)}
       finally{running.delete(id)}
