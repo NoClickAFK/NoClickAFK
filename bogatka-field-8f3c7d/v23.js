@@ -94,6 +94,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./score-guide-fix-v415.js'});
   loadBogatkaPatch('script',{src:'./sync-field-compat-v416.js'});
   loadBogatkaPatch('script',{src:'./field-integrity-v416.js'});
+  loadBogatkaPatch('script',{src:'./object-type-normalize-v416.js'});
   loadBogatkaPatch('script',{src:'./location-profile-v416.js'});
 
   document.addEventListener('keydown',event=>{
