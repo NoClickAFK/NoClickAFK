@@ -4,15 +4,13 @@ const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=422';
 
 async function openApp(page){
   await page.setViewportSize({width:1440,height:1000});
-  await page.addInitScript(()=>{
-    localStorage.setItem('bogatka_access_authorized_v1','1');
-    for(const key of Object.keys(localStorage)){
-      if(key.startsWith('bogatka.location.collapsed.v422.'))localStorage.removeItem(key);
-    }
-  });
+  await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>window.BogatkaLocationCardCollapseV422?.ready&&document.querySelectorAll('[data-location-card]').length>1);
-  await page.waitForFunction(()=>window.BogatkaLocationCardCollapseV422.audit().ok);
+  await page.waitForFunction(()=>{
+    const card=document.querySelector('[data-location-card]');
+    return Boolean(window.BogatkaLocationCardCollapseV422.audit().ok&&card?.querySelector('.location-collapse-toggle-v422')&&card?.querySelector('.decision-score-v340')&&card?.querySelector('.decision-complete-v340'));
+  });
 }
 
 test('whole location card collapses to its header and remembers state independently',async({page})=>{
@@ -38,7 +36,7 @@ test('whole location card collapses to its header and remembers state independen
   await expect(second.locator(':scope > .location-body')).toBeVisible();
 
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaLocationCardCollapseV422.audit().ok);
+  await page.waitForFunction(locationId=>Boolean(window.BogatkaLocationCardCollapseV422?.ready&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .location-collapse-toggle-v422`)),firstId);
   const reloaded=page.locator(`[data-location-card="${firstId}"]`);
   await expect(reloaded.locator('.location-collapse-toggle-v422')).toHaveAttribute('aria-expanded','false');
   await expect(reloaded.locator(':scope > .location-body')).toBeHidden();
@@ -81,11 +79,15 @@ test('collapse state survives full card rerender without changing saved form dat
   const floor=first.locator('[data-field="floorLocation"]');
   await floor.fill('1-й этаж, отдельный вход');
   await page.waitForTimeout(900);
+  await floor.blur();
   await first.locator('.location-collapse-toggle-v422').click();
   await expect(first.locator(':scope > .location-body')).toBeHidden();
 
   await page.evaluate(()=>renderLocations());
-  await page.waitForFunction(locationId=>Boolean(window.BogatkaLocationCardCollapseV422?.audit().ok&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .location-collapse-toggle-v422`)),id);
+  await page.waitForFunction(locationId=>{
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    return Boolean(card?.querySelector('.location-collapse-toggle-v422')&&card.classList.contains('location-card-collapsed-v422'));
+  },id);
 
   const rerendered=page.locator(`[data-location-card="${id}"]`);
   await expect(rerendered.locator(':scope > .location-body')).toBeHidden();
