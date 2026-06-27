@@ -1,0 +1,49 @@
+/* Bogatka 4.2.1 — aligned global inspection fields */
+
+.location-panels-v419 .inspection-grid-v416,
+.location-panels-v419 .landlord-grid-v416{
+  column-gap:14px!important;
+  row-gap:12px!important;
+  grid-auto-rows:max-content;
+}
+
+.location-panels-v419 label.field,
+.location-panels-v419 label.object-other{
+  display:flex!important;
+  flex-direction:column;
+  align-self:start;
+  gap:6px!important;
+  min-width:0;
+  margin:0!important;
+}
+
+.location-panels-v419 .profile-caption-v416{
+  display:flex!important;
+  align-items:flex-end;
+  min-height:16px;
+  margin:0!important;
+  line-height:16px!important;
+}
+
+.location-panels-v419 input,
+.location-panels-v419 textarea,
+.location-panels-v419 select,
+.location-panels-v419 .premium-select-trigger{
+  margin-top:0!important;
+}
+
+.location-panels-v419 .global-field-v421{
+  min-width:0;
+}
+
+@media(min-width:1200px){
+  .location-panels-v419.panels-both-open-v421{
+    align-items:stretch!important;
+  }
+
+  .location-panels-v419.panels-both-open-v421 .inspection-card-v416,
+  .location-panels-v419.panels-both-open-v421 .landlord-card-v416{
+    height:100%!important;
+    min-height:100%!important;
+  }
+}
