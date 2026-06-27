@@ -37,7 +37,7 @@
       caption.className='profile-caption-v416';
       label.prepend(caption);
     }
-    caption.textContent=text;
+    if(caption.textContent!==text)caption.textContent=text;
   }
 
   function bindField(control){
@@ -79,7 +79,7 @@
 
   function ensureObjectType(locationId,select){
     const street=[...select.options].find(option=>option.value==='Стрит-ритейл'||option.textContent.trim()==='Стрит-ритейл');
-    if(street)street.textContent=FRIENDLY_STREET;
+    if(street&&street.textContent!==FRIENDLY_STREET)street.textContent=FRIENDLY_STREET;
     select.setAttribute('aria-label','Тип объекта');
     syncPremium(select);
 
@@ -131,7 +131,8 @@
     card.querySelectorAll('[data-profile-v416][data-field]').forEach(control=>{
       if(control===document.activeElement)return;
       const value=getNested(data,control.dataset.field);
-      control.value=value===undefined||value===null?'':String(value);
+      const next=value===undefined||value===null?'':String(value);
+      if(control.value!==next)control.value=next;
     });
   }
 
@@ -139,6 +140,10 @@
     const locationId=card.dataset.locationCard;
     const body=card.querySelector(':scope > .location-body');
     if(!locationId||!body)return;
+    if(card.dataset.profileV416==='1'){
+      await restoreNewFields(card);
+      return;
+    }
 
     const status=body.querySelector('select[data-field="status"]');
     const objectType=body.querySelector('select[data-field="objectType"]');
