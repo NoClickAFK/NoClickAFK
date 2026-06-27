@@ -1,6 +1,5 @@
 (function(){
   if(window.BogatkaFieldIntegrityV416?.ready)return;
-
   const VERSION='4.1.6';
   const FRIENDLY_STREET='Магазин с отдельным входом с улицы';
   const queues=new Map();
@@ -26,6 +25,15 @@
     return true;
   }
 
+  function syncVisible(select,trigger){
+    if(window.BogatkaSelectSync?.syncVisibleSelect){
+      window.BogatkaSelectSync.syncVisibleSelect(select);
+    }else if(typeof bogatkaSyncPremiumSelect==='function'){
+      bogatkaSyncPremiumSelect(select,trigger);
+      trigger.dataset.syncedValue=select.value;
+    }
+  }
+
   function stabilizeObjectTypeOptions(root=document){
     root.querySelectorAll?.('select[data-field="objectType"]').forEach(select=>{
       const street=[...select.options].find(option=>{
@@ -37,49 +45,25 @@
       if(street.value!=='Стрит-ритейл'){street.value='Стрит-ритейл';changed=true}
       if(street.textContent!==FRIENDLY_STREET){street.textContent=FRIENDLY_STREET;changed=true}
       const trigger=select.nextElementSibling;
-      const triggerLabel=trigger?.querySelector?.('.premium-select-value');
+      const label=trigger?.querySelector?.('.premium-select-value');
       const selectedText=select.selectedOptions?.[0]?.textContent||'';
-      const needsVisibleSync=trigger?.classList.contains('premium-select-trigger')&&(
-        changed||trigger.dataset.syncedValue!==select.value||triggerLabel?.textContent!==selectedText
-      );
-      if(needsVisibleSync&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+      if(trigger?.classList.contains('premium-select-trigger')&&(changed||trigger.dataset.syncedValue!==select.value||label?.textContent!==selectedText))syncVisible(select,trigger);
     });
   }
 
-  function run(){
-    installSaveQueue();
-    stabilizeObjectTypeOptions();
-  }
-
+  function run(){installSaveQueue();stabilizeObjectTypeOptions()}
   function schedule(){
-    clearTimeout(timer);
-    timer=setTimeout(run,0);
+    if(timer)return;
+    timer=setTimeout(()=>{timer=null;run()},0);
   }
-
   function install(){
     run();
     const root=document.getElementById('locations')||document.body;
-    if(!observer){
-      observer=new MutationObserver(schedule);
-      observer.observe(root,{childList:true,subtree:true});
-    }
+    if(!observer){observer=new MutationObserver(schedule);observer.observe(root,{childList:true,subtree:true})}
     let attempts=0;
-    const retry=setInterval(()=>{
-      attempts+=1;
-      run();
-      if(saveField?.__fieldIntegrityV416||attempts>=80)clearInterval(retry);
-    },100);
+    const retry=setInterval(()=>{attempts+=1;run();if(saveField?.__fieldIntegrityV416||attempts>=80)clearInterval(retry)},100);
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
-  else install();
-
-  window.BogatkaFieldIntegrityV416={
-    version:VERSION,
-    ready:true,
-    installSaveQueue,
-    stabilizeObjectTypeOptions,
-    get pendingLocations(){return [...queues.keys()]},
-    principle:'one-location-one-ordered-save-queue',
-  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+  window.BogatkaFieldIntegrityV416={version:VERSION,ready:true,installSaveQueue,stabilizeObjectTypeOptions,get pendingLocations(){return [...queues.keys()]},principle:'one-location-one-ordered-save-queue'};
 })();
