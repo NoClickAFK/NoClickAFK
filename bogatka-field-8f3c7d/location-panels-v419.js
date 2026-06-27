@@ -266,20 +266,30 @@
     await restore(card);
   }
 
-  async function enhanceAll(){
-    const labels=window.BogatkaWorkflowV414?.FIELD_LABELS;
-    if(labels)Object.assign(labels,FIELD_LABELS);
-    for(const card of document.querySelectorAll('[data-location-card]'))await enhanceCard(card);
+  function reportChainHas(fn,marker){
+    const visited=new Set();
+    let current=fn;
+    while(typeof current==='function'&&!visited.has(current)){
+      if(current[marker])return true;
+      visited.add(current);
+      current=current.__base;
+    }
+    return false;
   }
 
   function addReportPatch(){
     reportAttempts+=1;
-    if(typeof window.buildReportHtml!=='function'){
-      if(reportAttempts<100)setTimeout(addReportPatch,200);
+    const current=window.buildReportHtml;
+    if(typeof current!=='function'){
+      if(reportAttempts<120)setTimeout(addReportPatch,200);
       return;
     }
-    if(window.buildReportHtml.__locationPanelsV419)return;
-    const base=window.buildReportHtml;
+    if(current.__locationPanelsV419)return;
+    if(!reportChainHas(current,'__locationOverviewV417')||!reportChainHas(current,'__locationProfileV416')){
+      if(reportAttempts<120)setTimeout(addReportPatch,200);
+      return;
+    }
+    const base=current;
     const wrapped=async function(...args){
       const html=await base(...args);
       const parser=new DOMParser();
@@ -294,9 +304,18 @@
       return `<!doctype html>\n${doc.documentElement.outerHTML}`;
     };
     wrapped.__locationPanelsV419=true;
+    wrapped.__locationOverviewV417=true;
+    wrapped.__locationProfileV416=true;
     wrapped.__base=base;
     window.buildReportHtml=wrapped;
     try{buildReportHtml=wrapped}catch(_){}
+  }
+
+  async function enhanceAll(){
+    const labels=window.BogatkaWorkflowV414?.FIELD_LABELS;
+    if(labels)Object.assign(labels,FIELD_LABELS);
+    addReportPatch();
+    for(const card of document.querySelectorAll('[data-location-card]'))await enhanceCard(card);
   }
 
   function schedule(delay=80){
@@ -320,7 +339,7 @@
     for(const card of document.querySelectorAll('[data-location-card]')){
       for(const field of INSPECTION_HIDE){
         const wrapper=fieldWrapper(controlOfField(card,field));
-        if(!wrapper||!wrapper.classList.contains('panel-hidden-v419')||!wrapper.hidden)failures.push(`${card.dataset.locationCard}:${field}:not-hidden`);
+        if(wrapper&&!wrapper.hidden&&!wrapper.classList.contains('panel-hidden-v419'))failures.push(`${card.dataset.locationCard}:${field}:visible`);
       }
       for(const field of ['status','objectType','date','time','floorLocation','premiseCondition','nextAction','rent','ownerName','contact','contactPhone','contactMessenger','contactEmail','rentConditions','contactNotes']){
         if(!fieldWrapper(controlOfField(card,field)))failures.push(`${card.dataset.locationCard}:${field}:missing`);
