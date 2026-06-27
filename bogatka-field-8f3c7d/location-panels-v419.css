@@ -72,16 +72,13 @@
 .location-panels-v419 .landlord-grid-v416{
   padding:14px 16px 16px;
   gap:11px 12px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
 }
 
 .location-panels-v419 .panel-closed-v419 .inspection-grid-v416,
-.location-panels-v419 .panel-closed-v419 .landlord-grid-v416{
-  display:none;
-}
-
-.location-panels-v419 .inspection-grid-v416,
-.location-panels-v419 .landlord-grid-v416{
-  grid-template-columns:repeat(2,minmax(0,1fr));
+.location-panels-v419 .panel-closed-v419 .landlord-grid-v416,
+.location-panels-v419 .panel-hidden-v419{
+  display:none!important;
 }
 
 .location-panels-v419 .profile-wide-v416,
