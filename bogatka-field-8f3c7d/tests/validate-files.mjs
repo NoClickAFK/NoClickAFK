@@ -63,7 +63,7 @@ if (!failures.length) {
   if (!serviceWorker.includes("CACHE_NAME='bogatka-location-v419'")) failures.push('Service Worker cache name is not v419');
 
   const panels = read('location-panels-v419.js');
-  for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','buildReportHtml.__locationPanelsV419']) {
+  for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','reportChainHas','wrapped.__locationPanelsV419']) {
     if (!panels.includes(marker)) failures.push(`location-panels-v419.js is missing ${marker}`);
   }
   if (panels.includes('if(wrapper)wrapper.remove();')) failures.push('location-panels-v419.js removes legacy fields instead of hiding them');
