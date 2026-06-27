@@ -2,6 +2,14 @@
   if(window.BogatkaSyncFieldCompatV416?.ready)return;
 
   const VERSION='4.1.6';
+  const OBJECT_TYPE_ALIASES=new Map([
+    ['Стрит-ритейл','Стрит-ритейл'],
+    ['Стрит ритейл','Стрит-ритейл'],
+    ['Магазин с отдельным входом с улицы','Стрит-ритейл'],
+    ['Street retail','Стрит-ритейл'],
+    ['street retail','Стрит-ритейл'],
+    ['street-retail','Стрит-ритейл'],
+  ]);
   let attempts=0;
 
   function cloneForm(value){
@@ -13,12 +21,21 @@
     return value===undefined||value===null||value==='';
   }
 
+  function normalizeObjectType(value){
+    if(isMissing(value))return value;
+    const text=String(value).trim();
+    return OBJECT_TYPE_ALIASES.get(text)||text;
+  }
+
   function hydrateRow(row){
     if(!row||typeof row!=='object')return row;
     const form=cloneForm(row.form_data);
     if(!isMissing(row.status))form.status=row.status;
-    if(!isMissing(row.object_type))form.objectType=row.object_type;
-    return {...row,form_data:form};
+    const columnObjectType=normalizeObjectType(row.object_type);
+    const formObjectType=normalizeObjectType(form.objectType);
+    if(!isMissing(columnObjectType))form.objectType=columnObjectType;
+    else if(!isMissing(formObjectType))form.objectType=formObjectType;
+    return {...row,object_type:columnObjectType,form_data:form};
   }
 
   function hydrateRows(rows){
@@ -71,6 +88,7 @@
     ready:true,
     hydrateRow,
     hydrateRows,
+    normalizeObjectType,
     install,
     audit(row){
       const hydrated=hydrateRow(row)||{};
