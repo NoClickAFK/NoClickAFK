@@ -1,14 +1,16 @@
 (function(){
   if(window.BogatkaLocationPanelsV419?.ready)return;
 
-  const VERSION='4.1.9';
+  const VERSION='4.2.1';
   const FIELD_LABELS={
     floorLocation:'Этаж / расположение',
     premiseCondition:'Состояние помещения',
+    premiseAvailability:'Доступность помещения',
+    landlordReadiness:'Готовность собственника',
     nextAction:'Следующий шаг по локации',
   };
-  const INSPECTION_KEEP=['status','objectType','objectTypeOther','date','time','floorLocation','premiseCondition','nextAction'];
-  const INSPECTION_HIDE=['inspectionBy','premiseAvailability','availableFrom','nextActionDate'];
+  const INSPECTION_KEEP=['status','objectType','objectTypeOther','date','time','floorLocation','premiseCondition','premiseAvailability','landlordReadiness','nextAction'];
+  const INSPECTION_HIDE=['inspectionBy','availableFrom','nextActionDate'];
   const LANDLORD_ORDER=['rent','ownerName','contact','contactPhone','contactMessenger','contactEmail','rentConditions','contactNotes'];
   let timer=null;
   let reportAttempts=0;
@@ -291,7 +293,7 @@
       if(reportAttempts<120)setTimeout(addReportPatch,200);
       return;
     }
-    if(current.__locationPanelsV419)return;
+    if(reportChainHas(current,'__locationPanelsV419'))return;
     if(!reportChainHas(current,'__locationOverviewV417')||!reportChainHas(current,'__locationProfileV416')){
       if(reportAttempts<120)setTimeout(addReportPatch,200);
       return;
@@ -305,7 +307,7 @@
         const items=[...block.querySelectorAll('.report-inspection-grid-v417>div')];
         for(const item of items){
           const label=item.querySelector('b')?.textContent.replace(':','').trim();
-          if(['Осмотр проводил','Доступность помещения','Доступно с','Дата следующего действия'].includes(label))item.remove();
+          if(['Осмотр проводил','Доступно с','Дата следующего действия'].includes(label))item.remove();
         }
       }
       return `<!doctype html>\n${doc.documentElement.outerHTML}`;
@@ -353,7 +355,7 @@
         const wrapper=fieldWrapper(controlOfField(card,field));
         if(wrapper&&!wrapper.hidden&&!wrapper.classList.contains('panel-hidden-v419'))failures.push(`${card.dataset.locationCard}:${field}:visible`);
       }
-      for(const field of ['status','objectType','date','time','floorLocation','premiseCondition','nextAction','rent','ownerName','contact','contactPhone','contactMessenger','contactEmail','rentConditions','contactNotes']){
+      for(const field of ['status','objectType','date','time','floorLocation','premiseCondition','premiseAvailability','nextAction','rent','ownerName','contact','contactPhone','contactMessenger','contactEmail','rentConditions','contactNotes']){
         if(!fieldWrapper(controlOfField(card,field)))failures.push(`${card.dataset.locationCard}:${field}:missing`);
       }
     }
