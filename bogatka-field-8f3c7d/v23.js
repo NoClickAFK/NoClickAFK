@@ -101,6 +101,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-overview-v417.js'});
   loadBogatkaPatch('script',{src:'./location-overview-init-v417.js'});
   loadBogatkaPatch('script',{src:'./location-panels-v419.js'});
+  loadBogatkaPatch('script',{src:'./location-panels-render-v419.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
