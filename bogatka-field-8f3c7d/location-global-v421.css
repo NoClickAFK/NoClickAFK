@@ -7,14 +7,22 @@
   grid-auto-rows:max-content;
 }
 
-.location-panels-v419 label.field,
-.location-panels-v419 label.object-other{
+.location-panels-v419 label.field:not([hidden]):not(.panel-hidden-v419),
+.location-panels-v419 label.object-other:not([hidden]):not(.hidden):not(.panel-hidden-v419){
   display:flex!important;
   flex-direction:column;
   align-self:start;
   gap:6px!important;
   min-width:0;
   margin:0!important;
+}
+
+.location-panels-v419 label.field[hidden],
+.location-panels-v419 label.field.panel-hidden-v419,
+.location-panels-v419 label.object-other[hidden],
+.location-panels-v419 label.object-other.hidden,
+.location-panels-v419 label.object-other.panel-hidden-v419{
+  display:none!important;
 }
 
 .location-panels-v419 .profile-caption-v416{
@@ -43,6 +51,7 @@
 
   .location-panels-v419.panels-both-open-v421 .inspection-card-v416,
   .location-panels-v419.panels-both-open-v421 .landlord-card-v416{
+    align-self:stretch!important;
     height:100%!important;
     min-height:100%!important;
   }
