@@ -10,7 +10,13 @@
     return ['Магазин с отдельным входом с улицы','Стрит ритейл','Street retail','street retail','street-retail'].includes(text)?'Стрит-ритейл':text;
   }
 
+  function polishProfileInputs(){
+    document.querySelectorAll('input[data-location][data-field="rent"]').forEach(input=>input.placeholder='Например: 1200');
+    document.querySelectorAll('input[data-location][data-field="contact"]').forEach(input=>input.placeholder='Имя и должность');
+  }
+
   async function repair(){
+    polishProfileInputs();
     if(typeof getLocationData!=='function'||typeof idbPut!=='function'||typeof STORE==='undefined')return;
     for(const select of document.querySelectorAll('select[data-location][data-field="objectType"]')){
       const id=select.dataset.location;
@@ -46,5 +52,5 @@
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
-  window.BogatkaObjectTypeNormalizeV416={version:'4.1.6',ready:true,normalize,repair};
+  window.BogatkaObjectTypeNormalizeV416={version:'4.1.6',ready:true,normalize,repair,polishProfileInputs};
 })();
