@@ -78,6 +78,7 @@ test('v419 keeps only useful inspection fields visible and persists them after r
   await page.waitForTimeout(850);
   await page.evaluate(()=>renderLocations());
   await page.waitForFunction(locationId=>Boolean(document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] [data-field="floorLocation"]`)&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .panel-toggle-v419`)),id);
+  await page.waitForFunction(()=>window.BogatkaLocationPanelsV419.audit().ok);
   const audit=await page.evaluate(()=>window.BogatkaLocationPanelsV419.audit());
   expect(audit.ok,audit.failures.join('\n')).toBe(true);
 
