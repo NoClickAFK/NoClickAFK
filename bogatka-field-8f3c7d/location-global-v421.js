@@ -148,15 +148,13 @@
     return control;
   }
 
-  function reorder(grid,card){
-    const desired=ORDER.map(field=>wrapperOf(controlOf(card,field))).filter(Boolean);
-    const wanted=new Set(desired);
-    const current=[...grid.children].filter(node=>wanted.has(node));
-    if(current.length===desired.length&&current.every((node,index)=>node===desired[index]))return;
-    const fragment=document.createDocumentFragment();
-    desired.forEach(node=>fragment.appendChild(node));
+  function applyVisualOrder(grid,card){
+    ORDER.forEach((field,index)=>{
+      const wrapper=wrapperOf(controlOf(card,field));
+      if(wrapper)wrapper.style.order=String((index+1)*10);
+    });
     const note=grid.querySelector('.inspection-note-v416');
-    grid.insertBefore(fragment,note||null);
+    if(note)note.style.order='999';
   }
 
   function syncPairState(card){
@@ -185,7 +183,7 @@
     if(!grid||!card.dataset.locationCard)return;
     ensureField(card,grid,'premiseAvailability','Доступность помещения',AVAILABILITY_OPTIONS);
     ensureField(card,grid,'landlordReadiness','Готовность собственника',LANDLORD_READINESS_OPTIONS);
-    reorder(grid,card);
+    applyVisualOrder(grid,card);
     syncPairState(card);
     await restore(card);
   }
