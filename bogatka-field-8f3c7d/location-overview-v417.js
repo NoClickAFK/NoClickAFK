@@ -29,12 +29,16 @@
   let reportAttempts=0;
 
   function syncPremium(select){
+    const trigger=select.nextElementSibling;
+    if(!trigger?.classList.contains('premium-select-trigger'))return;
+    const selectedText=select.selectedOptions?.[0]?.textContent||'';
+    const valueNode=trigger.querySelector('.premium-select-value');
+    if(trigger.dataset.syncedValue===select.value&&valueNode?.textContent===selectedText)return;
     if(window.BogatkaSelectSync?.syncVisibleSelect){
       window.BogatkaSelectSync.syncVisibleSelect(select);
       return;
     }
-    const trigger=select.nextElementSibling;
-    if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
+    if(typeof bogatkaSyncPremiumSelect==='function'){
       bogatkaSyncPremiumSelect(select,trigger);
       trigger.dataset.syncedValue=select.value;
     }
@@ -108,14 +112,17 @@
     const wrapper=card.querySelector('[data-object-other]');
     if(!select||!wrapper)return;
     const caption=wrapper.querySelector(':scope > .profile-caption-v416');
-    if(caption)caption.textContent='Уточните другой тип объекта';
+    const captionText='Уточните другой тип объекта';
+    if(caption&&caption.textContent!==captionText)caption.textContent=captionText;
     const input=wrapper.querySelector('[data-field="objectTypeOther"]');
-    if(input)input.placeholder='Например: помещение при АЗС, киоск, часть действующего магазина';
+    const placeholder='Например: помещение при АЗС, киоск, часть действующего магазина';
+    if(input&&input.placeholder!==placeholder)input.placeholder=placeholder;
     wrapper.classList.toggle('hidden',select.value!=='Другое');
     if(select.dataset.overviewOtherBoundV417!=='1'){
       select.dataset.overviewOtherBoundV417='1';
-      select.addEventListener('change',()=>wrapper.classList.toggle('hidden',select.value!=='Другое'));
-      select.addEventListener('bogatka:object-type-restored',()=>wrapper.classList.toggle('hidden',select.value!=='Другое'));
+      const update=()=>wrapper.classList.toggle('hidden',select.value!=='Другое');
+      select.addEventListener('change',update);
+      select.addEventListener('bogatka:object-type-restored',update);
     }
   }
 
@@ -138,7 +145,8 @@
     if(!id||!grid)return;
 
     const subtitle=card.querySelector('.inspection-card-v416 .profile-section-head-v416 span');
-    if(subtitle)subtitle.textContent='Статус, формат, состояние помещения и следующий шаг.';
+    const subtitleText='Статус, формат, состояние помещения и следующий шаг.';
+    if(subtitle&&subtitle.textContent!==subtitleText)subtitle.textContent=subtitleText;
     syncOtherTypeField(card);
 
     const undo=grid.querySelector('.inspection-note-v416');
