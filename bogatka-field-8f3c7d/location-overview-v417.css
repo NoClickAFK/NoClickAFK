@@ -1,8 +1,95 @@
-/* Bogatka 4.1.7 — inspection overview and consistent contact spacing */
+/* Bogatka 4.1.8 — compact collapsible inspection and landlord panels */
+
+.location-overview-v416{
+  grid-template-columns:1fr!important;
+  gap:10px!important;
+  margin-bottom:14px;
+}
 
 .inspection-card-v416,
 .landlord-card-v416{
-  height:100%;
+  height:auto;
+}
+
+.profile-accordion-card-v418{
+  min-width:0;
+  padding:0!important;
+  overflow:hidden;
+  border:1px solid #ddb64f!important;
+  border-radius:16px!important;
+  background:#fffdf7!important;
+  box-shadow:0 8px 22px rgba(94,68,15,.055)!important;
+}
+
+.profile-accordion-toggle-v418{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  width:100%;
+  min-height:66px;
+  margin:0;
+  padding:13px 16px;
+  border:0;
+  border-radius:0;
+  background:linear-gradient(180deg,#fff8e5 0%,#fff2cb 100%);
+  color:#174f3a;
+  text-align:left;
+  cursor:pointer;
+}
+
+.profile-accordion-toggle-v418:hover{
+  background:linear-gradient(180deg,#fff5d7 0%,#ffedbd 100%);
+}
+
+.profile-accordion-toggle-v418:focus-visible{
+  outline:3px solid rgba(33,111,76,.22);
+  outline-offset:-3px;
+}
+
+.profile-accordion-toggle-v418 .profile-section-head-v416{
+  gap:3px;
+  margin:0;
+  pointer-events:none;
+}
+
+.profile-accordion-toggle-v418 .profile-section-head-v416 strong{
+  font-size:16px;
+}
+
+.profile-accordion-toggle-v418 .profile-section-head-v416 span{
+  max-width:760px;
+  font-size:11px;
+}
+
+.profile-accordion-arrow-v418{
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  border:1px solid rgba(122,88,18,.24);
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  color:#6f4e12;
+  font-size:22px;
+  font-weight:800;
+  line-height:1;
+  pointer-events:none;
+}
+
+.profile-accordion-body-v418{
+  padding:15px;
+  border-top:1px solid rgba(221,182,79,.52);
+  background:linear-gradient(180deg,#fff 0%,#f7faf8 100%);
+}
+
+.profile-accordion-body-v418[hidden]{
+  display:none!important;
+}
+
+.profile-accordion-card-v418.is-open .profile-accordion-toggle-v418{
+  background:linear-gradient(180deg,#fff5da 0%,#ffedbd 100%);
 }
 
 .inspection-grid-v416 .overview-field-v417{
@@ -37,7 +124,25 @@
   box-sizing:border-box;
 }
 
+.landlord-grid-v416>.field[data-overview-field],
+.landlord-grid-v416>.field{
+  min-width:0;
+}
+
 @media(max-width:700px){
+  .profile-accordion-toggle-v418{
+    min-height:60px;
+    padding:12px 13px;
+  }
+
+  .profile-accordion-toggle-v418 .profile-section-head-v416 strong{
+    font-size:15px;
+  }
+
+  .profile-accordion-body-v418{
+    padding:12px;
+  }
+
   .inspection-action-v417{
     grid-column:auto;
   }
