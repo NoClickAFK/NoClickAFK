@@ -25,6 +25,8 @@ const required = [
   'field-integrity-v416.js',
   'location-profile-v416.js',
   'location-profile-v416.css',
+  'location-panels-v419.js',
+  'location-panels-v419.css',
   'reset/index.html',
   'reset/reset.js',
   'sw.js',
@@ -45,7 +47,7 @@ for (const file of required) {
 
 if (!failures.length) {
   const loader = read('v23.js');
-  for (const file of ['decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v340.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','location-profile-v416.js','location-profile-v416.css']) {
+  for (const file of ['decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v340.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-v419.css']) {
     if (!loader.includes(file)) failures.push(`v23.js does not load ${file}`);
   }
 
@@ -55,9 +57,17 @@ if (!failures.length) {
   }
 
   const serviceWorker = read('sw-v340.js');
-  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','location-profile-v416.js','location-profile-v416.css','reset/index.html','reset/reset.js']) {
+  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-v419.css','reset/index.html','reset/reset.js']) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
+  if (!serviceWorker.includes("CACHE_NAME='bogatka-location-v419'")) failures.push('Service Worker cache name is not v419');
+
+  const panels = read('location-panels-v419.js');
+  for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','buildReportHtml.__locationPanelsV419']) {
+    if (!panels.includes(marker)) failures.push(`location-panels-v419.js is missing ${marker}`);
+  }
+  if (panels.includes('if(wrapper)wrapper.remove();')) failures.push('location-panels-v419.js removes legacy fields instead of hiding them');
+  if (!read('location-panels-v419.css').includes('.panel-hidden-v419')) failures.push('location-panels-v419.css does not hide compatibility fields');
 
   const syncCompat = read('sync-field-compat-v416.js');
   for (const marker of ['hydrateRow','object_type','form.objectType','form.status','wrapFetch','wrapApply']) {
