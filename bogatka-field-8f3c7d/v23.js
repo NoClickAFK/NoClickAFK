@@ -116,4 +116,6 @@ function applyVersion23Enhancements(){
   });
 }
 
+loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-card-collapse-v422.css'});
+loadBogatkaPatch('script',{src:'./location-card-collapse-v422.js'});
 window.addEventListener('load',applyVersion23Enhancements);
