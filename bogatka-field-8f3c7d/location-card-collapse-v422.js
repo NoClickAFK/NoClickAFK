@@ -1,20 +1,13 @@
 (function(){
   if(window.BogatkaLocationCardCollapseV422?.ready)return;
+
   const VERSION='4.2.2';
   const STORAGE_PREFIX='bogatka.location.collapsed.v422.';
-  let timer=null;
   let renderHookAttempts=0;
 
   const key=id=>`${STORAGE_PREFIX}${id}`;
   const read=id=>{try{return localStorage.getItem(key(id))==='1'}catch(_){return false}};
   const write=(id,value)=>{try{localStorage.setItem(key(id),value?'1':'0')}catch(_){}};
-
-  function isEditing(){
-    if(window.BogatkaUIStability?.isEditing?.())return true;
-    const active=document.activeElement;
-    const root=document.getElementById('locations');
-    return Boolean(active&&root?.contains(active)&&active.matches?.('input,textarea,select,[contenteditable="true"]'));
-  }
 
   function attr(element,name,value){
     if(element.getAttribute(name)!==value)element.setAttribute(name,value);
@@ -82,28 +75,9 @@
     return true;
   }
 
-  function enhanceAll({force=false}={}){
-    if(!force&&isEditing()){
-      schedule(400);
-      return false;
-    }
+  function enhanceAll(){
     document.querySelectorAll('[data-location-card]').forEach(enhanceCard);
     return true;
-  }
-
-  function schedule(delay=80){
-    if(timer)return;
-    timer=setTimeout(()=>{
-      timer=null;
-      try{enhanceAll()}catch(error){console.error(error)}
-    },delay);
-  }
-
-  function afterRender(){
-    for(const delay of [40,650])setTimeout(()=>{
-      if(isEditing())schedule(400);
-      else enhanceAll({force:true});
-    },delay);
   }
 
   function installRenderHook(){
@@ -116,7 +90,7 @@
     if(current.__locationCardCollapseV422)return true;
     const wrapped=function(...args){
       const result=current.apply(this,args);
-      afterRender();
+      enhanceAll();
       return result;
     };
     wrapped.__locationCardCollapseV422=true;
@@ -127,12 +101,12 @@
   }
 
   function install(){
-    const root=document.getElementById('locations')||document.body;
-    new MutationObserver(()=>schedule(80)).observe(root,{childList:true});
     installRenderHook();
-    schedule(10);
-    setTimeout(()=>{if(!isEditing())enhanceAll({force:true})},450);
-    setTimeout(()=>{if(!isEditing())enhanceAll({force:true})},1400);
+    enhanceAll();
+    window.addEventListener('load',()=>{
+      installRenderHook();
+      enhanceAll();
+    },{once:true});
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
