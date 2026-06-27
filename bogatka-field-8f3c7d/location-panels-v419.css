@@ -1,0 +1,148 @@
+/* Bogatka 4.1.9 — compact collapsible location panels */
+
+.location-panels-v419{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  margin:0 0 14px;
+}
+
+.location-panels-v419 .inspection-card-v416,
+.location-panels-v419 .landlord-card-v416{
+  padding:0;
+  overflow:visible;
+  border-color:#e0b14f;
+  background:#fffaf0;
+  box-shadow:0 8px 22px rgba(98,67,17,.055);
+}
+
+.panel-toggle-v419{
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-areas:"title chevron" "copy chevron";
+  align-items:center;
+  gap:2px 12px;
+  min-height:64px;
+  padding:15px 17px;
+  border:0;
+  border-radius:16px;
+  background:#fff7e3;
+  color:#174f3a;
+  text-align:left;
+  cursor:pointer;
+  font:inherit;
+}
+
+.panel-toggle-v419:focus-visible{
+  outline:2px solid rgba(142,98,28,.35);
+  outline-offset:2px;
+}
+
+.panel-title-v419{
+  grid-area:title;
+  font-size:15px;
+  font-weight:900;
+  line-height:1.25;
+  letter-spacing:.01em;
+}
+
+.panel-copy-v419{
+  grid-area:copy;
+  color:#6f6656;
+  font-size:11px;
+  line-height:1.4;
+}
+
+.panel-chevron-v419{
+  grid-area:chevron;
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(142,98,28,.28);
+  border-radius:999px;
+  background:#fffdf7;
+  color:#78500f;
+  font-size:18px;
+  font-weight:900;
+}
+
+.location-panels-v419 .inspection-grid-v416,
+.location-panels-v419 .landlord-grid-v416{
+  padding:14px 16px 16px;
+  gap:11px 12px;
+}
+
+.location-panels-v419 .panel-closed-v419 .inspection-grid-v416,
+.location-panels-v419 .panel-closed-v419 .landlord-grid-v416{
+  display:none;
+}
+
+.location-panels-v419 .inspection-grid-v416,
+.location-panels-v419 .landlord-grid-v416{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.location-panels-v419 .profile-wide-v416,
+.location-panels-v419 .panel-wide-v419{
+  grid-column:1/-1;
+}
+
+.location-panels-v419 label.field,
+.location-panels-v419 label.object-other{
+  min-width:0;
+  margin:0;
+}
+
+.location-panels-v419 input,
+.location-panels-v419 textarea,
+.location-panels-v419 select,
+.location-panels-v419 .premium-select-trigger{
+  width:100%;
+  box-sizing:border-box;
+}
+
+.location-panels-v419 textarea{
+  min-height:76px;
+  padding:10px 12px;
+  border-radius:12px;
+  line-height:1.45;
+  resize:vertical;
+}
+
+.location-panels-v419 [data-field="rent"],
+.location-panels-v419 [data-field="ownerName"],
+.location-panels-v419 [data-field="contact"],
+.location-panels-v419 [data-field="contactPhone"],
+.location-panels-v419 [data-field="contactMessenger"],
+.location-panels-v419 [data-field="contactEmail"]{
+  min-height:46px;
+}
+
+.location-panels-v419 .inspection-note-v416{
+  grid-column:1/-1;
+}
+
+@media(min-width:1200px){
+  .location-panels-v419{
+    grid-template-columns:minmax(0,1fr) minmax(0,1.36fr);
+    align-items:start;
+  }
+}
+
+@media(max-width:700px){
+  .panel-toggle-v419{
+    min-height:58px;
+    padding:13px 14px;
+  }
+  .location-panels-v419 .inspection-grid-v416,
+  .location-panels-v419 .landlord-grid-v416{
+    grid-template-columns:1fr;
+    padding:12px;
+  }
+  .location-panels-v419 .profile-wide-v416,
+  .location-panels-v419 .panel-wide-v419{
+    grid-column:auto;
+  }
+}
