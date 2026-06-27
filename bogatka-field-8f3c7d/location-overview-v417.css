@@ -88,6 +88,10 @@
   display:none!important;
 }
 
+.bogatka-legacy-expanded-v418 .profile-accordion-body-v418[hidden]{
+  display:block!important;
+}
+
 .profile-accordion-card-v418.is-open .profile-accordion-toggle-v418{
   background:linear-gradient(180deg,#fff5da 0%,#ffedbd 100%);
 }
