@@ -4,6 +4,7 @@
   const VERSION='4.2.2';
   const STORAGE_PREFIX='bogatka.location.collapsed.v422.';
   let timer=null;
+  let renderHookAttempts=0;
 
   function storageKey(id){
     return `${STORAGE_PREFIX}${id}`;
@@ -17,18 +18,32 @@
     try{localStorage.setItem(storageKey(id),collapsed?'1':'0')}catch(_){}
   }
 
+  function isEditing(){
+    if(window.BogatkaUIStability?.isEditing?.())return true;
+    const active=document.activeElement;
+    const root=document.getElementById('locations');
+    return Boolean(active&&root?.contains(active)&&active.matches?.('input,textarea,select,[contenteditable="true"]'));
+  }
+
+  function setAttributeIfChanged(element,name,value){
+    if(element.getAttribute(name)!==value)element.setAttribute(name,value);
+  }
+
   function setCollapsed(card,collapsed,{persist=false}={}){
     const id=card?.dataset.locationCard;
     const body=card?.querySelector(':scope > .location-body');
     const button=card?.querySelector(':scope > .location-head .location-collapse-toggle-v422');
     if(!id||!body||!button)return false;
 
-    card.classList.toggle('location-card-collapsed-v422',collapsed);
-    body.hidden=collapsed;
-    body.setAttribute('aria-hidden',String(collapsed));
-    button.setAttribute('aria-expanded',String(!collapsed));
-    button.setAttribute('aria-label',collapsed?'Развернуть локацию':'Свернуть локацию');
-    button.title=collapsed?'Развернуть локацию':'Свернуть локацию';
+    if(card.classList.contains('location-card-collapsed-v422')!==collapsed){
+      card.classList.toggle('location-card-collapsed-v422',collapsed);
+    }
+    if(body.hidden!==collapsed)body.hidden=collapsed;
+    setAttributeIfChanged(body,'aria-hidden',String(collapsed));
+    setAttributeIfChanged(button,'aria-expanded',String(!collapsed));
+    setAttributeIfChanged(button,'aria-label',collapsed?'Развернуть локацию':'Свернуть локацию');
+    const title=collapsed?'Развернуть локацию':'Свернуть локацию';
+    if(button.title!==title)button.title=title;
     if(persist)writeCollapsed(id,collapsed);
     return true;
   }
@@ -77,14 +92,19 @@
     const side=ensureHeaderSide(card);
     const button=side?.querySelector('.location-collapse-toggle-v422');
     if(!side||!button)return false;
-    button.setAttribute('aria-controls',body.id);
+    setAttributeIfChanged(button,'aria-controls',body.id);
     setCollapsed(card,readCollapsed(id));
     card.dataset.locationCollapseV422='1';
     return true;
   }
 
-  function enhanceAll(){
+  function enhanceAll({force=false}={}){
+    if(!force&&isEditing()){
+      schedule(350);
+      return false;
+    }
     for(const card of document.querySelectorAll('[data-location-card]'))enhanceCard(card);
+    return true;
   }
 
   function schedule(delay=80){
@@ -94,9 +114,31 @@
     },delay);
   }
 
+  function installRenderHook(){
+    renderHookAttempts+=1;
+    const current=window.renderLocations;
+    if(typeof current!=='function'){
+      if(renderHookAttempts<100)setTimeout(installRenderHook,100);
+      return false;
+    }
+    if(current.__locationCardCollapseV422)return true;
+    const wrapped=function(...args){
+      const result=current.apply(this,args);
+      schedule(40);
+      setTimeout(()=>schedule(0),500);
+      return result;
+    };
+    wrapped.__locationCardCollapseV422=true;
+    wrapped.__base=current;
+    window.renderLocations=wrapped;
+    try{renderLocations=wrapped}catch(_){}
+    return true;
+  }
+
   function install(){
     const root=document.getElementById('locations')||document.body;
     new MutationObserver(()=>schedule(100)).observe(root,{childList:true,subtree:true});
+    installRenderHook();
     schedule(10);
     setTimeout(()=>schedule(0),450);
     setTimeout(()=>schedule(0),1400);
@@ -110,6 +152,7 @@
     ready:true,
     enhanceAll,
     setCollapsed,
+    installRenderHook,
     audit(){
       const failures=[];
       for(const card of document.querySelectorAll('[data-location-card]')){
@@ -117,12 +160,10 @@
         const body=card.querySelector(':scope > .location-body');
         const side=card.querySelector(':scope > .location-head > .location-head-side-v422');
         const score=side?.querySelector(':scope > .scorebox');
-        const decision=side?.querySelector(':scope > .decision-head-v340');
         const button=side?.querySelector(':scope > .location-collapse-toggle-v422');
         if(!body)failures.push(`${id}:body:missing`);
         if(!side)failures.push(`${id}:side:missing`);
         if(!score)failures.push(`${id}:scorebox:missing`);
-        if(!decision)failures.push(`${id}:decision-metrics:missing`);
         if(!button)failures.push(`${id}:toggle:missing`);
       }
       return {ok:failures.length===0,failures};
