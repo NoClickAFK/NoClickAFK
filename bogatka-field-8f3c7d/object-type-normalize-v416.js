@@ -1,6 +1,7 @@
 (function(){
   if(window.BogatkaObjectTypeNormalizeV416?.ready)return;
   const running=new Set();
+  const pendingEmptyResets=new Set();
   let timer=null;
 
   function normalize(value){
@@ -26,12 +27,62 @@
     }
   }
 
+  function previousVisibleValue(select){
+    const trigger=select.nextElementSibling;
+    return select.dataset.objectTypeLastValueV421||trigger?.dataset?.syncedValue||'';
+  }
+
+  async function persistIntentionalEmpty(select,revision){
+    const id=select.dataset.location;
+    try{
+      if(typeof saveField==='function')await saveField(select);
+      else if(typeof getLocationData==='function'&&typeof idbPut==='function'&&typeof STORE!=='undefined'){
+        const data=await getLocationData(id);
+        data.objectType='';
+        data.updatedAt=new Date().toISOString();
+        await idbPut(STORE,data,'location:'+id);
+      }
+      select.dataset.objectTypeLastValueV421='';
+    }catch(error){
+      if(typeof showError==='function')showError(error);
+      else console.error(error);
+    }finally{
+      setTimeout(()=>{
+        if(select.dataset.objectTypeResetRevisionV421!==String(revision))return;
+        pendingEmptyResets.delete(id);
+        delete select.dataset.objectTypeResetPendingV421;
+        delete select.dataset.profileDirtyV416;
+        schedule();
+      },450);
+    }
+  }
+
+  function handleObjectTypeChange(select){
+    const id=select?.dataset.location;
+    if(!id)return;
+    const previous=previousVisibleValue(select);
+    const revision=Number(select.dataset.objectTypeResetRevisionV421||0)+1;
+    select.dataset.objectTypeResetRevisionV421=String(revision);
+    if(select.value!==''){
+      select.dataset.objectTypeLastValueV421=select.value;
+      pendingEmptyResets.delete(id);
+      delete select.dataset.objectTypeResetPendingV421;
+      return;
+    }
+    if(!previous)return;
+    pendingEmptyResets.add(id);
+    select.dataset.objectTypeResetPendingV421='1';
+    select.dataset.profileDirtyV416='1';
+    syncVisible(select);
+    Promise.resolve().then(()=>persistIntentionalEmpty(select,revision));
+  }
+
   async function repair(){
     polishProfileInputs();
     if(typeof getLocationData!=='function'||typeof idbPut!=='function'||typeof STORE==='undefined')return;
     for(const select of document.querySelectorAll('select[data-location][data-field="objectType"]')){
       const id=select.dataset.location;
-      if(!id||running.has(id)||document.activeElement===select||select.dataset.profileDirtyV416==='1')continue;
+      if(!id||running.has(id)||pendingEmptyResets.has(id)||select.dataset.objectTypeResetPendingV421==='1'||document.activeElement===select||select.dataset.profileDirtyV416==='1')continue;
       running.add(id);
       try{
         const data=await getLocationData(id);
@@ -49,8 +100,13 @@
         const currentIsLegacy=current===stored&&repaired;
         if(canonical&&(currentIsEmpty||currentIsLegacy)){
           select.value=canonical;
+          select.dataset.objectTypeLastValueV421=canonical;
           syncVisible(select);
           select.dispatchEvent(new CustomEvent('bogatka:object-type-restored',{bubbles:true,detail:{value:canonical}}));
+        }else if(canonical){
+          select.dataset.objectTypeLastValueV421=canonical;
+        }else if(!stored){
+          select.dataset.objectTypeLastValueV421='';
         }
       }catch(error){console.warn('Не удалось нормализовать тип объекта',error)}
       finally{running.delete(id)}
@@ -63,12 +119,16 @@
   }
 
   function install(){
-    schedule();
     const root=document.getElementById('locations')||document.body;
+    root.addEventListener('change',event=>{
+      const select=event.target?.closest?.('select[data-location][data-field="objectType"]');
+      if(select&&root.contains(select))handleObjectTypeChange(select);
+    },true);
+    schedule();
     new MutationObserver(schedule).observe(root,{childList:true,subtree:true});
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
-  window.BogatkaObjectTypeNormalizeV416={version:'4.1.7',ready:true,normalize,repair,polishProfileInputs};
+  window.BogatkaObjectTypeNormalizeV416={version:'4.2.1',ready:true,normalize,repair,polishProfileInputs,handleObjectTypeChange};
 })();

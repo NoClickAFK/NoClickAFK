@@ -1,7 +1,7 @@
 (function(){
   if(window.BogatkaLocationOverviewV417?.ready)return;
 
-  const VERSION='4.1.7';
+  const VERSION='4.2.1';
   const FIELD_DEFINITIONS=[
     {field:'inspectionBy',label:'Осмотр проводил',kind:'text',placeholder:'Имя сотрудника'},
     {field:'floorLocation',label:'Этаж / расположение',kind:'text',placeholder:'Например: 1-й этаж, отдельный вход'},
@@ -9,7 +9,10 @@
       ['','Не выбрано'],['Готово к работе','Готово к работе'],['Нужен косметический ремонт','Нужен косметический ремонт'],['Нужен существенный ремонт','Нужен существенный ремонт'],['Не оценено','Не оценено'],
     ]},
     {field:'premiseAvailability',label:'Доступность помещения',kind:'select',options:[
-      ['','Не выбрано'],['Свободно','Свободно'],['Занято','Занято'],['Освобождается','Освобождается'],['Неизвестно','Неизвестно'],
+      ['','Не выбрано'],['Свободно','Свободно сейчас'],['Занято','Занято'],['Освобождается','Освобождается'],['Неизвестно','Неизвестно'],
+    ]},
+    {field:'landlordReadiness',label:'Готовность собственника',kind:'select',options:[
+      ['','Не выбрано'],['Готов обсуждать','Готов обсуждать'],['Заинтересован','Заинтересован'],['Нужна пауза','Нужна пауза'],['Не заинтересован','Не заинтересован'],
     ]},
     {field:'availableFrom',label:'Доступно с',kind:'date'},
     {field:'nextActionDate',label:'Дата следующего действия',kind:'date'},
@@ -20,6 +23,7 @@
     floorLocation:'Этаж / расположение',
     premiseCondition:'Состояние помещения',
     premiseAvailability:'Доступность помещения',
+    landlordReadiness:'Готовность собственника',
     availableFrom:'Доступно с',
     nextActionDate:'Дата следующего действия',
     nextAction:'Следующий шаг по локации',
@@ -169,12 +173,6 @@
     if(labels)Object.assign(labels,FIELD_LABELS,{objectTypeOther:'Уточнение другого типа объекта'});
   }
 
-  function formatDate(value){
-    if(!value)return '—';
-    const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return match?`${match[3]}.${match[2]}.${match[1]}`:String(value);
-  }
-
   function addReportInspection(documentReport,section,data){
     section.querySelector('.report-inspection-v417')?.remove();
     const block=documentReport.createElement('section');
@@ -184,12 +182,10 @@
     const grid=documentReport.createElement('div');
     grid.className='report-inspection-grid-v417';
     const entries=[
-      ['Осмотр проводил',data.inspectionBy],
       ['Этаж / расположение',data.floorLocation],
       ['Состояние помещения',data.premiseCondition],
       ['Доступность помещения',data.premiseAvailability],
-      ['Доступно с',formatDate(data.availableFrom)],
-      ['Дата следующего действия',formatDate(data.nextActionDate)],
+      ['Готовность собственника',data.landlordReadiness],
       ['Следующий шаг',data.nextAction],
     ];
     for(const [name,value] of entries){
@@ -212,7 +208,7 @@
       if(reportAttempts<100)setTimeout(installReportWrapper,200);
       return;
     }
-    if(window.buildReportHtml.__locationOverviewV417)return;
+    if(window.buildReportHtml.__locationOverviewV421)return;
     const base=window.buildReportHtml;
     const wrapped=async function(...args){
       const html=await base(...args);
@@ -234,6 +230,7 @@
       return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
     };
     wrapped.__locationOverviewV417=true;
+    wrapped.__locationOverviewV421=true;
     wrapped.__base=base;
     window.buildReportHtml=wrapped;
     try{buildReportHtml=wrapped}catch(_){}

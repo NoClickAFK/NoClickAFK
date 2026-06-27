@@ -52,7 +52,7 @@
   }
 
   function loadSupportModules(){
-    const modules=['./cloud-archive-v400.js','./ui-stability-v402.js','./cloud-stability-v401.js','./sync-merge-v412.js','./sync-state-v412.js','./sync-runtime-v412.js','./sync-ui-v412.js','./select-sync-v407.js','./address-fix-v400.js','./backup-import-v400.js','./viewer-extra-v400.js','./selftest-v400.js','./collaboration-v410.js'];
+    const modules=['./cloud-archive-v400.js','./ui-stability-v402.js','./cloud-stability-v401.js','./sync-merge-v412.js','./sync-state-v412.js','./sync-runtime-v412.js','./sync-ui-v412.js','./select-sync-v407.js','./address-fix-v400.js','./backup-import-v400.js','./viewer-extra-v400.js','./selftest-v400.js','./collaboration-v410.js','./location-global-v421.js'];
     for(const src of modules){
       if(document.querySelector(`script[src="${src}"]`))continue;
       const script=document.createElement('script');
