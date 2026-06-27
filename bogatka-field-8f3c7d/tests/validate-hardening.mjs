@@ -25,7 +25,7 @@ const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks).filter(file=>file!=='decision-ui-v340.js'))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v419'"))errors.push('Service Worker cache version is not v419');
+if(!sw.includes("CACHE_NAME='bogatka-location-v420'"))errors.push('Service Worker cache version is not v420');
 for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css','./location-panels-v419.js','./location-panels-v419.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
 
 const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
@@ -108,7 +108,10 @@ else{
 }
 const panelsCssPath=path.join(root,'location-panels-v419.css');
 if(!fs.existsSync(panelsCssPath))errors.push('Missing location-panels-v419.css');
-else if(!fs.readFileSync(panelsCssPath,'utf8').includes('.panel-hidden-v419'))errors.push('location-panels-v419.css missing compatibility hiding rule');
+else{
+  const panelsCss=fs.readFileSync(panelsCssPath,'utf8');
+  for(const marker of ['.panel-hidden-v419','grid-auto-rows:max-content','align-self:start!important','border:2px solid #d8b860!important','background:linear-gradient(180deg,#fff8e8,#ffedc0)!important','.panel-closed-v419 .panel-chevron-v419'])if(!panelsCss.includes(marker))errors.push(`location-panels-v419.css missing ${marker}`);
+}
 
 const inviteModule=fs.readFileSync(path.join(root,'invites-v408.js'),'utf8');
 for(const marker of ['Пригласить участника','one-email-one-personal-link','bogatka:invite-accepted',"version:'4.1.0'"])if(!inviteModule.includes(marker))errors.push(`invites-v408.js missing ${marker}`);
