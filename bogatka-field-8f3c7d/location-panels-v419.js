@@ -8,7 +8,7 @@
     nextAction:'Следующий шаг по локации',
   };
   const INSPECTION_KEEP=['status','objectType','objectTypeOther','date','time','floorLocation','premiseCondition','nextAction'];
-  const INSPECTION_REMOVE=['inspectionBy','premiseAvailability','availableFrom','nextActionDate'];
+  const INSPECTION_HIDE=['inspectionBy','premiseAvailability','availableFrom','nextActionDate'];
   const LANDLORD_ORDER=['rent','ownerName','contact','contactPhone','contactMessenger','contactEmail','rentConditions','contactNotes'];
   let timer=null;
   let reportAttempts=0;
@@ -48,9 +48,11 @@
     if(caption.textContent!==text)caption.textContent=text;
   }
 
-  function bindField(control){
-    if(!control||control.dataset.panelBoundV419==='1')return;
+  function bindFallbackField(control){
+    if(!control)return;
+    if(control.dataset.overviewBoundV417==='1'||control.dataset.profileBoundV416==='1'||control.dataset.panelBoundV419==='1')return;
     control.dataset.panelBoundV419='1';
+    control.dataset.overviewBoundV417='1';
     const eventName=control.tagName==='TEXTAREA'||['text','number','tel','email'].includes(control.type)?'input':'change';
     control.addEventListener(eventName,()=>{
       if(typeof showSaving==='function')showSaving();
@@ -74,9 +76,10 @@
     });
   }
 
-  function createField(locationId,definition){
+  function createCompatibleField(locationId,definition){
     const wrapper=document.createElement('label');
-    wrapper.className=`field panel-field-v419${definition.wide?' profile-wide-v416 panel-wide-v419':''}`;
+    wrapper.className=`field overview-field-v417 panel-field-v419${definition.wide?' profile-wide-v416 inspection-action-v417 panel-wide-v419':''}`;
+    wrapper.dataset.overviewField=definition.field;
     wrapper.dataset.panelField=definition.field;
     const caption=document.createElement('span');
     caption.className='profile-caption-v416';
@@ -100,10 +103,11 @@
     control.dataset.location=locationId;
     control.dataset.field=definition.field;
     control.dataset.profileV416='1';
+    control.dataset.overviewV417='1';
     control.dataset.panelV419='1';
     if(definition.placeholder)control.placeholder=definition.placeholder;
     wrapper.append(caption,control);
-    bindField(control);
+    bindFallbackField(control);
     return wrapper;
   }
 
@@ -118,7 +122,7 @@
     for(const definition of definitions){
       let control=controlOfField(card,definition.field);
       if(!control){
-        const wrapper=createField(id,definition);
+        const wrapper=createCompatibleField(id,definition);
         grid.appendChild(wrapper);
         control=wrapper.querySelector('[data-field]');
       }else{
@@ -129,19 +133,20 @@
           setCaption(wrapper,definition.label);
           if(!grid.contains(wrapper))grid.appendChild(wrapper);
         }
-        bindField(control);
+        bindFallbackField(control);
       }
     }
   }
 
-  function makeToggle(section,title,copy,storageKey){
+  function makeToggle(section,title,copy,storageKey,grid){
     let head=section.querySelector(':scope > .panel-toggle-v419');
     const existing=section.querySelector(':scope > .profile-section-head-v416');
+    if(!grid.id)grid.id=`panel-${storageKey.replace(/[^a-z0-9_-]/gi,'-')}`;
     if(!head){
       head=document.createElement('button');
       head.type='button';
       head.className='panel-toggle-v419';
-      head.innerHTML='<span class="panel-title-v419"></span><span class="panel-copy-v419"></span><span class="panel-chevron-v419">⌄</span>';
+      head.innerHTML='<span class="panel-title-v419"></span><span class="panel-copy-v419"></span><span class="panel-chevron-v419" aria-hidden="true">⌄</span>';
       section.prepend(head);
       head.addEventListener('click',()=>{
         const next=!isOpen(section);
@@ -151,6 +156,7 @@
       });
     }
     if(existing)existing.remove();
+    head.setAttribute('aria-controls',grid.id);
     head.querySelector('.panel-title-v419').textContent=title;
     head.querySelector('.panel-copy-v419').textContent=copy;
     if(section.dataset.panelOpenV419===undefined){
@@ -164,34 +170,57 @@
   function updateOpenState(section){
     const open=isOpen(section);
     section.classList.toggle('panel-closed-v419',!open);
+    const head=section.querySelector('.panel-toggle-v419');
+    if(head)head.setAttribute('aria-expanded',String(open));
     const chevron=section.querySelector('.panel-chevron-v419');
     if(chevron)chevron.textContent=open?'⌃':'⌄';
   }
 
-  function arrangeInspection(card,section,grid,id){
-    makeToggle(section,'Параметры осмотра','Статус, формат, состояние помещения и следующий шаг.','bogatka.panel.inspection.open');
-    ensureInspectionFields(card,grid,id);
-    for(const field of INSPECTION_REMOVE){
+  function sameOrder(container,desired){
+    const wanted=new Set(desired);
+    const current=[...container.children].filter(node=>wanted.has(node));
+    return current.length===desired.length&&current.every((node,index)=>node===desired[index]);
+  }
+
+  function reorderChildren(container,desired,before=null){
+    const unique=[...new Set(desired.filter(Boolean))];
+    if(!unique.length||sameOrder(container,unique))return;
+    const fragment=document.createDocumentFragment();
+    for(const node of unique)fragment.appendChild(node);
+    container.insertBefore(fragment,before&&before.parentElement===container?before:null);
+  }
+
+  function setInspectionVisibility(card){
+    for(const field of INSPECTION_HIDE){
       const wrapper=fieldWrapper(controlOfField(card,field));
-      if(wrapper)wrapper.remove();
+      if(!wrapper)continue;
+      wrapper.classList.add('panel-hidden-v419');
+      wrapper.hidden=true;
+      wrapper.setAttribute('aria-hidden','true');
     }
-    const nodes=[];
     for(const field of INSPECTION_KEEP){
-      const control=controlOfField(card,field);
-      const wrapper=fieldWrapper(control);
-      if(wrapper)nodes.push(wrapper);
+      const wrapper=fieldWrapper(controlOfField(card,field));
+      if(!wrapper)continue;
+      wrapper.classList.remove('panel-hidden-v419');
+      wrapper.hidden=false;
+      wrapper.removeAttribute('aria-hidden');
     }
+  }
+
+  function arrangeInspection(card,section,grid,id){
+    makeToggle(section,'Параметры осмотра','Статус, формат, состояние помещения и следующий шаг.',`bogatka.panel.inspection.open.${id}`,grid);
+    ensureInspectionFields(card,grid,id);
+    setInspectionVisibility(card);
+    const nodes=INSPECTION_KEEP.map(field=>fieldWrapper(controlOfField(card,field))).filter(Boolean);
     const undo=grid.querySelector('.inspection-note-v416');
-    for(const wrapper of nodes){
-      if(wrapper.dataset.fieldArrangedV419!=='1')wrapper.dataset.fieldArrangedV419='1';
-      grid.insertBefore(wrapper,undo||null);
-    }
+    reorderChildren(grid,nodes,undo||null);
     const other=fieldWrapper(controlOfField(card,'objectTypeOther'));
     if(other)setCaption(other,'Уточните другой тип объекта');
   }
 
-  function arrangeLandlord(card,section,grid){
-    makeToggle(section,'Арендодатель и условия','Аренда, собственник, контакты и договорённости.','bogatka.panel.landlord.open');
+  function arrangeLandlord(card,section,grid,id){
+    makeToggle(section,'Арендодатель и условия','Аренда, собственник, контакты и договорённости.',`bogatka.panel.landlord.open.${id}`,grid);
+    const nodes=[];
     for(const field of LANDLORD_ORDER){
       const control=controlOfField(card,field);
       const wrapper=fieldWrapper(control);
@@ -199,8 +228,9 @@
       wrapper.classList.remove('profile-wide-v416','panel-wide-v419');
       wrapper.dataset.landlordOrderV419=field;
       if(field==='rentConditions'||field==='contactNotes')wrapper.classList.add('profile-wide-v416','panel-wide-v419');
-      grid.appendChild(wrapper);
+      nodes.push(wrapper);
     }
+    reorderChildren(grid,nodes);
     setCaption(fieldWrapper(controlOfField(card,'rent')),'Аренда, BYN / месяц');
     setCaption(fieldWrapper(controlOfField(card,'ownerName')),'Собственник / организация');
     setCaption(fieldWrapper(controlOfField(card,'contact')),'Контактное лицо');
@@ -232,7 +262,7 @@
     const inspectionGrid=overview.querySelector('.inspection-grid-v416');
     const landlordGrid=overview.querySelector('.landlord-grid-v416');
     if(inspection&&inspectionGrid)arrangeInspection(card,inspection,inspectionGrid,id);
-    if(landlord&&landlordGrid)arrangeLandlord(card,landlord,landlordGrid);
+    if(landlord&&landlordGrid)arrangeLandlord(card,landlord,landlordGrid,id);
     await restore(card);
   }
 
@@ -288,8 +318,9 @@
   window.BogatkaLocationPanelsV419={version:VERSION,ready:true,enhanceAll,audit(){
     const failures=[];
     for(const card of document.querySelectorAll('[data-location-card]')){
-      for(const field of INSPECTION_REMOVE){
-        if(fieldWrapper(controlOfField(card,field)))failures.push(`${card.dataset.locationCard}:${field}:visible`);
+      for(const field of INSPECTION_HIDE){
+        const wrapper=fieldWrapper(controlOfField(card,field));
+        if(!wrapper||!wrapper.classList.contains('panel-hidden-v419')||!wrapper.hidden)failures.push(`${card.dataset.locationCard}:${field}:not-hidden`);
       }
       for(const field of ['status','objectType','date','time','floorLocation','premiseCondition','nextAction','rent','ownerName','contact','contactPhone','contactMessenger','contactEmail','rentConditions','contactNotes']){
         if(!fieldWrapper(controlOfField(card,field)))failures.push(`${card.dataset.locationCard}:${field}:missing`);
