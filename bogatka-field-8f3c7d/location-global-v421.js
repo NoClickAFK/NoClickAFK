@@ -2,26 +2,8 @@
   if(window.BogatkaLocationGlobalV421?.ready)return;
 
   const VERSION='4.2.1';
-  const AVAILABILITY_OPTIONS=[
-    ['','Не выбрано'],
-    ['Свободно','Свободно сейчас'],
-    ['Занято','Занято'],
-    ['Освобождается','Освобождается'],
-    ['Неизвестно','Неизвестно'],
-  ];
-  const LANDLORD_READINESS_OPTIONS=[
-    ['','Не выбрано'],
-    ['Готов обсуждать','Готов обсуждать'],
-    ['Заинтересован','Заинтересован'],
-    ['Нужна пауза','Нужна пауза'],
-    ['Не заинтересован','Не заинтересован'],
-  ];
-  const ORDER=[
-    'status','objectType','objectTypeOther','date','time','floorLocation','premiseCondition',
-    'premiseAvailability','landlordReadiness','nextAction',
-  ];
+  const GLOBAL_FIELDS=['premiseAvailability','landlordReadiness'];
   let timer=null;
-  let reportAttempts=0;
 
   function ensureStyle(){
     const href='./location-global-v421.css';
@@ -32,6 +14,13 @@
     document.head.appendChild(link);
   }
 
+  function isEditing(){
+    if(window.BogatkaUIStability?.isEditing?.())return true;
+    const active=document.activeElement;
+    const root=document.getElementById('locations');
+    return Boolean(active&&root?.contains(active)&&active.matches?.('input,textarea,select,[contenteditable="true"]'));
+  }
+
   function controlOf(card,field){
     return card.querySelector(`[data-field="${field}"]`);
   }
@@ -40,123 +29,17 @@
     return control?.closest('label.field,label.object-other')||null;
   }
 
-  function syncPremium(select){
-    if(!select||select.tagName!=='SELECT')return;
-    const trigger=select.nextElementSibling;
-    const selectedText=select.selectedOptions?.[0]?.textContent||'';
-    const valueNode=trigger?.classList?.contains('premium-select-trigger')?trigger.querySelector('.premium-select-value'):null;
-    if(trigger?.dataset.syncedValue===select.value&&valueNode?.textContent===selectedText)return;
-    if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-    else if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
-      bogatkaSyncPremiumSelect(select,trigger);
-      trigger.dataset.syncedValue=select.value;
-    }
-  }
-
-  function bindField(control){
-    if(!control||control.dataset.globalBoundV421==='1'||control.dataset.overviewBoundV417==='1'||control.dataset.profileBoundV416==='1')return;
-    control.dataset.globalBoundV421='1';
-    control.addEventListener('change',()=>{
-      if(typeof showSaving==='function')showSaving();
-      clearTimeout(control._globalSaveTimerV421);
-      const revision=Number(control.dataset.globalRevisionV421||0)+1;
-      control.dataset.globalRevisionV421=String(revision);
-      control.dataset.profileDirtyV416='1';
-      control._globalSaveTimerV421=setTimeout(async()=>{
-        try{
-          if(typeof saveField==='function')await saveField(control);
-        }catch(error){
-          if(typeof showError==='function')showError(error);
-          else console.error(error);
-        }finally{
-          if(control.dataset.globalRevisionV421===String(revision)){
-            delete control.dataset.profileDirtyV416;
-            control._globalSaveTimerV421=null;
-          }
-        }
-      },80);
-    });
-  }
-
-  function replaceOptions(select,options){
-    const currentValue=select.value;
-    const signature=options.map(([value,label])=>`${value}:${label}`).join('|');
-    if(select.dataset.globalOptionsV421!==signature){
-      select.replaceChildren(...options.map(([value,label])=>{
-        const option=document.createElement('option');
-        option.value=value;
-        option.textContent=label;
-        return option;
-      }));
-      select.dataset.globalOptionsV421=signature;
-      select.value=currentValue;
-    }
-    syncPremium(select);
-  }
-
-  function createSelectField(locationId,field,label,options){
-    const wrapper=document.createElement('label');
-    wrapper.className='field overview-field-v417 panel-field-v419 global-field-v421';
-    wrapper.dataset.overviewField=field;
-    wrapper.dataset.panelField=field;
-    wrapper.dataset.globalField=field;
-    const caption=document.createElement('span');
-    caption.className='profile-caption-v416';
-    caption.textContent=label;
-    const select=document.createElement('select');
-    select.dataset.location=locationId;
-    select.dataset.field=field;
-    select.dataset.profileV416='1';
-    select.dataset.overviewV417='1';
-    select.dataset.panelV419='1';
-    select.dataset.globalV421='1';
-    replaceOptions(select,options);
-    wrapper.append(caption,select);
-    bindField(select);
-    return wrapper;
-  }
-
-  function ensureCaption(wrapper,text){
-    if(!wrapper)return;
-    let caption=wrapper.querySelector(':scope > .profile-caption-v416');
-    if(!caption){
-      caption=document.createElement('span');
-      caption.className='profile-caption-v416';
-      wrapper.prepend(caption);
-    }
-    if(caption.textContent!==text)caption.textContent=text;
-  }
-
-  function ensureField(card,grid,field,label,options){
-    let control=controlOf(card,field);
-    if(!control){
-      const wrapper=createSelectField(card.dataset.locationCard,field,label,options);
-      grid.appendChild(wrapper);
-      control=wrapper.querySelector('select');
-    }
+  function prepareGlobalField(card,field){
+    const control=controlOf(card,field);
     const wrapper=wrapperOf(control);
-    wrapper?.classList.add('global-field-v421','panel-field-v419');
-    if(wrapper){
-      wrapper.hidden=false;
-      wrapper.classList.remove('panel-hidden-v419','hidden');
-      wrapper.removeAttribute('aria-hidden');
-      wrapper.dataset.globalField=field;
-    }
+    if(!control||!wrapper)return false;
+    wrapper.classList.add('global-field-v421','panel-field-v419');
+    wrapper.hidden=false;
+    wrapper.classList.remove('panel-hidden-v419','hidden');
+    wrapper.removeAttribute('aria-hidden');
+    wrapper.dataset.globalField=field;
     control.dataset.globalV421='1';
-    ensureCaption(wrapper,label);
-    replaceOptions(control,options);
-    bindField(control);
-    return control;
-  }
-
-  function applyVisualOrder(grid,card){
-    ORDER.forEach((field,index)=>{
-      const wrapper=wrapperOf(controlOf(card,field));
-      const order=String((index+1)*10);
-      if(wrapper&&wrapper.style.order!==order)wrapper.style.order=order;
-    });
-    const note=grid.querySelector('.inspection-note-v416');
-    if(note&&note.style.order!=='999')note.style.order='999';
+    return true;
   }
 
   function syncPairState(card){
@@ -168,98 +51,24 @@
     overview.classList.toggle('panels-both-open-v421',bothOpen);
   }
 
-  async function restore(card){
-    if(typeof getLocationData!=='function'||typeof getNested!=='function')return;
-    const data=await getLocationData(card.dataset.locationCard);
-    for(const control of card.querySelectorAll('[data-global-v421][data-field]')){
-      if(control===document.activeElement||control.dataset.profileDirtyV416==='1')continue;
-      const value=getNested(data,control.dataset.field);
-      const next=value===undefined||value===null?'':String(value);
-      if(control.value!==next)control.value=next;
-      syncPremium(control);
-    }
-  }
-
-  async function enhanceCard(card){
-    const grid=card.querySelector('.inspection-grid-v416');
-    if(!grid||!card.dataset.locationCard)return;
-    ensureField(card,grid,'premiseAvailability','Доступность помещения',AVAILABILITY_OPTIONS);
-    ensureField(card,grid,'landlordReadiness','Готовность собственника',LANDLORD_READINESS_OPTIONS);
-    applyVisualOrder(grid,card);
+  function enhanceCard(card){
+    GLOBAL_FIELDS.forEach(field=>prepareGlobalField(card,field));
     syncPairState(card);
-    await restore(card);
   }
 
-  function reportChainHas(fn,marker){
-    const visited=new Set();
-    let current=fn;
-    while(typeof current==='function'&&!visited.has(current)){
-      if(current[marker])return true;
-      visited.add(current);
-      current=current.__base;
-    }
-    return false;
-  }
-
-  function upsertReportValue(documentReport,grid,label,value){
-    let item=[...grid.children].find(node=>node.querySelector('b')?.textContent.replace(':','').trim()===label);
-    if(!item){
-      item=documentReport.createElement('div');
-      const strong=documentReport.createElement('b');
-      strong.textContent=`${label}:`;
-      item.appendChild(strong);
-      grid.appendChild(item);
-    }
-    const strong=item.querySelector('b');
-    item.replaceChildren(strong,documentReport.createTextNode(` ${value||'—'}`));
-  }
-
-  function addReportPatch(){
-    reportAttempts+=1;
-    const current=window.buildReportHtml;
-    if(typeof current!=='function'){
-      if(reportAttempts<120)setTimeout(addReportPatch,200);
-      return;
-    }
-    if(current.__locationGlobalV421)return;
-    if(!reportChainHas(current,'__locationPanelsV419')){
-      if(reportAttempts<120)setTimeout(addReportPatch,200);
-      return;
-    }
-    const base=current;
-    const wrapped=async function(...args){
-      const html=await base(...args);
-      const parser=new DOMParser();
-      const documentReport=parser.parseFromString(html,'text/html');
-      const sections=[...documentReport.querySelectorAll('.report-location')];
-      for(let index=0;index<sections.length;index++){
-        const section=sections[index];
-        const grid=section.querySelector('.report-inspection-grid-v417');
-        const fallbackId=typeof locations!=='undefined'?locations[index]?.id:null;
-        const id=section.dataset.locationId||fallbackId;
-        if(!grid||!id||typeof getLocationData!=='function')continue;
-        const data=await getLocationData(id);
-        upsertReportValue(documentReport,grid,'Доступность помещения',data.premiseAvailability);
-        upsertReportValue(documentReport,grid,'Готовность собственника',data.landlordReadiness);
-      }
-      return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
-    };
-    wrapped.__locationGlobalV421=true;
-    wrapped.__locationPanelsV419=true;
-    wrapped.__base=base;
-    window.buildReportHtml=wrapped;
-    try{buildReportHtml=wrapped}catch(_){}
-  }
-
-  async function enhanceAll(){
+  async function enhanceAll(options={}){
     ensureStyle();
+    if(!options.force&&isEditing()){
+      schedule(350);
+      return false;
+    }
     const labels=window.BogatkaWorkflowV414?.FIELD_LABELS;
     if(labels)Object.assign(labels,{
       premiseAvailability:'Доступность помещения',
       landlordReadiness:'Готовность собственника',
     });
-    addReportPatch();
-    for(const card of document.querySelectorAll('[data-location-card]'))await enhanceCard(card);
+    for(const card of document.querySelectorAll('[data-location-card]'))enhanceCard(card);
+    return true;
   }
 
   function schedule(delay=80){
@@ -292,7 +101,7 @@
     audit(){
       const failures=[];
       for(const card of document.querySelectorAll('[data-location-card]')){
-        for(const field of ['premiseAvailability','landlordReadiness']){
+        for(const field of GLOBAL_FIELDS){
           const control=controlOf(card,field);
           const wrapper=wrapperOf(control);
           if(!control||!wrapper)failures.push(`${card.dataset.locationCard}:${field}:missing`);
