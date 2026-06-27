@@ -16,8 +16,8 @@
   function hydrateRow(row){
     if(!row||typeof row!=='object')return row;
     const form=cloneForm(row.form_data);
-    if(isMissing(form.status)&&!isMissing(row.status))form.status=row.status;
-    if(isMissing(form.objectType)&&!isMissing(row.object_type))form.objectType=row.object_type;
+    if(!isMissing(row.status))form.status=row.status;
+    if(!isMissing(row.object_type))form.objectType=row.object_type;
     return {...row,form_data:form};
   }
 
