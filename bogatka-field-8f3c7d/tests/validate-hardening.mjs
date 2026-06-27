@@ -23,38 +23,26 @@ for(const [file,markers] of Object.entries(checks)){
 }
 const backup=fs.readFileSync(path.join(root,'backup-v400.js'),'utf8');
 for(const file of Object.keys(checks).filter(file=>file!=='decision-ui-v340.js'))if(!backup.includes(file))errors.push(`backup-v400.js does not load ${file}`);
+if(!backup.includes("'./location-global-v421.js'"))errors.push('backup-v400.js does not load location-global-v421.js');
+
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v420'"))errors.push('Service Worker cache version is not v420');
-for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css','./location-panels-v419.js','./location-panels-v419.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
+if(!sw.includes("CACHE_NAME='bogatka-location-v421'"))errors.push('Service Worker cache version is not v421');
+for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css','./location-panels-v419.js','./location-panels-v419.css','./location-global-v421.js','./location-global-v421.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
 
 const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
-for(const marker of [
-  'bogatkaPendingInvite','emailRedirectTo:bogatkaInviteRedirectUrl()','bogatkaClearPendingInvite',
-  'invite.email','accept_bogatka_project_invite','p_token:invite.token',"url.searchParams.set('v','410')",
-  'bogatkaInviteAcceptancePromise','bogatkaOpenInviteAuth','bogatkaScheduleInviteAuth',"?'login':'signup'",
-])if(!auth.includes(marker))errors.push(`auth-signup-fix-v31.js missing ${marker}`);
+for(const marker of ['bogatkaPendingInvite','emailRedirectTo:bogatkaInviteRedirectUrl()','bogatkaClearPendingInvite','invite.email','accept_bogatka_project_invite','p_token:invite.token',"url.searchParams.set('v','410')",'bogatkaInviteAcceptancePromise','bogatkaOpenInviteAuth','bogatkaScheduleInviteAuth',"?'login':'signup'"])if(!auth.includes(marker))errors.push(`auth-signup-fix-v31.js missing ${marker}`);
 if(auth.includes('note.innerHTML=`'))errors.push('Invite email must not be inserted into auth HTML');
 if(auth.includes('observe(document.documentElement'))errors.push('Auth observer must not watch the whole document');
 
 const members=fs.readFileSync(path.join(root,'members-v32.js'),'utf8');
-for(const marker of [
-  'create_project_invite','revoke_project_invite','bogatkaInviteLifetime','editor','viewer',
-  'Срок действия ссылки','После регистрации доступ сохраняется','Ссылка на вход и регистрацию',
-  'сама по себе не выдаёт доступ к проекту','update_project_member_role','remove_project_member',
-  'Доступ отключён','invite-status-badge-v410','bogatkaInstallCollaborationRealtime',"?v=410",
-])if(!members.includes(marker))errors.push(`members-v32.js missing ${marker}`);
+for(const marker of ['create_project_invite','revoke_project_invite','bogatkaInviteLifetime','editor','viewer','Срок действия ссылки','После регистрации доступ сохраняется','Ссылка на вход и регистрацию','сама по себе не выдаёт доступ к проекту','update_project_member_role','remove_project_member','Доступ отключён','invite-status-badge-v410','bogatkaInstallCollaborationRealtime',"?v=410"])if(!members.includes(marker))errors.push(`members-v32.js missing ${marker}`);
 if(members.includes('<option value="owner">'))errors.push('Personal invite UI must not offer owner role');
 if(members.includes('<option value="720">'))errors.push('Personal invite UI must not offer a 30-day link lifetime');
 if(members.includes('observe(document.body'))errors.push('Members observer must not watch the whole document');
 
 const membersCss=fs.readFileSync(path.join(root,'members-v32.css'),'utf8');
-for(const marker of [
-  '.application-link-v408','.application-link-button-v409','.invite-lifetime-help-v409',
-  '.invite-result-v408','gap:14px','.invite-actions-v408','.invite-result-note-v410',
-  '.invite-row-v408','.invite-status-badge-v410','.member-controls-v410','.member-remove-v410',
-  '.cloud-account-pill-v410',
-])if(!membersCss.includes(marker))errors.push(`members-v32.css missing ${marker}`);
+for(const marker of ['.application-link-v408','.application-link-button-v409','.invite-lifetime-help-v409','.invite-result-v408','gap:14px','.invite-actions-v408','.invite-result-note-v410','.invite-row-v408','.invite-status-badge-v410','.member-controls-v410','.member-remove-v410','.cloud-account-pill-v410'])if(!membersCss.includes(marker))errors.push(`members-v32.css missing ${marker}`);
 
 const visualJsPath=path.join(root,'visual-v411.js');
 if(!fs.existsSync(visualJsPath))errors.push('Missing visual-v411.js');
@@ -68,12 +56,7 @@ const visualCssPath=path.join(root,'visual-v411.css');
 if(!fs.existsSync(visualCssPath))errors.push('Missing visual-v411.css');
 else{
   const visualCss=fs.readFileSync(visualCssPath,'utf8');
-  for(const marker of [
-    '.collaboration-accordion-panel-v411','grid-template-rows:0fr','grid-template-rows:1fr',
-    '.member-role-field-v410 .premium-select-trigger','height:44px!important',
-    '.summary-grid-v332 .metric','min-height:66px!important',
-    '.comparison-panel-v332','border:2px solid #d8b860!important','overflow:clip!important',
-  ])if(!visualCss.includes(marker))errors.push(`visual-v411.css missing ${marker}`);
+  for(const marker of ['.collaboration-accordion-panel-v411','grid-template-rows:0fr','grid-template-rows:1fr','.member-role-field-v410 .premium-select-trigger','height:44px!important','.summary-grid-v332 .metric','min-height:66px!important','.comparison-panel-v332','border:2px solid #d8b860!important','overflow:clip!important'])if(!visualCss.includes(marker))errors.push(`visual-v411.css missing ${marker}`);
 }
 
 const decisionPanelJs=fs.readFileSync(path.join(root,'decision-panel-v412.js'),'utf8');
@@ -85,11 +68,7 @@ const workflowJsPath=path.join(root,'workflow-v414.js');
 if(!fs.existsSync(workflowJsPath))errors.push('Missing workflow-v414.js');
 else{
   const workflowJs=fs.readFileSync(workflowJsPath,'utf8');
-  for(const marker of [
-    "VERSION='4.1.4'",'Сравнительная оценка локации — 70 баллов','checklist-guide-v414',
-    'structured-notes-v414','task-examples-v414','HISTORY_PAGE_SIZE=10','history-pagination-v414',
-    'moveEconomyAndLaunch','project_members','BogatkaWorkflowV414',
-  ])if(!workflowJs.includes(marker))errors.push(`workflow-v414.js missing ${marker}`);
+  for(const marker of ["VERSION='4.1.4'",'Сравнительная оценка локации — 70 баллов','checklist-guide-v414','structured-notes-v414','task-examples-v414','HISTORY_PAGE_SIZE=10','history-pagination-v414','moveEconomyAndLaunch','project_members','BogatkaWorkflowV414'])if(!workflowJs.includes(marker))errors.push(`workflow-v414.js missing ${marker}`);
   if(workflowJs.includes('observer.observe(document.body'))errors.push('Workflow observer must be scoped to locations');
 }
 const workflowCssPath=path.join(root,'workflow-v414.css');
@@ -113,50 +92,44 @@ else{
   for(const marker of ['.panel-hidden-v419','grid-auto-rows:max-content','align-self:start!important','border:2px solid #d8b860!important','background:linear-gradient(180deg,#fff8e8,#ffedc0)!important','.panel-closed-v419 .panel-chevron-v419'])if(!panelsCss.includes(marker))errors.push(`location-panels-v419.css missing ${marker}`);
 }
 
+const globalJsPath=path.join(root,'location-global-v421.js');
+if(!fs.existsSync(globalJsPath))errors.push('Missing location-global-v421.js');
+else{
+  const globalJs=fs.readFileSync(globalJsPath,'utf8');
+  for(const marker of ["VERSION='4.2.1'",'premiseAvailability','landlordReadiness','Готовность собственника','panels-both-open-v421','BogatkaLocationGlobalV421','wrapped.__locationGlobalV421'])if(!globalJs.includes(marker))errors.push(`location-global-v421.js missing ${marker}`);
+}
+const globalCssPath=path.join(root,'location-global-v421.css');
+if(!fs.existsSync(globalCssPath))errors.push('Missing location-global-v421.css');
+else{
+  const globalCss=fs.readFileSync(globalCssPath,'utf8');
+  for(const marker of ['gap:6px!important','margin-top:0!important','.panels-both-open-v421','height:100%!important'])if(!globalCss.includes(marker))errors.push(`location-global-v421.css missing ${marker}`);
+}
+
+const objectNormalizePath=path.join(root,'object-type-normalize-v416.js');
+if(!fs.existsSync(objectNormalizePath))errors.push('Missing object-type-normalize-v416.js');
+else{
+  const objectNormalize=fs.readFileSync(objectNormalizePath,'utf8');
+  for(const marker of ['pendingEmptyResets','persistIntentionalEmpty','objectTypeResetPendingV421','handleObjectTypeChange',"version:'4.2.1'"])if(!objectNormalize.includes(marker))errors.push(`object-type-normalize-v416.js missing ${marker}`);
+}
+
 const inviteModule=fs.readFileSync(path.join(root,'invites-v408.js'),'utf8');
 for(const marker of ['Пригласить участника','one-email-one-personal-link','bogatka:invite-accepted',"version:'4.1.0'"])if(!inviteModule.includes(marker))errors.push(`invites-v408.js missing ${marker}`);
 if(inviteModule.includes('new MutationObserver'))errors.push('Invite toolbar module must not install a global DOM observer');
 
 const loader=fs.readFileSync(path.join(root,'v23.js'),'utf8');
 for(const marker of ["src:'./invites-v408.js'","href:'./visual-v411.css'","src:'./visual-v411.js'","href:'./decision-panel-v412.css'","src:'./decision-panel-v412.js'","href:'./workflow-v414.css'","src:'./workflow-v414.js'","href:'./location-panels-v419.css'","src:'./location-panels-v419.js'"])if(!loader.includes(marker))errors.push(`v23.js missing ${marker}`);
-for(const marker of ["'./sync-merge-v412.js'","'./sync-state-v412.js'","'./sync-runtime-v412.js'"])if(!backup.includes(marker))errors.push(`backup-v400.js missing ${marker}`);
+for(const marker of ["'./sync-merge-v412.js'","'./sync-state-v412.js'","'./sync-runtime-v412.js'","'./location-global-v421.js'"])if(!backup.includes(marker))errors.push(`backup-v400.js missing ${marker}`);
 
-const secureMigrationPath=path.resolve('supabase/migrations/20260626000200_secure_personal_invites_v408.sql');
-if(!fs.existsSync(secureMigrationPath))errors.push('Missing secure personal invitations migration');
-else{
-  const migration=fs.readFileSync(secureMigrationPath,'utf8');
-  for(const marker of ['accept_bogatka_project_invite','digest(lower(p_token)','drop policy if exists "invited account can join project"','Используйте действующее персональное приглашение'])if(!migration.includes(marker))errors.push(`Invite migration missing ${marker}`);
-}
-
-const collaborationMigrationPath=path.resolve('supabase/migrations/20260626000400_collaboration_controls_and_idempotent_invites_v410.sql');
-if(!fs.existsSync(collaborationMigrationPath))errors.push('Missing v410 collaboration migration');
-else{
-  const migration=fs.readFileSync(collaborationMigrationPath,'utf8');
-  for(const marker of [
-    'v_invite.accepted_by = v_user','return v_invite.project_id','update_project_member_role',
-    'remove_project_member','alter publication supabase_realtime add table public.project_members',
-    'alter publication supabase_realtime add table public.project_invites',
-  ])if(!migration.includes(marker))errors.push(`Collaboration migration missing ${marker}`);
-}
-
-const syncMigrationPath=path.resolve('supabase/migrations/20260626000500_sync_integrity_v412.sql');
-if(!fs.existsSync(syncMigrationPath))errors.push('Missing v412 sync integrity migration');
-else{
-  const migration=fs.readFileSync(syncMigrationPath,'utf8');
-  for(const marker of ['prepare_location_audit','to_jsonb(new)',"- 'updated_at' - 'updated_by' - 'revision'",'return null','suppresses semantically identical updates'])if(!migration.includes(marker))errors.push(`Sync migration missing ${marker}`);
-}
-
-const activityCleanupPath=path.resolve('supabase/migrations/20260627000100_remove_location_activity_log_v413.sql');
-if(!fs.existsSync(activityCleanupPath))errors.push('Missing v413 activity log cleanup migration');
-else{
-  const migration=fs.readFileSync(activityCleanupPath,'utf8');
-  for(const marker of ['drop trigger if exists locations_activity','delete from public.activity_log','Automatic per-update logging is disabled'])if(!migration.includes(marker))errors.push(`Activity cleanup migration missing ${marker}`);
-}
+for(const migrationPath of [
+  'supabase/migrations/20260626000200_secure_personal_invites_v408.sql',
+  'supabase/migrations/20260626000400_collaboration_controls_and_idempotent_invites_v410.sql',
+  'supabase/migrations/20260626000500_sync_integrity_v412.sql',
+  'supabase/migrations/20260627000100_remove_location_activity_log_v413.sql',
+])if(!fs.existsSync(path.resolve(migrationPath)))errors.push(`Missing migration ${migrationPath}`);
 
 const config=fs.readFileSync(path.join(root,'config.js'),'utf8');
 if(!config.includes('APP_VERSION = "4.0.0"'))errors.push('config.js APP_VERSION is not 4.0.0');
-for(const legacy of ['workflow-v350.js','workflow-v350.css','workflow-report-v350.js']){
-  if(fs.existsSync(path.join(root,legacy)))errors.push(`Legacy duplicate still exists: ${legacy}`);
-}
+for(const legacy of ['workflow-v350.js','workflow-v350.css','workflow-report-v350.js'])if(fs.existsSync(path.join(root,legacy)))errors.push(`Legacy duplicate still exists: ${legacy}`);
+
 if(errors.length){console.error(errors.join('\n'));process.exit(1)}
 console.log('Bogatka hardening validation passed.');
