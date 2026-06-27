@@ -63,7 +63,8 @@ test('v419 keeps only useful inspection fields visible and persists them after r
 
   await card.locator('[data-field="floorLocation"]').fill('1-й этаж, вход с улицы');
   await card.locator('[data-field="premiseCondition"]').selectOption('Нужен косметический ремонт');
-  await card.locator('[data-field="nextAction"]').fill('Получить план помещения и проект договора');
+  const nextAction=card.locator('[data-field="nextAction"]');
+  await nextAction.fill('Получить план помещения и проект договора');
   await page.waitForTimeout(1200);
 
   const saved=await page.evaluate(async locationId=>getLocationData(locationId),id);
@@ -73,8 +74,13 @@ test('v419 keeps only useful inspection fields visible and persists them after r
     nextAction:'Получить план помещения и проект договора',
   });
 
+  await nextAction.blur();
+  await page.waitForTimeout(850);
   await page.evaluate(()=>renderLocations());
-  await page.waitForFunction(locationId=>window.BogatkaLocationPanelsV419?.audit().ok&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] [data-field="floorLocation"]`),id);
+  await page.waitForFunction(locationId=>Boolean(document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] [data-field="floorLocation"]`)&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .panel-toggle-v419`)),id);
+  const audit=await page.evaluate(()=>window.BogatkaLocationPanelsV419.audit());
+  expect(audit.ok,audit.failures.join('\n')).toBe(true);
+
   const rerendered=page.locator(`[data-location-card="${id}"]`);
   await expect(rerendered.locator('[data-field="floorLocation"]')).toHaveValue('1-й этаж, вход с улицы');
   await expect(rerendered.locator('[data-field="premiseCondition"]')).toHaveValue('Нужен косметический ремонт');
@@ -86,8 +92,6 @@ test('v419 enhancement is idempotent and does not recreate compatibility fields'
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
   const before=await card.evaluate(element=>({
-    inspectionBy:element.querySelector('[data-field="inspectionBy"]'),
-    premiseAvailability:element.querySelector('[data-field="premiseAvailability"]'),
     toggleCount:element.querySelectorAll('.panel-toggle-v419').length,
     fieldCount:element.querySelectorAll('[data-field]').length,
   }));
@@ -98,9 +102,9 @@ test('v419 enhancement is idempotent and does not recreate compatibility fields'
     const premiseAvailability=element.querySelector('[data-field="premiseAvailability"]');
     const beforeCount=element.querySelectorAll('[data-field]').length;
     await window.BogatkaLocationOverviewV417.enhanceAll();
-    await window.BogatkaLocationPanelsV419.enhanceAll();
+    await window.BogatkaLocationPanelsV419.enhanceAll({force:true});
     await window.BogatkaLocationOverviewV417.enhanceAll();
-    await window.BogatkaLocationPanelsV419.enhanceAll();
+    await window.BogatkaLocationPanelsV419.enhanceAll({force:true});
     return {
       sameInspectionBy:inspectionBy===element.querySelector('[data-field="inspectionBy"]'),
       sameAvailability:premiseAvailability===element.querySelector('[data-field="premiseAvailability"]'),
