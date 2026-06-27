@@ -23,6 +23,15 @@
   let timer=null;
   let reportAttempts=0;
 
+  function ensureStyle(){
+    const href='./location-global-v421.css';
+    if(document.querySelector(`link[href="${href}"]`))return;
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.href=href;
+    document.head.appendChild(link);
+  }
+
   function controlOf(card,field){
     return card.querySelector(`[data-field="${field}"]`);
   }
@@ -226,7 +235,8 @@
       for(let index=0;index<sections.length;index++){
         const section=sections[index];
         const grid=section.querySelector('.report-inspection-grid-v417');
-        const id=section.dataset.locationId||window.locations?.[index]?.id;
+        const fallbackId=typeof locations!=='undefined'?locations[index]?.id:null;
+        const id=section.dataset.locationId||fallbackId;
         if(!grid||!id||typeof getLocationData!=='function')continue;
         const data=await getLocationData(id);
         upsertReportValue(documentReport,grid,'Доступность помещения',data.premiseAvailability);
@@ -242,6 +252,7 @@
   }
 
   async function enhanceAll(){
+    ensureStyle();
     const labels=window.BogatkaWorkflowV414?.FIELD_LABELS;
     if(labels)Object.assign(labels,{
       premiseAvailability:'Доступность помещения',
@@ -257,6 +268,7 @@
   }
 
   function install(){
+    ensureStyle();
     const root=document.getElementById('locations')||document.body;
     root.addEventListener('click',event=>{
       if(!event.target.closest('.panel-toggle-v419'))return;
