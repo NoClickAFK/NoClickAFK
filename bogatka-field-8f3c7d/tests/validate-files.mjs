@@ -61,14 +61,18 @@ if (!failures.length) {
   for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','reset/index.html','reset/reset.js']) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
-  if (!serviceWorker.includes("CACHE_NAME='bogatka-location-v419'")) failures.push('Service Worker cache name is not v419');
+  if (!serviceWorker.includes("CACHE_NAME='bogatka-location-v420'")) failures.push('Service Worker cache name is not v420');
 
   const panels = read('location-panels-v419.js');
   for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','reportChainHas','wrapped.__locationPanelsV419','isEditing']) {
     if (!panels.includes(marker)) failures.push(`location-panels-v419.js is missing ${marker}`);
   }
   if (panels.includes('if(wrapper)wrapper.remove();')) failures.push('location-panels-v419.js removes legacy fields instead of hiding them');
-  if (!read('location-panels-v419.css').includes('.panel-hidden-v419')) failures.push('location-panels-v419.css does not hide compatibility fields');
+
+  const panelsCss = read('location-panels-v419.css');
+  for (const marker of ['.panel-hidden-v419','grid-auto-rows:max-content','align-self:start!important','border:2px solid #d8b860!important','background:linear-gradient(180deg,#fff8e8,#ffedc0)!important','border-right:2px solid #6a541d!important','.panel-closed-v419 .panel-chevron-v419']) {
+    if (!panelsCss.includes(marker)) failures.push(`location-panels-v419.css is missing ${marker}`);
+  }
 
   const renderHook = read('location-panels-render-v419.js');
   for (const marker of ['installRenderHook','scheduleRefresh','refreshAfterRender','__locationPanelsRenderV419','BogatkaLocationPanelsRenderV419']) {
