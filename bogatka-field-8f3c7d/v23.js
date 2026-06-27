@@ -1,3 +1,5 @@
+const BOGATKA_DATA_SCHEMA_VERSION='4.0.0';
+
 function loadBogatkaPatch(tagName,attributes){
   const marker=attributes.src||attributes.href;
   if(marker&&document.querySelector(`${tagName}[src="${marker}"],${tagName}[href="${marker}"]`))return;
