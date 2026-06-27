@@ -6,6 +6,7 @@
     scheduled=false;
     try{
       await window.BogatkaLocationOverviewV417?.enhanceAll?.();
+      await window.BogatkaWorkflowV414?.enhanceAll?.();
     }catch(error){
       console.error(error);
     }
@@ -29,5 +30,5 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
 
-  window.BogatkaLocationOverviewInitV417={version:'4.1.7',ready:true,run,schedule};
+  window.BogatkaLocationOverviewInitV417={version:'4.1.8',ready:true,run,schedule};
 })();

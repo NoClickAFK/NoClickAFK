@@ -1,3 +1,5 @@
+const BOGATKA_DATA_SCHEMA_VERSION='4.0.0';
+
 function loadBogatkaPatch(tagName,attributes){
   const marker=attributes.src||attributes.href;
   if(marker&&document.querySelector(`${tagName}[src="${marker}"],${tagName}[href="${marker}"]`))return;
@@ -47,8 +49,10 @@ function installSyncIntegrityGate(){
 
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
+  const requestedVersion=Number(new URLSearchParams(location.search).get('v')||0);
+  if(requestedVersion>0&&requestedVersion<418)document.documentElement.classList.add('bogatka-legacy-expanded-v418');
   const versionLabel=document.getElementById('versionLabel');
-  if(versionLabel)versionLabel.textContent='4.0.0';
+  if(versionLabel)versionLabel.textContent='4.1.8';
   const accessButton=document.getElementById('shareAccessBtn');
   if(accessButton)accessButton.textContent='Пригласить участника';
   upgradeAccessScreen();
@@ -68,7 +72,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-v414.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-fixes-v415.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-profile-v416.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-overview-v417.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-overview-v417.css?v=418'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -97,8 +101,10 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./field-integrity-v416.js'});
   loadBogatkaPatch('script',{src:'./object-type-normalize-v416.js'});
   loadBogatkaPatch('script',{src:'./location-profile-v416.js'});
-  loadBogatkaPatch('script',{src:'./location-overview-v417.js'});
-  loadBogatkaPatch('script',{src:'./location-overview-init-v417.js'});
+  loadBogatkaPatch('script',{src:'./location-overview-guard-v418.js?v=418'});
+  loadBogatkaPatch('script',{src:'./location-overview-v417.js?v=418'});
+  loadBogatkaPatch('script',{src:'./location-overview-init-v417.js?v=418'});
+  loadBogatkaPatch('script',{src:'./workflow-recover-v418.js?v=418'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
