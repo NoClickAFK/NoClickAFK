@@ -3,6 +3,7 @@
 
   const VERSION='4.2.1';
   const GLOBAL_FIELDS=['premiseAvailability','landlordReadiness'];
+  // Report generation is native to location-overview-v421; no wrapped.__locationGlobalV421 hook is installed.
   let timer=null;
 
   function ensureStyle(){
@@ -42,6 +43,23 @@
     return true;
   }
 
+  function syncOtherType(card){
+    const select=controlOf(card,'objectType');
+    const wrapper=card.querySelector('[data-object-other]');
+    if(!select||!wrapper)return;
+    const update=()=>{
+      const hidden=select.value!=='Другое';
+      wrapper.hidden=hidden;
+      wrapper.classList.toggle('hidden',hidden);
+    };
+    update();
+    if(select.dataset.globalOtherBoundV421!=='1'){
+      select.dataset.globalOtherBoundV421='1';
+      select.addEventListener('change',update);
+      select.addEventListener('bogatka:object-type-restored',update);
+    }
+  }
+
   function syncPairState(card){
     const overview=card.querySelector('.location-panels-v419');
     if(!overview)return;
@@ -53,6 +71,7 @@
 
   function enhanceCard(card){
     GLOBAL_FIELDS.forEach(field=>prepareGlobalField(card,field));
+    syncOtherType(card);
     syncPairState(card);
   }
 
