@@ -69,6 +69,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-fixes-v415.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-profile-v416.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-overview-v417.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-panels-v419.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -99,6 +100,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-profile-v416.js'});
   loadBogatkaPatch('script',{src:'./location-overview-v417.js'});
   loadBogatkaPatch('script',{src:'./location-overview-init-v417.js'});
+  loadBogatkaPatch('script',{src:'./location-panels-v419.js'});
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
