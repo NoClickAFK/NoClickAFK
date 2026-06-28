@@ -14,6 +14,12 @@
     document.head.appendChild(script);
   }
 
+  function claimUnlessSuperseded(builder){
+    const active=window.BogatkaLiveReport?.build||window.buildReportHtml;
+    if(active?.__reportStabilityV429)return;
+    claim(builder);
+  }
+
   function install(){
     attempts+=1;
     const api=window.BogatkaLiveReport;
@@ -65,7 +71,7 @@
       try{
         return await baseBuild(...args);
       }finally{
-        claim(buildReportHtmlV428);
+        claimUnlessSuperseded(buildReportHtmlV428);
       }
     };
 
@@ -83,7 +89,7 @@
 
     claim(buildReportHtmlV428);
     loadNextPatch();
-    [100,300,700,1000,1200,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildReportHtmlV428),delay));
+    [100,300,700,1000,1200,1500,3000,5000].forEach(delay=>setTimeout(()=>claimUnlessSuperseded(buildReportHtmlV428),delay));
   }
 
   function claim(builder){
