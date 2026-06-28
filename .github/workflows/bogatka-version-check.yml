@@ -9,6 +9,7 @@ on:
       - 'bogatka-field-8f3c7d/sw-v340.js'
       - 'bogatka-field-8f3c7d/reset/**'
       - 'bogatka-field-8f3c7d/tests/**'
+      - 'supabase/functions/bogatka-version/**'
       - '.github/workflows/bogatka-version-check.yml'
 
 permissions:
