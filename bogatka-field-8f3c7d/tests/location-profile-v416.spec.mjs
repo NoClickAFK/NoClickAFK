@@ -10,6 +10,13 @@ async function openApp(page){
   await page.waitForFunction(()=>document.querySelector('[data-location-card] [data-field="contactRole"]'));
 }
 
+async function openTechnical(card){
+  await card.evaluate(element=>{
+    const details=[...element.querySelectorAll('details')].find(item=>item.querySelector(':scope > summary')?.textContent.includes('Технические и финансовые параметры'));
+    if(details)details.open=true;
+  });
+}
+
 test('profile renders contact role and keeps rent only in technical parameters',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
@@ -26,6 +33,7 @@ test('profile fields persist after a full rerender',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
   const id=await card.getAttribute('data-location-card');
+  await openTechnical(card);
   await card.locator('[data-field="tech.rentPerMonth"]').fill('1500');
   await card.locator('[data-field="ownerName"]').fill('Тестовая организация');
   await card.locator('[data-field="contactRole"]').selectOption('Управляющий');
