@@ -59,7 +59,7 @@ if (!failures.length) {
     if (!collapseModule.includes(marker)) failures.push(`location-card-collapse-v422.js is missing ${marker}`);
   }
   const collapseCss = read('location-card-collapse-v422.css');
-  for (const marker of ['grid-template-columns:repeat(3,70px) 56px','height:70px','font-size:19px!important','.location-card-collapsed-v422>.location-body','border-bottom:0!important','.archive-manager-v400','background:#eaf4ef']) {
+  for (const marker of ['grid-template-columns: repeat(3, 64px) 50px','height: 64px','font-size: 18px !important','background: #edf6f1 !important','width: 34px','border: 1px solid currentColor !important','.comparison-chevron-v332::before','.location-card-collapsed-v422 > .location-body','border-bottom: 0 !important','.archive-manager-v400']) {
     if (!collapseCss.includes(marker)) failures.push(`location-card-collapse-v422.css is missing ${marker}`);
   }
 
