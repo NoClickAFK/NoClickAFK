@@ -5,6 +5,21 @@
   const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
   let attempts=0;
 
+  function loadNextPatch(){
+    const source='./report-stability-v429.js';
+    if(document.querySelector(`script[src="${source}"]`))return;
+    const script=document.createElement('script');
+    script.src=source;
+    script.async=false;
+    document.head.appendChild(script);
+  }
+
+  function claimUnlessSuperseded(builder){
+    const active=window.BogatkaLiveReport?.build||window.buildReportHtml;
+    if(active?.__reportStabilityV429)return;
+    claim(builder);
+  }
+
   function install(){
     attempts+=1;
     const api=window.BogatkaLiveReport;
@@ -15,6 +30,7 @@
     }
     if(current.__reportAuthorityV428){
       claim(current);
+      loadNextPatch();
       return;
     }
 
@@ -55,7 +71,7 @@
       try{
         return await baseBuild(...args);
       }finally{
-        claim(buildReportHtmlV428);
+        claimUnlessSuperseded(buildReportHtmlV428);
       }
     };
 
@@ -72,7 +88,8 @@
     buildReportHtmlV428.__base=baseBuild;
 
     claim(buildReportHtmlV428);
-    [100,300,700,1000,1200,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildReportHtmlV428),delay));
+    loadNextPatch();
+    [100,300,700,1000,1200,1500,3000,5000].forEach(delay=>setTimeout(()=>claimUnlessSuperseded(buildReportHtmlV428),delay));
   }
 
   function claim(builder){
