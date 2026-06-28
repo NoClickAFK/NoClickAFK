@@ -1,0 +1,147 @@
+(function(){
+  'use strict';
+
+  let attempts=0;
+  const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+
+  function install(){
+    attempts+=1;
+    const api=window.BogatkaLiveReport;
+    if(!api?.ready||typeof api.build!=='function'){
+      if(attempts<100)setTimeout(install,80);
+      return;
+    }
+    if(api.build.__liveReportFinalV427){
+      claim(api.build);
+      return;
+    }
+
+    const baseBuild=api.build;
+
+    function addPanelHeading(documentReport,card,selector,title,copy){
+      const panel=card.querySelector(selector);
+      if(!panel||panel.querySelector(':scope > .report-panel-heading-v427'))return;
+      const heading=documentReport.createElement('header');
+      heading.className='report-panel-heading-v427';
+      const strong=documentReport.createElement('strong');
+      strong.textContent=title;
+      const span=documentReport.createElement('span');
+      span.textContent=copy;
+      heading.append(strong,span);
+      panel.prepend(heading);
+    }
+
+    function finalizeMarkup(html){
+      const parser=new DOMParser();
+      const documentReport=parser.parseFromString(html,'text/html');
+      for(const card of documentReport.querySelectorAll('.report-location-card')){
+        addPanelHeading(
+          documentReport,
+          card,
+          '.inspection-card-v416',
+          'Параметры осмотра и следующий шаг',
+          'Статус, формат, состояние помещения и дальнейшее действие.'
+        );
+        addPanelHeading(
+          documentReport,
+          card,
+          '.landlord-card-v416',
+          'Арендодатель и условия',
+          'Собственник, контактное лицо, контакты и договорённости.'
+        );
+        card.querySelectorAll('.profile-caption-v416').forEach(caption=>{
+          const value=caption.textContent.trim();
+          if(value&&!value.endsWith(':'))caption.textContent=`${value}:`;
+        });
+      }
+      if(!documentReport.querySelector('#reportLiveFixStyleV427')){
+        const style=documentReport.createElement('style');
+        style.id='reportLiveFixStyleV427';
+        style.textContent='.report-panel-heading-v427{padding:15px 17px;background:linear-gradient(180deg,#fff9ea,#ffefc6);border-bottom:1px solid #ead08e}.report-panel-heading-v427 strong{display:block;color:#15583f;font-size:18px}.report-panel-heading-v427 span{display:block;margin-top:3px;color:#80682f;font-size:12px}@media print{.report-panel-heading-v427{padding:8px 10px}}';
+        documentReport.head.appendChild(style);
+      }
+      return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
+    }
+
+    const buildLiveReportHtml=async function(...args){
+      const active=document.activeElement;
+      let restoreBlur=null;
+      if(active&&/^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)){
+        const hadOwn=Object.prototype.hasOwnProperty.call(active,'blur');
+        const ownValue=hadOwn?active.blur:null;
+        try{
+          Object.defineProperty(active,'blur',{configurable:true,value:()=>{}});
+          restoreBlur=()=>{
+            try{
+              if(hadOwn)Object.defineProperty(active,'blur',{configurable:true,writable:true,value:ownValue});
+              else delete active.blur;
+            }catch(_){}
+          };
+        }catch(_){}
+      }
+      try{
+        return finalizeMarkup(await baseBuild(...args));
+      }finally{
+        restoreBlur?.();
+      }
+    };
+
+    buildLiveReportHtml.__liveReportFinalV427=true;
+    buildLiveReportHtml.__locationProfileV416=true;
+    buildLiveReportHtml.__locationProfileV425=true;
+    buildLiveReportHtml.__locationOverviewV417=true;
+    buildLiveReportHtml.__locationOverviewV421=true;
+    buildLiveReportHtml.__base=baseBuild;
+
+    const exportHtmlReportLive=async function(){
+      if(typeof showSaving==='function')showSaving();
+      const html=await buildLiveReportHtml();
+      downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-premium-report-${new Date().toISOString().slice(0,10)}.html`);
+      if(typeof showSaved==='function')showSaved();
+    };
+
+    const openPdfReportLive=async function(){
+      const reportWindow=window.open('','_blank');
+      if(!reportWindow)return alert('Браузер заблокировал новое окно. Разрешите всплывающие окна для создания PDF.');
+      reportWindow.document.write('<p style="font-family:Arial;padding:30px">Формируется полный отчёт…</p>');
+      try{
+        const html=await buildLiveReportHtml();
+        reportWindow.document.open();
+        reportWindow.document.write(html);
+        reportWindow.document.close();
+        await Promise.all([...reportWindow.document.images].map(image=>image.complete?Promise.resolve():new Promise(resolve=>{
+          image.addEventListener('load',resolve,{once:true});
+          image.addEventListener('error',resolve,{once:true});
+        })));
+        if(reportWindow.document.fonts?.ready)await reportWindow.document.fonts.ready;
+        await wait(220);
+        reportWindow.focus();
+        reportWindow.print();
+      }catch(error){
+        reportWindow.close();
+        throw error;
+      }
+    };
+
+    buildLiveReportHtml.__htmlAction=exportHtmlReportLive;
+    buildLiveReportHtml.__pdfAction=openPdfReportLive;
+    api.build=buildLiveReportHtml;
+    claim(buildLiveReportHtml);
+    [100,300,700,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildLiveReportHtml),delay));
+  }
+
+  function claim(builder){
+    const api=window.BogatkaLiveReport;
+    if(api)api.build=builder;
+    window.buildReportHtml=builder;
+    window.exportHtmlReport=builder.__htmlAction||window.exportHtmlReport;
+    window.openPdfReport=builder.__pdfAction||window.openPdfReport;
+    try{
+      buildReportHtml=window.buildReportHtml;
+      exportHtmlReport=window.exportHtmlReport;
+      openPdfReport=window.openPdfReport;
+    }catch(_){}
+  }
+
+  install();
+})();
