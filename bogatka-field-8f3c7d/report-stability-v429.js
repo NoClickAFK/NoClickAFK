@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const VERSION='4.2.9';
+  const VERSION='4.2.8';
   const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
   let attempts=0;
 
@@ -88,11 +88,11 @@
 
     ensureLiveStyle();
     const baseBuild=current;
-    let buildReportHtmlV429=null;
+    let buildReportHtmlV428=null;
 
     const exportHtmlReportV429=async function(){
       if(typeof showSaving==='function')showSaving();
-      const html=await buildReportHtmlV429();
+      const html=await buildReportHtmlV428();
       downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-premium-report-${new Date().toISOString().slice(0,10)}.html`);
       if(typeof showSaved==='function')showSaved();
     };
@@ -102,7 +102,7 @@
       if(!reportWindow)return alert('Браузер заблокировал новое окно. Разрешите всплывающие окна для создания PDF.');
       reportWindow.document.write('<p style="font-family:Arial;padding:30px">Формируется полный отчёт…</p>');
       try{
-        const html=await buildReportHtmlV429();
+        const html=await buildReportHtmlV428();
         reportWindow.document.open();
         reportWindow.document.write(html);
         reportWindow.document.close();
@@ -120,7 +120,7 @@
       }
     };
 
-    buildReportHtmlV429=async function(...args){
+    buildReportHtmlV428=async function(...args){
       const panel=document.getElementById('locationComparisonPanel');
       const wasOpen=Boolean(panel?.open);
       const oldVisibility=panel?.style.visibility||'';
@@ -137,26 +137,26 @@
           panel.style.visibility=oldVisibility;
           panel.classList.remove('comparison-report-snapshot-v429','comparison-report-snapshot-closed-v429');
         }
-        claim(buildReportHtmlV429);
+        claim(buildReportHtmlV428);
       }
     };
 
-    buildReportHtmlV429.__reportStabilityV429=true;
-    buildReportHtmlV429.__reportAuthorityV429=true;
-    buildReportHtmlV429.__reportAuthorityV428=true;
-    buildReportHtmlV429.__reportPolishV428=true;
-    buildReportHtmlV429.__liveReportFinalV427=true;
-    buildReportHtmlV429.__locationProfileV416=true;
-    buildReportHtmlV429.__locationProfileV425=true;
-    buildReportHtmlV429.__locationOverviewV417=true;
-    buildReportHtmlV429.__locationOverviewV421=true;
-    buildReportHtmlV429.__locationPanelsV419=true;
-    buildReportHtmlV429.__htmlAction=exportHtmlReportV429;
-    buildReportHtmlV429.__pdfAction=openPdfReportV429;
-    buildReportHtmlV429.__base=baseBuild;
+    buildReportHtmlV428.__reportStabilityV429=true;
+    buildReportHtmlV428.__reportAuthorityV429=true;
+    buildReportHtmlV428.__reportAuthorityV428=true;
+    buildReportHtmlV428.__reportPolishV428=true;
+    buildReportHtmlV428.__liveReportFinalV427=true;
+    buildReportHtmlV428.__locationProfileV416=true;
+    buildReportHtmlV428.__locationProfileV425=true;
+    buildReportHtmlV428.__locationOverviewV417=true;
+    buildReportHtmlV428.__locationOverviewV421=true;
+    buildReportHtmlV428.__locationPanelsV419=true;
+    buildReportHtmlV428.__htmlAction=exportHtmlReportV429;
+    buildReportHtmlV428.__pdfAction=openPdfReportV429;
+    buildReportHtmlV428.__base=baseBuild;
 
-    claim(buildReportHtmlV429);
-    const guard=setInterval(()=>claim(buildReportHtmlV429),250);
+    claim(buildReportHtmlV428);
+    const guard=setInterval(()=>claim(buildReportHtmlV428),250);
     setTimeout(()=>clearInterval(guard),8500);
   }
 
