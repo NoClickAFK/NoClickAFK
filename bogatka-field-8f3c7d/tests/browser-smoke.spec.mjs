@@ -12,7 +12,7 @@ async function waitForV410(page) {
   await page.waitForFunction(() => window.BogatkaCollaboration?.version === '4.1.0');
 }
 
-test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
+test('Bogatka resolved version loads and passes acceptance checks', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(String(error)));
   await authorize(page);
@@ -20,7 +20,9 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
   await waitForV410(page);
 
   await expect(page.locator('#app')).toBeVisible();
-  await expect(page.locator('#versionLabel')).toHaveText('4.0.0');
+  await page.waitForFunction(() => /^4\.2\.\d+$/.test(window.BOGATKA_BUILD?.version || ''));
+  const resolvedVersion = await page.evaluate(() => window.BOGATKA_BUILD.version);
+  await expect(page.locator('#versionLabel')).toHaveText(resolvedVersion);
   await expect(page.locator('#shareAccessBtn')).toHaveText('Пригласить участника', { timeout: 10_000 });
   await expect(page.locator('[data-location-card]')).toHaveCount(7);
   await expect(page.locator('#diagnosticsPillV400')).toHaveText('Самопроверка: OK', { timeout: 20_000 });
@@ -45,6 +47,7 @@ test('Bogatka 4.0.0 loads and passes acceptance checks', async ({ page }) => {
     };
   });
 
+  expect(resolvedVersion).toMatch(/^4\.2\.\d+$/);
   expect(state.selfTest?.version).toBe('4.0.0');
   expect(state.selfTest?.ok).toBe(true);
   expect(state.selfTest?.checks?.length).toBeGreaterThan(10);
@@ -266,9 +269,11 @@ test('mobile layout does not create page-level horizontal overflow', async ({ pa
   expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
-test('password recovery uses current security policy and return URL', async ({ page }) => {
+test('password recovery uses current security policy and dynamic return URL', async ({ page }) => {
   await page.goto(RESET_URL, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#newPassword')).toHaveAttribute('minlength', '12');
   await expect(page.locator('#repeatPassword')).toHaveAttribute('minlength', '12');
-  await expect(page.locator('#returnToApp')).toHaveAttribute('href', '../?v=400');
+  const href=await page.locator('#returnToApp').getAttribute('href');
+  expect(href).toMatch(/^\.\.\/(?:\?v=\d+)?$/);
+  expect(href).not.toContain('v=400');
 });

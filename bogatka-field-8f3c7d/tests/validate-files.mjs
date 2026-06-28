@@ -5,7 +5,7 @@ const root = path.resolve('bogatka-field-8f3c7d');
 const required = [
   'v23.js','decision-core-v340.js','decision-ui-v340.js','decision-v340.css','compare-v340.js','compare-v340.css',
   'suite-core-v400.js','suite-ui-v400.js','suite-v400.css','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js',
-  'address-fix-v400.js','viewer-extra-v400.js','report-v400.js','access-version-v400.js','selftest-v400.js','auth-signup-fix-v31.js',
+  'address-fix-v400.js','viewer-extra-v400.js','report-v400.js','access-version-v400.js','version-authority-v426.js','selftest-v400.js','auth-signup-fix-v31.js',
   'sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css',
   'location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css',
   'location-card-collapse-v422.js','location-card-collapse-v422.css',
@@ -29,10 +29,18 @@ if (!failures.length) {
   }
 
   const serviceWorker = read('sw-v340.js');
-  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','reset/index.html','reset/reset.js']) {
+  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','version-authority-v426.js','reset/index.html','reset/reset.js']) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
-  if (!serviceWorker.includes("CACHE_NAME='bogatka-location-v423'")) failures.push('Service Worker cache name is not v423');
+  if (!serviceWorker.includes("searchParams.get('v')") || !serviceWorker.includes('bogatka-location-v${BUILD_TOKEN}')) failures.push('Service Worker cache name is not derived from the resolved build token');
+  if (!serviceWorker.includes("updateViaCache") && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
+
+  const versionAuthority = read('version-authority-v426.js');
+  for (const marker of ["functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) {
+    if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
+  }
+  const accessVersion = read('access-version-v400.js');
+  if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority')) failures.push('access-version-v400.js does not activate the centralized version authority');
 
   const panels = read('location-panels-v419.js');
   for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','reportChainHas','wrapped.__locationPanelsV419','isEditing']) {
@@ -102,11 +110,8 @@ if (!failures.length) {
   const signup = read('auth-signup-fix-v31.js');
   const reset = read('reset/reset.js');
   if (!signup.includes('length<12') || !signup.includes('\\p{L}')) failures.push('Signup password policy is weaker than required');
-  if (!reset.includes('length<12') || !reset.includes("APP_URL='../?v=400'")) failures.push('Recovery password policy or return URL is outdated');
-
-  for (const file of ['v22.js','v23.js','access-version-v400.js','backup-v400.js']) {
-    if (!read(file).includes('4.0.0') && !read(file).includes('v=400')) failures.push(`${file} is not aligned with version 4.0.0`);
-  }
+  if (!reset.includes('length<12') || !reset.includes('bogatka_build_meta_v426')) failures.push('Recovery password policy or return URL is outdated');
+  if (read('reset/index.html').includes('?v=400') || reset.includes("APP_URL='../?v=400'")) failures.push('Recovery flow still contains a fixed legacy version');
 }
 
 if (failures.length) {
