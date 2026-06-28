@@ -61,30 +61,35 @@ test('other contact role reveals and persists its clarification field',async({pa
   await expect(reloaded.locator('[data-contact-role-other]')).toBeVisible();
 });
 
-test('legacy landlord rent migrates once into technical rent',async({page})=>{
+test('legacy rent amount and free-form terms migrate without data loss',async({page})=>{
   await openApp(page);
   const id=await page.locator('[data-location-card]').first().getAttribute('data-location-card');
 
   await page.evaluate(async locationId=>{
-    const data=await getLocationData(locationId);
-    data.rent='1375';
+    const base=window.getLocationData.__base||window.getLocationData;
+    const data=await base(locationId);
+    data.rent='1375 + коммунальные по счётчикам';
+    data.rentConditions='Депозит один месяц';
     data.tech={...(data.tech||{}),rentPerMonth:''};
     if(data.migrations)delete data.migrations.rentToTechV425;
     await idbPut(STORE,data,`location:${locationId}`);
     renderLocations();
   },id);
 
-  await page.waitForFunction(locationId=>{
-    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
-    return Boolean(card?.querySelector('[data-field="tech.rentPerMonth"]')?.value==='1375');
+  await page.waitForFunction(async locationId=>{
+    const data=await getLocationData(locationId);
+    return data.tech?.rentPerMonth==='1375'&&String(data.rentConditions||'').includes('коммунальные по счётчикам');
   },id);
 
   const stored=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(stored.rent).toBe('');
   expect(stored.tech.rentPerMonth).toBe('1375');
+  expect(stored.rentConditions).toContain('Депозит один месяц');
+  expect(stored.rentConditions).toContain('1375 + коммунальные по счётчикам');
   expect(stored.migrations.rentToTechV425).toBe(true);
 
   const card=page.locator(`[data-location-card="${id}"]`);
   await expect(card.locator('.landlord-grid-v416 [data-field="rent"]')).toHaveCount(0);
   await expect(card.locator('[data-field="tech.rentPerMonth"]')).toHaveValue('1375');
+  await expect(card.locator('[data-field="rentConditions"]')).toContainText('');
 });
