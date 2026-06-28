@@ -40,11 +40,20 @@ verify('visual-v411.css',['.comparison-panel-v332','border:2px solid #d8b860!imp
 verify('workflow-v414.js',['checklist-guide-v414','structured-notes-v414','history-pagination-v414','BogatkaWorkflowV414']);
 verify('members-v32.js',['create_project_invite','update_project_member_role','remove_project_member']);
 verify('auth-signup-fix-v31.js',['accept_bogatka_project_invite','bogatkaInviteAcceptancePromise']);
+verify('version-authority-v426.js',[
+  "functions.invoke('bogatka-version')",
+  'protectLegacyVersionWriters',
+  'window.BOGATKA_BUILD',
+  'window.BogatkaVersion',
+  'registerVersionedWorker',
+  'installVersionedBackup'
+]);
 
 const sw=read('sw-v340.js');
-for(const asset of ['./location-card-collapse-v422.js','./location-card-collapse-v422.css','./location-global-v421.js']){
+for(const asset of ['./version-authority-v426.js','./location-card-collapse-v422.js','./location-card-collapse-v422.css','./location-global-v421.js']){
   if(sw&&!sw.includes(`'${asset}'`))failures.push(`Service Worker does not cache ${asset}`);
 }
+if(sw&&!sw.includes("searchParams.get('v')"))failures.push('Service Worker does not derive its cache revision from the resolved version token');
 
 for(const migration of [
   'supabase/migrations/20260626000200_secure_personal_invites_v408.sql',
