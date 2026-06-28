@@ -101,11 +101,11 @@
   function syncPremium(select){
     if(!select)return;
     const trigger=select.nextElementSibling;
+    if(trigger?.classList.contains('premium-select-trigger')&&trigger.dataset.syncedValue===select.value)return;
     if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-    else if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
-      bogatkaSyncPremiumSelect(select,trigger);
-      trigger.dataset.syncedValue=select.value;
-    }
+    else if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+    const currentTrigger=select.nextElementSibling;
+    if(currentTrigger?.classList.contains('premium-select-trigger'))currentTrigger.dataset.syncedValue=select.value;
   }
 
   function ensureObjectType(locationId,select){
@@ -170,14 +170,13 @@
     const update=()=>{
       const hidden=select.value!=='Другое';
       wrapper.classList.toggle('hidden',hidden);
-      wrapper.hidden=hidden;
+      if(wrapper.hidden!==hidden)wrapper.hidden=hidden;
     };
     if(select.dataset.contactRoleV425!=='1'){
       select.dataset.contactRoleV425='1';
       select.addEventListener('change',update);
     }
     update();
-    syncPremium(select);
     return wrapper;
   }
 
@@ -214,8 +213,10 @@
       if(control===document.activeElement||control.dataset.profileDirtyV416==='1')return;
       const value=getNested(data,control.dataset.field);
       const next=value===undefined||value===null?'':String(value);
-      if(control.value!==next)control.value=next;
-      if(control.tagName==='SELECT')syncPremium(control);
+      if(control.value!==next){
+        control.value=next;
+        if(control.tagName==='SELECT')syncPremium(control);
+      }
     });
     ensureContactRoleOther(id,card.querySelector('select[data-field="contactRole"]'));
   }
@@ -344,8 +345,12 @@
     return data?.contactRole||'—';
   }
 
+  function reportCell(section,label){
+    return [...section.querySelectorAll('.report-summary-grid > div')].find(item=>item.querySelector('b')?.textContent.trim()===label);
+  }
+
   function replaceReportValue(section,label,value){
-    const cell=[...section.querySelectorAll('.report-summary-grid > div')].find(item=>item.querySelector('b')?.textContent.trim()===label);
+    const cell=reportCell(section,label);
     if(!cell)return;
     const strong=cell.querySelector('b');
     cell.replaceChildren(strong,document.createTextNode(` ${value||'—'}`));
@@ -394,6 +399,7 @@
         if(!id)continue;
         const data=await getLocationData(id);
         replaceReportValue(section,'Тип объекта:',friendlyObjectType(data));
+        reportCell(section,'Аренда:')?.remove();
         addReportContacts(documentReport,section,data);
       }
       if(!documentReport.querySelector('#reportProfileStyleV416')){
