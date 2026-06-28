@@ -66,9 +66,11 @@ test('report header keeps compact equal metrics to the right of the address',asy
     const metrics=document.querySelector('.report-head-metrics-v428');
     const cards=metrics?[...metrics.querySelectorAll('.report-head-metric-v428')]:[];
     const status=metrics?.querySelector('.report-head-status-v428');
+    const computed=head?getComputedStyle(head):null;
     const rect=element=>element?.getBoundingClientRect();
     return {
-      headStyle:head?getComputedStyle(head).gridTemplateColumns:'',
+      columns:computed?.gridTemplateColumns||'',
+      paddingRight:computed?parseFloat(computed.paddingRight):0,
       head:rect(head),
       title:rect(title),
       metrics:rect(metrics),
@@ -79,12 +81,12 @@ test('report header keeps compact equal metrics to the right of the address',asy
 
   expect(layout.metrics).toBeTruthy();
   expect(layout.cards).toHaveLength(3);
-  expect(layout.headStyle.split(' ').length).toBe(2);
+  expect(layout.columns.split(' ').length).toBe(2);
   expect(Math.abs(layout.metrics.y-layout.title.y)).toBeLessThanOrEqual(2);
   expect(layout.metrics.x).toBeGreaterThan(layout.title.x);
   expect(layout.metrics.width).toBeGreaterThanOrEqual(300);
   expect(layout.metrics.width).toBeLessThanOrEqual(318);
-  expect(Math.abs(layout.metrics.right-layout.head.right)).toBeLessThanOrEqual(2);
+  expect(Math.abs((layout.head.right-layout.metrics.right)-layout.paddingRight)).toBeLessThanOrEqual(2);
   expect(Math.max(...layout.cards.map(card=>card.width))-Math.min(...layout.cards.map(card=>card.width))).toBeLessThanOrEqual(1);
   expect(Math.abs(layout.status.width-layout.metrics.width)).toBeLessThanOrEqual(1);
   expect(layout.cards.every(card=>card.height<70)).toBe(true);
