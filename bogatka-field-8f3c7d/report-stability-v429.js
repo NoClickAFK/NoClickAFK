@@ -22,6 +22,7 @@
     const parser=new DOMParser();
     const documentReport=parser.parseFromString(html,'text/html');
     documentReport.getElementById('reportStabilityV429')?.remove();
+    documentReport.querySelectorAll('.report-location-card .location-head-side-v422').forEach(node=>node.remove());
     const style=documentReport.createElement('style');
     style.id='reportStabilityV429';
     style.textContent=`
@@ -33,6 +34,8 @@
       }
       .report-location-card .location-title-wrap{min-width:0}
       .report-head-metrics-v428{
+        grid-column:2!important;
+        grid-row:1!important;
         width:316px!important;
         max-width:316px!important;
         min-width:0!important;
@@ -59,11 +62,11 @@
       }
       @media(max-width:680px){
         .report-location-card .location-head{grid-template-columns:1fr!important;gap:14px!important}
-        .report-head-metrics-v428{width:100%!important;max-width:316px!important;justify-self:start!important}
+        .report-head-metrics-v428{grid-column:1!important;grid-row:auto!important;width:100%!important;max-width:316px!important;justify-self:start!important}
       }
       @media print{
         .report-location-card .location-head{grid-template-columns:minmax(0,1fr) 78mm!important;gap:5mm!important}
-        .report-head-metrics-v428{width:78mm!important;max-width:78mm!important}
+        .report-head-metrics-v428{grid-column:2!important;grid-row:1!important;width:78mm!important;max-width:78mm!important}
         .report-head-metric-v428{min-height:14mm!important;padding:1.5mm!important}
         .report-head-metric-line-v428 strong{font-size:15px!important}
         .report-head-status-v428{min-height:7mm!important;padding:1mm 2mm!important}
