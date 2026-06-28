@@ -64,8 +64,8 @@ test('report header keeps compact equal metrics to the right of the address',asy
     const head=document.querySelector('.report-location-card .location-head');
     const title=document.querySelector('.report-location-card .location-title-wrap');
     const metrics=document.querySelector('.report-head-metrics-v428');
-    const cards=[...document.querySelectorAll('.report-head-metric-v428')];
-    const status=document.querySelector('.report-head-status-v428');
+    const cards=metrics?[...metrics.querySelectorAll('.report-head-metric-v428')]:[];
+    const status=metrics?.querySelector('.report-head-status-v428');
     const rect=element=>element?.getBoundingClientRect();
     return {
       headStyle:head?getComputedStyle(head).gridTemplateColumns:'',
