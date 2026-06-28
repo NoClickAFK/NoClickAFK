@@ -10,9 +10,17 @@
     const style=document.createElement('style');
     style.id='reportStabilityLiveStyleV429';
     style.textContent=`
+      #locationComparisonPanel[style*="visibility: hidden"],
+      #locationComparisonPanel[style*="visibility:hidden"],
       #locationComparisonPanel.comparison-report-snapshot-v429{visibility:visible!important}
+      #locationComparisonPanel[style*="visibility: hidden"]>.comparison-body-v332,
+      #locationComparisonPanel[style*="visibility:hidden"]>.comparison-body-v332,
       #locationComparisonPanel.comparison-report-snapshot-closed-v429>.comparison-body-v332{display:none!important}
+      #locationComparisonPanel[style*="visibility: hidden"][open]>summary,
+      #locationComparisonPanel[style*="visibility:hidden"][open]>summary,
       #locationComparisonPanel.comparison-report-snapshot-closed-v429[open]>summary{border-bottom:0!important;background:linear-gradient(180deg,#f8fbf9,#f0f7f3)!important}
+      #locationComparisonPanel[style*="visibility: hidden"][open] .comparison-chevron-v332,
+      #locationComparisonPanel[style*="visibility:hidden"][open] .comparison-chevron-v332,
       #locationComparisonPanel.comparison-report-snapshot-closed-v429[open] .comparison-chevron-v332{transform:rotate(45deg) translateY(-3px)!important}
     `;
     document.head.appendChild(style);
@@ -89,7 +97,6 @@
       return;
     }
 
-    ensureLiveStyle();
     const baseBuild=current;
     let buildReportHtmlV428=null;
 
@@ -159,8 +166,6 @@
     buildReportHtmlV428.__base=baseBuild;
 
     claim(buildReportHtmlV428);
-    const guard=setInterval(()=>claim(buildReportHtmlV428),250);
-    setTimeout(()=>clearInterval(guard),8500);
   }
 
   function claim(builder){
@@ -180,5 +185,5 @@
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ensureLiveStyle,{once:true});else ensureLiveStyle();
-  install();
+  setTimeout(install,5250);
 })();
