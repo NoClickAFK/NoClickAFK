@@ -146,6 +146,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-card-collapse-v422.js'});
   loadBogatkaPatch('script',{src:'./report-live-v427.js'});
   loadBogatkaPatch('script',{src:'./report-live-fixes-v427.js'});
+  loadBogatkaPatch('script',{src:'./report-polish-v428.js'});
   ensureWorkflowEnhancements();
 
   document.addEventListener('keydown',event=>{
