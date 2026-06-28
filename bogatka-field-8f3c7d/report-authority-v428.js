@@ -72,7 +72,7 @@
     buildReportHtmlV428.__base=baseBuild;
 
     claim(buildReportHtmlV428);
-    [100,300,700,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildReportHtmlV428),delay));
+    [100,300,700,1000,1200,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildReportHtmlV428),delay));
   }
 
   function claim(builder){
