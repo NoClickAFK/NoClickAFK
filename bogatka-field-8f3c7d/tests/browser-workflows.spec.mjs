@@ -1,15 +1,20 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=400';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=428';
 
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
-  await page.waitForFunction(()=>Boolean(window.BogatkaSuite&&window.BogatkaDecisionEngine&&window.buildReportHtml));
+  await page.waitForFunction(()=>Boolean(
+    window.BogatkaSuite&&
+    window.BogatkaDecisionEngine&&
+    window.BogatkaLiveReport?.build?.__reportAuthorityV428&&
+    window.buildReportHtml===window.BogatkaLiveReport.build
+  ),{timeout:20000});
   await expect(page.locator('#app')).toBeVisible();
 }
 
-test('rich workflow data appears in reports and archive is excluded',async({page})=>{
+test('report keeps decision-stage workflow data, removes launch workflow and excludes archive',async({page})=>{
   await openApp(page);
   const ids=await page.evaluate(()=>locations.slice(0,2).map(item=>item.id));
   await page.evaluate(async({first,second})=>{
@@ -20,10 +25,11 @@ test('rich workflow data appears in reports and archive is excluded',async({page
     await saveLocations();
   },{first:ids[0],second:ids[1]});
   const report=await page.evaluate(async()=>await window.buildReportHtml());
-  expect(report).toContain('Экономическая модель');
   expect(report).toContain('Получить проект договора');
   expect(report).toContain('Проверить арендные каникулы');
-  expect(report).toContain('Проект открытия магазина');
+  expect(report).not.toContain('Экономическая модель и окупаемость');
+  expect(report).not.toContain('Проект открытия магазина');
+  expect(report).not.toContain('Договор аренды подписан');
   expect(report).not.toContain('ARCHIVED_MARKER');
 });
 
