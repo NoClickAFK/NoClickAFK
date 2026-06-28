@@ -4,13 +4,8 @@
   const VERSION='4.2.5';
   const FRIENDLY_STREET='Магазин с отдельным входом с улицы';
   const CONTACT_ROLE_OPTIONS=[
-    ['','Не выбрано'],
-    ['Собственник','Собственник'],
-    ['Директор','Директор'],
-    ['Управляющий','Управляющий'],
-    ['Представитель собственника','Представитель собственника'],
-    ['Агент / посредник','Агент / посредник'],
-    ['Другое','Другое'],
+    ['','Не выбрано'],['Собственник','Собственник'],['Директор','Директор'],['Управляющий','Управляющий'],
+    ['Представитель собственника','Представитель собственника'],['Агент / посредник','Агент / посредник'],['Другое','Другое'],
   ];
   const EXTRA_FIELDS=[
     {field:'ownerName',label:'Собственник / организация',kind:'text',placeholder:'Название организации или ФИО собственника'},
@@ -22,27 +17,15 @@
     {field:'contactNotes',label:'Дополнительная информация',kind:'textarea',placeholder:'Удобное время связи, договорённости и важные детали',wide:true},
   ];
   const FIELD_LABELS={
-    objectTypeOther:'Уточнение типа объекта',
-    ownerName:'Собственник / организация',
-    contactRole:'Роль контактного лица',
-    contactRoleOther:'Уточнение роли контактного лица',
-    contactPhone:'Телефон арендодателя',
-    contactEmail:'Email арендодателя',
-    contactMessenger:'Мессенджер арендодателя',
-    rentConditions:'Дополнительные условия аренды',
-    contactNotes:'Дополнительная информация по контакту',
+    objectTypeOther:'Уточнение типа объекта',ownerName:'Собственник / организация',contactRole:'Роль контактного лица',
+    contactRoleOther:'Уточнение роли контактного лица',contactPhone:'Телефон арендодателя',contactEmail:'Email арендодателя',
+    contactMessenger:'Мессенджер арендодателя',rentConditions:'Дополнительные условия аренды',contactNotes:'Дополнительная информация по контакту',
   };
-
   let timer=null;
   let reportAttempts=0;
 
-  function filled(value){
-    return value!==undefined&&value!==null&&String(value).trim()!=='';
-  }
-
-  function labelOf(control){
-    return control?.closest('label.field,label.object-other,label.contact-role-other-v425')||null;
-  }
+  const filled=value=>value!==undefined&&value!==null&&String(value).trim()!=='';
+  const labelOf=control=>control?.closest('label.field,label.object-other,label.contact-role-other-v425')||null;
 
   function relabel(label,text){
     if(!label)return;
@@ -66,19 +49,14 @@
       const revision=Number(control.dataset.profileRevisionV416||0)+1;
       control.dataset.profileRevisionV416=String(revision);
       control.dataset.profileDirtyV416='1';
-      const delay=eventName==='change'?80:250;
       control._profileSaveTimerV416=setTimeout(async()=>{
-        try{
-          await saveField(control);
-        }catch(error){
-          showError(error);
-        }finally{
+        try{await saveField(control)}catch(error){showError(error)}finally{
           if(control.dataset.profileRevisionV416===String(revision)){
             delete control.dataset.profileDirtyV416;
             control._profileSaveTimerV416=null;
           }
         }
-      },delay);
+      },eventName==='change'?80:250);
     });
   }
 
@@ -132,13 +110,9 @@
 
   function ensureObjectType(locationId,select){
     const street=[...select.options].find(option=>option.value==='Стрит-ритейл'||option.textContent.trim()==='Стрит-ритейл'||option.textContent.trim()===FRIENDLY_STREET);
-    if(street){
-      street.value='Стрит-ритейл';
-      if(street.textContent!==FRIENDLY_STREET)street.textContent=FRIENDLY_STREET;
-    }
+    if(street){street.value='Стрит-ритейл';street.textContent=FRIENDLY_STREET}
     select.setAttribute('aria-label','Тип объекта');
     syncPremium(select);
-
     let wrapper=document.querySelector(`[data-object-other="${CSS.escape(locationId)}"]`);
     if(!wrapper){
       wrapper=document.createElement('label');
@@ -160,7 +134,6 @@
       relabel(wrapper,'Уточните другой тип объекта');
       bindField(wrapper.querySelector('[data-field="objectTypeOther"]'));
     }
-
     const update=()=>wrapper.classList.toggle('hidden',select.value!=='Другое');
     if(select.dataset.objectTypeV416!=='1'){
       select.dataset.objectTypeV416='1';
@@ -195,8 +168,9 @@
       bindField(wrapper.querySelector('[data-field="contactRoleOther"]'));
     }
     const update=()=>{
-      wrapper.classList.toggle('hidden',select.value!=='Другое');
-      wrapper.hidden=select.value!=='Другое';
+      const hidden=select.value!=='Другое';
+      wrapper.classList.toggle('hidden',hidden);
+      wrapper.hidden=hidden;
     };
     if(select.dataset.contactRoleV425!=='1'){
       select.dataset.contactRoleV425='1';
@@ -219,15 +193,16 @@
   }
 
   async function migrateLegacyRent(card,data){
-    if(!data||data?.migrations?.rentToTechV425)return data;
+    if(!data||!filled(data.rent))return data;
     const next={...data,tech:{...(data.tech||{})},migrations:{...(data.migrations||{})}};
-    if(filled(next.rent)&&!filled(next.tech.rentPerMonth))next.tech.rentPerMonth=String(next.rent).trim();
+    if(!filled(next.tech.rentPerMonth))next.tech.rentPerMonth=String(next.rent).trim();
     next.rent='';
     next.migrations.rentToTechV425=true;
     next.updatedAt=new Date().toISOString();
     await idbPut(STORE,next,`location:${card.dataset.locationCard}`);
     const techRent=card.querySelector('[data-field="tech.rentPerMonth"]');
     if(techRent&&techRent!==document.activeElement)techRent.value=next.tech.rentPerMonth||'';
+    if(typeof updateSummary==='function')await updateSummary();
     return next;
   }
 
@@ -242,27 +217,30 @@
       if(control.value!==next)control.value=next;
       if(control.tagName==='SELECT')syncPremium(control);
     });
-    const role=card.querySelector('select[data-field="contactRole"]');
-    ensureContactRoleOther(id,role);
+    ensureContactRoleOther(id,card.querySelector('select[data-field="contactRole"]'));
   }
 
   function orderLandlordFields(grid,locationId,contactLabel){
     const byField=field=>labelOf(grid.querySelector(`[data-location="${CSS.escape(locationId)}"][data-field="${field}"]`));
-    const owner=byField('ownerName');
-    const role=byField('contactRole');
-    const roleOther=grid.querySelector(`[data-contact-role-other="${CSS.escape(locationId)}"]`);
-    const phone=byField('contactPhone');
-    const messenger=byField('contactMessenger');
-    const email=byField('contactEmail');
-    const conditions=byField('rentConditions');
-    const notes=byField('contactNotes');
-    [owner,role,roleOther,contactLabel,phone,messenger,email,conditions,notes].forEach(node=>node&&grid.appendChild(node));
+    const nodes=[
+      byField('ownerName'),byField('contactRole'),grid.querySelector(`[data-contact-role-other="${CSS.escape(locationId)}"]`),
+      contactLabel,byField('contactPhone'),byField('contactMessenger'),byField('contactEmail'),byField('rentConditions'),byField('contactNotes'),
+    ];
+    nodes.forEach((node,index)=>{
+      if(!node)return;
+      const current=grid.children[index];
+      if(current!==node)grid.insertBefore(node,current||null);
+    });
   }
 
   async function enhanceCard(card){
     const locationId=card.dataset.locationCard;
     const body=card.querySelector(':scope > .location-body');
     if(!locationId||!body)return;
+    if(card.dataset.profileV416==='1'){
+      await restoreNewFields(card);
+      return;
+    }
 
     const status=body.querySelector('select[data-field="status"]');
     const objectType=body.querySelector('select[data-field="objectType"]');
@@ -276,21 +254,18 @@
     if(!overview){
       overview=document.createElement('div');
       overview.className='location-overview-v416';
-
       const inspection=document.createElement('section');
       inspection.className='inspection-card-v416';
       inspection.append(sectionHeader('Параметры осмотра','Статус, формат объекта и время проверки локации.'));
       const inspectionGrid=document.createElement('div');
       inspectionGrid.className='inspection-grid-v416';
       inspection.append(inspectionGrid);
-
       const landlord=document.createElement('section');
       landlord.className='landlord-card-v416';
       landlord.append(sectionHeader('Арендодатель и условия','Собственник, роль контактного лица, контакты и договорённости.'));
       const landlordGrid=document.createElement('div');
       landlordGrid.className='landlord-grid-v416';
       landlord.append(landlordGrid);
-
       overview.append(inspection,landlord);
       body.prepend(overview);
     }
@@ -298,7 +273,6 @@
     const inspectionGrid=overview.querySelector('.inspection-grid-v416');
     const landlordGrid=overview.querySelector('.landlord-grid-v416');
     const objectOther=ensureObjectType(locationId,objectType);
-
     const statusLabel=labelOf(status),objectLabel=labelOf(objectType),dateLabel=labelOf(date),timeLabel=labelOf(time);
     const rentLabel=labelOf(rent),contactLabel=labelOf(contact);
     relabel(statusLabel,'Статус');
@@ -306,7 +280,6 @@
     relabel(dateLabel,'Дата осмотра');
     relabel(timeLabel,'Время осмотра');
     relabel(contactLabel,'Контактное лицо');
-
     [statusLabel,objectLabel,objectOther,dateLabel,timeLabel].forEach(label=>label&&inspectionGrid.appendChild(label));
     if(rentLabel){
       rentLabel.hidden=true;
@@ -323,24 +296,19 @@
         control=field.querySelector('[data-field]');
       }else bindField(control);
     }
-
     const role=landlordGrid.querySelector('select[data-field="contactRole"]');
     const roleOther=ensureContactRoleOther(locationId,role);
     if(roleOther&&roleOther.parentElement!==landlordGrid)landlordGrid.appendChild(roleOther);
     orderLandlordFields(landlordGrid,locationId,contactLabel);
 
     const undo=body.querySelector(`[data-undo-note="${CSS.escape(locationId)}"]`);
-    if(undo){
-      undo.classList.add('inspection-note-v416');
-      inspectionGrid.appendChild(undo);
-    }
+    if(undo){undo.classList.add('inspection-note-v416');inspectionGrid.appendChild(undo)}
     const statusRow=body.querySelector(':scope > .status-row');
     const quickGrid=body.querySelector(':scope > .quick-grid');
     if(statusRow&&!statusRow.children.length)statusRow.remove();
     if(quickGrid&&![...quickGrid.children].some(child=>!child.hidden))quickGrid.remove();
-
-    await restoreNewFields(card);
     card.dataset.profileV416='1';
+    await restoreNewFields(card);
   }
 
   function enhanceModal(){
@@ -467,11 +435,7 @@
   window.addEventListener('load',()=>schedule(80),{once:true});
 
   window.BogatkaLocationProfileV416={
-    version:VERSION,
-    ready:true,
-    enhanceAll,
-    friendlyObjectType,
-    friendlyContactRole,
+    version:VERSION,ready:true,enhanceAll,friendlyObjectType,friendlyContactRole,
     audit(){
       const cards=[...document.querySelectorAll('[data-location-card]')];
       const required=['status','objectType','date','time','contact','ownerName','contactRole','contactRoleOther','contactPhone','contactEmail','contactMessenger','rentConditions','contactNotes'];
@@ -480,8 +444,8 @@
         const id=card.dataset.locationCard;
         for(const field of required)if(!card.querySelector(`[data-location="${CSS.escape(id)}"][data-field="${field}"]`))failures.push(`${id}:${field}`);
         if(card.querySelector('.landlord-grid-v416 [data-field="rent"]'))failures.push(`${id}:duplicate-rent-visible`);
-        const select=card.querySelector('[data-field="objectType"]');
-        if(select&&![...select.options].some(option=>option.textContent===FRIENDLY_STREET))failures.push(`${id}:friendly-object-type-label`);
+        const type=card.querySelector('[data-field="objectType"]');
+        if(type&&![...type.options].some(option=>option.textContent===FRIENDLY_STREET))failures.push(`${id}:friendly-object-type-label`);
         const role=card.querySelector('[data-field="contactRole"]');
         if(role&&![...role.options].some(option=>option.value==='Другое'))failures.push(`${id}:contact-role-other-option`);
       }
