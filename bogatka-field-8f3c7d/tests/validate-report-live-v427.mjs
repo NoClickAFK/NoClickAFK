@@ -39,7 +39,7 @@ for(const marker of [
 if(report.includes('data-report-photo="${escapeHtml(source)}"'))failures.push('Photo payload is duplicated in a data attribute');
 if(!report.includes("button.querySelector('img')"))failures.push('Report lightbox does not reuse the embedded full-resolution image');
 if(!report.includes("output.textContent=control.checked?'Да':'—'"))failures.push('Unchecked checklist values are not represented with a dash');
-if(!report.includes("output.textContent=dash(value)"))failures.push('Empty text values are not represented with a dash');
+if(!report.includes('output.textContent=dash(value)'))failures.push('Empty text values are not represented with a dash');
 
 const reportLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-live-v427.js'})");
 const lastLocationModule=loader.indexOf("loadBogatkaPatch('script',{src:'./location-card-collapse-v422.js'})");
@@ -47,7 +47,7 @@ if(reportLoad<0)failures.push('v23.js does not load report-live-v427.js');
 if(lastLocationModule<0||reportLoad<lastLocationModule)failures.push('Live report engine is not loaded after the current location UI modules');
 if(!worker.includes("'./report-live-v427.js'"))failures.push('Service Worker does not cache report-live-v427.js');
 
-for(const marker of ['New dynamic section','removed UI sections disappear','same premium report engine']){
+for(const marker of ['Новый динамический раздел','removed UI sections disappear','same premium report engine']){
   if(!browserTest.toLowerCase().includes(marker.toLowerCase()))failures.push(`Report browser regression missing ${marker}`);
 }
 
