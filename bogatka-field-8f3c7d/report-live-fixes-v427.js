@@ -13,6 +13,21 @@
     return true;
   }
 
+  function expandCollapsedBodiesForSnapshot(){
+    const bodies=[...document.querySelectorAll('[data-location-card] > .location-body[hidden],[data-location-card] .location-body[hidden]')];
+    bodies.forEach(body=>body.removeAttribute('hidden'));
+    return ()=>bodies.forEach(body=>body.setAttribute('hidden',''));
+  }
+
+  function sourceCardIsArchived(id){
+    if(!id)return true;
+    const source=document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
+    if(!source)return true;
+    if(source.hidden||source.classList.contains('hidden'))return true;
+    const item=Array.isArray(window.locations)?window.locations.find(location=>location.id===id):null;
+    return Boolean(item?.archivedAt);
+  }
+
   function install(){
     attempts+=1;
     const api=window.BogatkaLiveReport;
@@ -119,7 +134,12 @@
     async function finalizeMarkup(html){
       const parser=new DOMParser();
       const documentReport=parser.parseFromString(html,'text/html');
-      for(const card of documentReport.querySelectorAll('.report-location-card')){
+      for(const card of [...documentReport.querySelectorAll('.report-location-card')]){
+        const id=card.dataset.locationCard;
+        if(sourceCardIsArchived(id)){
+          card.remove();
+          continue;
+        }
         addPanelHeading(
           documentReport,
           card,
@@ -165,10 +185,12 @@
           };
         }catch(_){}
       }
+      const restoreCollapsed=expandCollapsedBodiesForSnapshot();
       try{
         await ensureReportModules();
         return await finalizeMarkup(await baseBuild(...args));
       }finally{
+        restoreCollapsed();
         restoreBlur?.();
       }
     };
