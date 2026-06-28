@@ -5,6 +5,15 @@
   const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
   let attempts=0;
 
+  function loadNextPatch(){
+    const source='./report-stability-v429.js';
+    if(document.querySelector(`script[src="${source}"]`))return;
+    const script=document.createElement('script');
+    script.src=source;
+    script.async=false;
+    document.head.appendChild(script);
+  }
+
   function install(){
     attempts+=1;
     const api=window.BogatkaLiveReport;
@@ -15,6 +24,7 @@
     }
     if(current.__reportAuthorityV428){
       claim(current);
+      loadNextPatch();
       return;
     }
 
@@ -72,6 +82,7 @@
     buildReportHtmlV428.__base=baseBuild;
 
     claim(buildReportHtmlV428);
+    loadNextPatch();
     [100,300,700,1000,1200,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildReportHtmlV428),delay));
   }
 
