@@ -32,7 +32,7 @@ if (!failures.length) {
   for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','reset/index.html','reset/reset.js']) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
-  if (!serviceWorker.includes("CACHE_NAME='bogatka-location-v422'")) failures.push('Service Worker cache name is not v422');
+  if (!serviceWorker.includes("CACHE_NAME='bogatka-location-v423'")) failures.push('Service Worker cache name is not v423');
 
   const panels = read('location-panels-v419.js');
   for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','reportChainHas','wrapped.__locationPanelsV419','isEditing']) {
@@ -59,7 +59,7 @@ if (!failures.length) {
     if (!collapseModule.includes(marker)) failures.push(`location-card-collapse-v422.js is missing ${marker}`);
   }
   const collapseCss = read('location-card-collapse-v422.css');
-  for (const marker of ['grid-template-columns:repeat(3,minmax(78px,88px)) 34px','height:88px','font-size:23px!important','.location-card-collapsed-v422>.location-body','.location-collapse-chevron-v422']) {
+  for (const marker of ['grid-template-columns:repeat(3,70px) 56px','height:70px','font-size:19px!important','.location-card-collapsed-v422>.location-body','border-bottom:0!important','.archive-manager-v400','background:#eaf4ef']) {
     if (!collapseCss.includes(marker)) failures.push(`location-card-collapse-v422.css is missing ${marker}`);
   }
 

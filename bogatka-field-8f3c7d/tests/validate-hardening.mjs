@@ -27,7 +27,7 @@ for(const marker of ["'./location-global-v421.js'","'./location-card-collapse-v4
 
 const sw=fs.readFileSync(path.join(root,'sw-v340.js'),'utf8');
 for(const file of Object.keys(checks))if(!sw.includes(file))errors.push(`Service Worker does not cache ${file}`);
-if(!sw.includes("CACHE_NAME='bogatka-location-v422'"))errors.push('Service Worker cache version is not v422');
+if(!sw.includes("CACHE_NAME='bogatka-location-v423'"))errors.push('Service Worker cache version is not v423');
 for(const file of ['./invites-v408.js','./collaboration-v410.js','./visual-v411.js','./visual-v411.css','./decision-panel-v412.js','./decision-panel-v412.css','./workflow-v414.js','./workflow-v414.css','./location-panels-v419.js','./location-panels-v419.css','./location-global-v421.js','./location-global-v421.css','./location-card-collapse-v422.js','./location-card-collapse-v422.css'])if(!sw.includes(`'${file}'`))errors.push(`Service Worker does not cache ${file}`);
 
 const auth=fs.readFileSync(path.join(root,'auth-signup-fix-v31.js'),'utf8');
@@ -115,7 +115,7 @@ const collapseCssPath=path.join(root,'location-card-collapse-v422.css');
 if(!fs.existsSync(collapseCssPath))errors.push('Missing location-card-collapse-v422.css');
 else{
   const collapseCss=fs.readFileSync(collapseCssPath,'utf8');
-  for(const marker of ['repeat(3,minmax(78px,88px)) 34px','height:88px','font-size:23px!important','.location-card-collapsed-v422>.location-body','.location-collapse-chevron-v422'])if(!collapseCss.includes(marker))errors.push(`location-card-collapse-v422.css missing ${marker}`);
+  for(const marker of ['repeat(3,70px) 56px','height:70px','font-size:19px!important','.location-card-collapsed-v422>.location-body','border-bottom:0!important','.archive-manager-v400','background:#eaf4ef'])if(!collapseCss.includes(marker))errors.push(`location-card-collapse-v422.css missing ${marker}`);
 }
 
 const objectNormalizePath=path.join(root,'object-type-normalize-v416.js');
