@@ -106,6 +106,9 @@ test('collapsed active cards stay complete while archived cards stay excluded',a
     const body=active.querySelector('.location-body');
     body.hidden=true;
     active.classList.add('location-card-collapsed-v422');
+    const archivedAt=new Date().toISOString();
+    const archivedMeta=locations.find(item=>item.id===archivedId);
+    if(archivedMeta)archivedMeta.archivedAt=archivedAt;
     archived.classList.add('hidden');
 
     const html=await window.BogatkaLiveReport.build();
