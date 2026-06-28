@@ -1,0 +1,20 @@
+name: Bogatka versioning check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: SOURCE_SHA=${{ github.event.pull_request.head.sha }} node bogatka-field-8f3c7d/scripts/prepare-versioning.mjs
+      - run: find bogatka-field-8f3c7d -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - run: node bogatka-field-8f3c7d/tests/validate-files.mjs && node bogatka-field-8f3c7d/tests/validate-hardening.mjs && node bogatka-field-8f3c7d/tests/validate-versioning.mjs
