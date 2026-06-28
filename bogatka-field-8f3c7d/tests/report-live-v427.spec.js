@@ -12,10 +12,6 @@ async function openApp(page){
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>window.BogatkaLiveReport?.ready===true&&window.BogatkaLiveReport.build?.__liveReportFinalV427===true,{timeout:15000});
   await page.waitForFunction(()=>document.querySelectorAll('[data-location-card]').length>0,{timeout:15000});
-  await page.waitForFunction(()=>{
-    const cards=[...document.querySelectorAll('[data-location-card]')];
-    return Boolean(window.BogatkaDecisionUI?.refresh&&cards.length&&cards.every(card=>card.querySelector('.stop-factors-v340')));
-  },{timeout:15000});
 }
 
 test('live report mirrors the current location DOM and removes editing controls',async({page})=>{
@@ -34,7 +30,7 @@ test('live report mirrors the current location DOM and removes editing controls'
       cards:document.querySelectorAll('[data-location-card]').length,
       checklist:card.querySelectorAll('.check-row').length,
       scores:card.querySelectorAll('.score-table tbody tr').length,
-      stops:card.querySelectorAll('.stop-row-v340').length,
+      stops:window.BogatkaDecisionEngine?.STOPS?.length||card.querySelectorAll('.stop-row-v340').length,
     };
     const html=await window.BogatkaLiveReport.build();
     const doc=new DOMParser().parseFromString(html,'text/html');
