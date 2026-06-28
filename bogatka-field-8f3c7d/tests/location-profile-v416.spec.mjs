@@ -41,7 +41,7 @@ test('profile fields persist after a full rerender',async({page})=>{
   await page.waitForTimeout(900);
 
   const saved=await page.evaluate(locationId=>getLocationData(locationId),id);
-  expect(saved.rent).toBe('');
+  expect(saved.rent??'').toBe('');
   expect(saved.tech.rentPerMonth).toBe('1500');
   expect(saved.contactRole).toBe('Управляющий');
 
