@@ -4,6 +4,15 @@
   let attempts=0;
   const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 
+  async function stabilizeLocationUi(){
+    const active=document.activeElement;
+    const editing=Boolean(active&&document.getElementById('locations')?.contains(active)&&active.matches?.('input,textarea,select,[contenteditable="true"]'));
+    if(editing)return false;
+    if(typeof window.BogatkaLocationPanelsV419?.enhanceAll==='function')await window.BogatkaLocationPanelsV419.enhanceAll({force:true});
+    if(typeof window.BogatkaLocationGlobalV421?.enhanceAll==='function')await window.BogatkaLocationGlobalV421.enhanceAll({force:true});
+    return true;
+  }
+
   function install(){
     attempts+=1;
     const api=window.BogatkaLiveReport;
@@ -23,6 +32,7 @@
         if(typeof window.BogatkaDecisionUI?.refresh==='function'&&typeof window.BogatkaDecisionEngine?.computeAll==='function')break;
         await wait(50);
       }
+      await stabilizeLocationUi();
       if(typeof window.BogatkaDecisionUI?.refresh==='function')await window.BogatkaDecisionUI.refresh();
       if(typeof window.BogatkaSuiteUI?.refresh==='function')await window.BogatkaSuiteUI.refresh();
       for(let attempt=0;attempt<30;attempt++){
@@ -144,6 +154,7 @@
     api.build=buildLiveReportHtml;
     claim(buildLiveReportHtml);
     [100,300,700,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildLiveReportHtml),delay));
+    [120,450,1200,2800].forEach(delay=>setTimeout(()=>stabilizeLocationUi().catch(console.error),delay));
   }
 
   function claim(builder){
