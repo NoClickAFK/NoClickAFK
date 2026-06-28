@@ -18,6 +18,27 @@ async function openApp(page){
   ),{timeout:20000});
 }
 
+test('v429 remains authoritative while delayed legacy callbacks finish',async({page})=>{
+  await openApp(page);
+  const state=await page.evaluate(async()=>{
+    const samples=[];
+    const started=performance.now();
+    while(performance.now()-started<5300){
+      samples.push(Boolean(
+        window.BogatkaLiveReport?.build?.__reportStabilityV429&&
+        window.buildReportHtml===window.BogatkaLiveReport.build&&
+        window.exportHtmlReport===window.BogatkaLiveReport.build.__htmlAction&&
+        window.openPdfReport===window.BogatkaLiveReport.build.__pdfAction
+      ));
+      await new Promise(resolve=>setTimeout(resolve,25));
+    }
+    return {samples,finalMarker:Boolean(window.BogatkaLiveReport?.build?.__reportStabilityV429)};
+  });
+  expect(state.samples.length).toBeGreaterThan(100);
+  expect(state.samples.every(Boolean)).toBe(true);
+  expect(state.finalMarker).toBe(true);
+});
+
 test('comparison summary stays visible and visually collapsed during report snapshots',async({page})=>{
   await openApp(page);
   const result=await page.evaluate(async()=>{
