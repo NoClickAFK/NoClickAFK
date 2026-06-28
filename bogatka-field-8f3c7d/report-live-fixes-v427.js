@@ -55,6 +55,30 @@
       panel.prepend(heading);
     }
 
+    function addMissingStopFactors(documentReport,reportCard){
+      if(reportCard.querySelector('.stop-factors-v340'))return;
+      const id=reportCard.dataset.locationCard;
+      const sourceCard=id?document.querySelector(`[data-location-card="${CSS.escape(id)}"]`):null;
+      const sourceSection=sourceCard?.querySelector('.stop-factors-v340');
+      if(!sourceSection)return;
+      const section=sourceSection.cloneNode(true);
+      section.open=true;
+      section.setAttribute('open','');
+      section.querySelectorAll('.premium-select-trigger,.premium-select-menu').forEach(node=>node.remove());
+      section.querySelectorAll('select[data-stop-key]').forEach(select=>{
+        const original=sourceSection.querySelector(`select[data-stop-key="${CSS.escape(select.dataset.stopKey||'')}"]`);
+        const selected=original?.options?.[original.selectedIndex]?.textContent?.trim()||'Не проверено';
+        const value=documentReport.createElement('span');
+        value.className='report-control-value report-select-value';
+        value.textContent=selected==='Не проверено'?'—':selected;
+        select.replaceWith(value);
+      });
+      section.querySelectorAll('button,input,textarea').forEach(node=>node.remove());
+      const overview=reportCard.querySelector('.decision-overview-v340');
+      if(overview)overview.insertAdjacentElement('afterend',section);
+      else reportCard.querySelector('.report-location-body,.location-body')?.prepend(section);
+    }
+
     function finalizeMarkup(html){
       const parser=new DOMParser();
       const documentReport=parser.parseFromString(html,'text/html');
@@ -73,6 +97,7 @@
           'Арендодатель и условия',
           'Собственник, контактное лицо, контакты и договорённости.'
         );
+        addMissingStopFactors(documentReport,card);
         card.querySelectorAll('.profile-caption-v416').forEach(caption=>{
           const value=caption.textContent.trim();
           if(value&&!value.endsWith(':'))caption.textContent=`${value}:`;
@@ -154,7 +179,6 @@
     api.build=buildLiveReportHtml;
     claim(buildLiveReportHtml);
     [100,300,700,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildLiveReportHtml),delay));
-    [120,450,1200,2800].forEach(delay=>setTimeout(()=>stabilizeLocationUi().catch(console.error),delay));
   }
 
   function claim(builder){
