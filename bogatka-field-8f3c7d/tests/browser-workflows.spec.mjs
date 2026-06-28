@@ -43,6 +43,6 @@ test('app shell reloads offline after service worker activation',async({page,con
   try{
     await page.reload({waitUntil:'domcontentloaded',timeout:20000});
     await expect(page.locator('#app')).toBeVisible({timeout:10000});
-    await expect(page.locator('#versionLabel')).toHaveText('4.0.0');
+    await expect(page.locator('#versionLabel')).toHaveText(/^4\.2\.\d+$/);
   }finally{await context.setOffline(false)}
 });

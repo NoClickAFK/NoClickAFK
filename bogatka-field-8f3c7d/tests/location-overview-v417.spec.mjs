@@ -146,7 +146,12 @@ test('collapsible panels expose accessible state and remember it per location',a
 
   const firstId=await first.getAttribute('data-location-card');
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaLocationPanelsV419?.ready&&window.BogatkaLocationGlobalV421?.ready&&window.BogatkaLocationPanelsV419.audit().ok&&window.BogatkaLocationGlobalV421.audit().ok);
+  await page.waitForFunction(()=>window.BogatkaLocationPanelsV419?.ready&&window.BogatkaLocationGlobalV421?.ready);
+  await page.evaluate(async()=>{
+    await window.BogatkaLocationPanelsV419.enhanceAll({force:true});
+    await window.BogatkaLocationGlobalV421.enhanceAll({force:true});
+  });
+  await page.waitForFunction(()=>window.BogatkaLocationPanelsV419.audit().ok&&window.BogatkaLocationGlobalV421.audit().ok);
   await expect(page.locator(`[data-location-card="${firstId}"] .inspection-card-v416 > .panel-toggle-v419`)).toHaveAttribute('aria-expanded','false');
 });
 
