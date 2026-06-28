@@ -45,6 +45,14 @@ function installSyncIntegrityGate(){
   window.cloudInit=cloudInit;
 }
 
+function ensureWorkflowEnhancements(){
+  const run=()=>{
+    const result=window.BogatkaWorkflowV414?.enhanceAll?.();
+    if(result?.catch)result.catch(console.error);
+  };
+  [250,700,1500,3000].forEach(delay=>setTimeout(run,delay));
+}
+
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
@@ -104,6 +112,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-panels-v419.js'});
   loadBogatkaPatch('script',{src:'./location-panels-render-v419.js'});
   loadBogatkaPatch('script',{src:'./location-card-collapse-v422.js'});
+  ensureWorkflowEnhancements();
 
   document.addEventListener('keydown',event=>{
     const target=event.target;
