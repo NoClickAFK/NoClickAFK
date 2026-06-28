@@ -94,6 +94,38 @@ test('removed UI sections disappear from the next generated report',async({page}
   expect(state.after).toBe(false);
 });
 
+test('collapsed active cards stay complete while archived cards stay excluded',async({page})=>{
+  await openApp(page);
+
+  const state=await page.evaluate(async()=>{
+    const cards=[...document.querySelectorAll('[data-location-card]')];
+    const active=cards[0];
+    const archived=cards[1];
+    const activeId=active.dataset.locationCard;
+    const archivedId=archived.dataset.locationCard;
+    const body=active.querySelector('.location-body');
+    body.hidden=true;
+    active.classList.add('location-card-collapsed-v422');
+    archived.classList.add('hidden');
+
+    const html=await window.BogatkaLiveReport.build();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const reportActive=doc.querySelector(`[data-location-card="${CSS.escape(activeId)}"]`);
+    const reportArchived=doc.querySelector(`[data-location-card="${CSS.escape(archivedId)}"]`);
+    return {
+      activePresent:Boolean(reportActive),
+      activeComplete:Boolean(reportActive?.textContent.includes('Быстрый чек-лист')&&reportActive?.querySelector('.location-body')),
+      archivedPresent:Boolean(reportArchived),
+      collapsedRestored:body.hidden,
+    };
+  });
+
+  expect(state.activePresent).toBe(true);
+  expect(state.activeComplete).toBe(true);
+  expect(state.archivedPresent).toBe(false);
+  expect(state.collapsedRestored).toBe(true);
+});
+
 test('HTML and PDF actions are backed by the same premium report engine',async({page})=>{
   await openApp(page);
   const state=await page.evaluate(()=>({
