@@ -1,16 +1,22 @@
 const {test,expect}=require('@playwright/test');
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=427';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=428';
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
     status:200,
     contentType:'application/json',
-    body:JSON.stringify({version:'4.2.7',versionToken:'427',sourceCommit:'report427abcdef',ahead:2}),
+    body:JSON.stringify({version:'4.2.8',versionToken:'428',sourceCommit:'report428abcdef',ahead:1}),
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaLiveReport?.ready===true&&window.BogatkaLiveReport.build?.__liveReportFinalV427===true,{timeout:15000});
+  await page.waitForFunction(()=>Boolean(
+    window.BogatkaLiveReport?.ready===true&&
+    window.BogatkaLiveReport.build?.__liveReportFinalV427===true&&
+    window.BogatkaLiveReport.build?.__reportPolishV428===true&&
+    window.BogatkaLiveReport.build?.__reportAuthorityV428===true&&
+    window.buildReportHtml===window.BogatkaLiveReport.build
+  ),{timeout:20000});
   await page.waitForFunction(()=>document.querySelectorAll('[data-location-card]').length>0,{timeout:15000});
 }
 
@@ -68,7 +74,7 @@ test('live report mirrors the current location DOM and removes editing controls'
   expect(result.report.text).toContain('Технические и финансовые параметры');
   expect(result.report.text).toContain('Конкуренты и окружение');
   expect(result.report.text).toContain('Фотографии по категориям');
-  expect(result.report.text).toContain('Совместная работа');
+  expect(result.report.text).toContain('Задачи и комментарии');
   expect(result.sameBuilder).toBe(true);
 });
 
@@ -134,15 +140,17 @@ test('HTML and PDF actions are backed by the same premium report engine',async({
   const state=await page.evaluate(()=>({
     version:window.BogatkaLiveReport.version,
     buildShared:window.buildReportHtml===window.BogatkaLiveReport.build,
+    authority:window.BogatkaLiveReport.build?.__reportAuthorityV428===true,
     htmlAction:typeof window.exportHtmlReport==='function',
     pdfAction:typeof window.openPdfReport==='function',
     htmlSource:String(window.exportHtmlReport),
     pdfSource:String(window.openPdfReport),
   }));
-  expect(state.version).toBe('4.2.7');
+  expect(state.version).toBe('4.2.8');
   expect(state.buildShared).toBe(true);
+  expect(state.authority).toBe(true);
   expect(state.htmlAction).toBe(true);
   expect(state.pdfAction).toBe(true);
-  expect(state.htmlSource).toContain('buildLiveReportHtml');
-  expect(state.pdfSource).toContain('buildLiveReportHtml');
+  expect(state.htmlSource).toContain('buildReportHtmlV428');
+  expect(state.pdfSource).toContain('buildReportHtmlV428');
 });

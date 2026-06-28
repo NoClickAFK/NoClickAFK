@@ -41,6 +41,9 @@ jobs:
       - name: Validate live report integration
         run: node bogatka-field-8f3c7d/tests/validate-report-live-v427.mjs
 
+      - name: Validate report polish integration
+        run: node bogatka-field-8f3c7d/tests/validate-report-polish-v428.mjs
+
   browser-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
