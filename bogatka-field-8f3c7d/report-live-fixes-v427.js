@@ -18,6 +18,20 @@
 
     const baseBuild=api.build;
 
+    async function ensureReportModules(){
+      for(let attempt=0;attempt<80;attempt++){
+        if(typeof window.BogatkaDecisionUI?.refresh==='function'&&typeof window.BogatkaDecisionEngine?.computeAll==='function')break;
+        await wait(50);
+      }
+      if(typeof window.BogatkaDecisionUI?.refresh==='function')await window.BogatkaDecisionUI.refresh();
+      if(typeof window.BogatkaSuiteUI?.refresh==='function')await window.BogatkaSuiteUI.refresh();
+      for(let attempt=0;attempt<30;attempt++){
+        const cards=[...document.querySelectorAll('[data-location-card]')];
+        if(cards.length&&cards.every(card=>card.querySelector('.stop-factors-v340')))break;
+        await wait(40);
+      }
+    }
+
     function addPanelHeading(documentReport,card,selector,title,copy){
       const panel=card.querySelector(selector);
       if(!panel||panel.querySelector(':scope > .report-panel-heading-v427'))return;
@@ -80,6 +94,7 @@
         }catch(_){}
       }
       try{
+        await ensureReportModules();
         return finalizeMarkup(await baseBuild(...args));
       }finally{
         restoreBlur?.();
@@ -91,6 +106,7 @@
     buildLiveReportHtml.__locationProfileV425=true;
     buildLiveReportHtml.__locationOverviewV417=true;
     buildLiveReportHtml.__locationOverviewV421=true;
+    buildLiveReportHtml.__locationPanelsV419=true;
     buildLiveReportHtml.__base=baseBuild;
 
     const exportHtmlReportLive=async function(){
