@@ -10,8 +10,12 @@ async function openApp(page){
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaLiveReport?.ready===true,{timeout:15000});
+  await page.waitForFunction(()=>window.BogatkaLiveReport?.ready===true&&window.BogatkaLiveReport.build?.__liveReportFinalV427===true,{timeout:15000});
   await page.waitForFunction(()=>document.querySelectorAll('[data-location-card]').length>0,{timeout:15000});
+  await page.waitForFunction(()=>{
+    const cards=[...document.querySelectorAll('[data-location-card]')];
+    return Boolean(window.BogatkaDecisionUI?.refresh&&cards.length&&cards.every(card=>card.querySelector('.stop-factors-v340')));
+  },{timeout:15000});
 }
 
 test('live report mirrors the current location DOM and removes editing controls',async({page})=>{
