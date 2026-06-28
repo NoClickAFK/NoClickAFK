@@ -1,4 +1,9 @@
-const APP_URL='../?v=400';
+const APP_URL=(()=>{
+  try{
+    const build=JSON.parse(localStorage.getItem('bogatka_build_meta_v426')||'null');
+    return build?.versionToken?`../?v=${encodeURIComponent(build.versionToken)}`:'../';
+  }catch(_){return '../'}
+})();
 const statusBox=document.querySelector('#statusBox');
 const leadText=document.querySelector('#leadText');
 const form=document.querySelector('#passwordForm');
