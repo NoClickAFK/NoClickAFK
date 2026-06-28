@@ -40,6 +40,10 @@
     },Math.max(100,delay));
   }
 
+  document.addEventListener('focusout',()=>{
+    if(pending)requestRefresh(750);
+  },true);
+
   async function stableUpdateSummary(){
     if(isEditing()){
       requestRefresh(900);
