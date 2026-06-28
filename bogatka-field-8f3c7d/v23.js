@@ -144,6 +144,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-panels-v419.js'});
   loadBogatkaPatch('script',{src:'./location-panels-render-v419.js'});
   loadBogatkaPatch('script',{src:'./location-card-collapse-v422.js'});
+  loadBogatkaPatch('script',{src:'./report-live-v427.js'});
   ensureWorkflowEnhancements();
 
   document.addEventListener('keydown',event=>{
