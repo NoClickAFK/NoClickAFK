@@ -28,18 +28,13 @@
     const baseBuild=api.build;
 
     async function ensureReportModules(){
-      for(let attempt=0;attempt<80;attempt++){
-        if(typeof window.BogatkaDecisionUI?.refresh==='function'&&typeof window.BogatkaDecisionEngine?.computeAll==='function')break;
+      for(let attempt=0;attempt<40;attempt++){
+        if(typeof window.BogatkaDecisionEngine?.computeAll==='function')break;
         await wait(50);
       }
       await stabilizeLocationUi();
       if(typeof window.BogatkaDecisionUI?.refresh==='function')await window.BogatkaDecisionUI.refresh();
       if(typeof window.BogatkaSuiteUI?.refresh==='function')await window.BogatkaSuiteUI.refresh();
-      for(let attempt=0;attempt<30;attempt++){
-        const cards=[...document.querySelectorAll('[data-location-card]')];
-        if(cards.length&&cards.every(card=>card.querySelector('.stop-factors-v340')))break;
-        await wait(40);
-      }
     }
 
     function addPanelHeading(documentReport,card,selector,title,copy){
@@ -55,31 +50,73 @@
       panel.prepend(heading);
     }
 
-    function addMissingStopFactors(documentReport,reportCard){
+    function staticStopValue(documentReport,value){
+      const labels={clear:'Нет проблемы',risk:'Есть риск / уточнить',block:'Есть стоп-фактор'};
+      const output=documentReport.createElement('span');
+      output.className='report-control-value report-select-value';
+      output.textContent=labels[value]||'—';
+      return output;
+    }
+
+    async function addMissingStopFactors(documentReport,reportCard){
       if(reportCard.querySelector('.stop-factors-v340'))return;
       const id=reportCard.dataset.locationCard;
       const sourceCard=id?document.querySelector(`[data-location-card="${CSS.escape(id)}"]`):null;
       const sourceSection=sourceCard?.querySelector('.stop-factors-v340');
-      if(!sourceSection)return;
-      const section=sourceSection.cloneNode(true);
-      section.open=true;
-      section.setAttribute('open','');
-      section.querySelectorAll('.premium-select-trigger,.premium-select-menu').forEach(node=>node.remove());
-      section.querySelectorAll('select[data-stop-key]').forEach(select=>{
-        const original=sourceSection.querySelector(`select[data-stop-key="${CSS.escape(select.dataset.stopKey||'')}"]`);
-        const selected=original?.options?.[original.selectedIndex]?.textContent?.trim()||'Не проверено';
-        const value=documentReport.createElement('span');
-        value.className='report-control-value report-select-value';
-        value.textContent=selected==='Не проверено'?'—':selected;
-        select.replaceWith(value);
-      });
-      section.querySelectorAll('button,input,textarea').forEach(node=>node.remove());
+      let section=null;
+
+      if(sourceSection){
+        section=sourceSection.cloneNode(true);
+        section.open=true;
+        section.setAttribute('open','');
+        section.querySelectorAll('.premium-select-trigger,.premium-select-menu').forEach(node=>node.remove());
+        section.querySelectorAll('select[data-stop-key]').forEach(select=>{
+          const key=select.dataset.stopKey||'';
+          const original=sourceSection.querySelector(`select[data-stop-key="${CSS.escape(key)}"]`);
+          select.replaceWith(staticStopValue(documentReport,original?.value||''));
+        });
+        section.querySelectorAll('button,input,textarea').forEach(node=>node.remove());
+      }else{
+        const definitions=window.BogatkaDecisionEngine?.STOPS||[];
+        if(!definitions.length)return;
+        const data=id&&typeof getLocationData==='function'?await getLocationData(id):{};
+        section=documentReport.createElement('details');
+        section.className='stop-factors-v340';
+        section.open=true;
+        section.setAttribute('open','');
+        const summary=documentReport.createElement('summary');
+        const title=documentReport.createElement('span');
+        title.textContent='Стоп-факторы';
+        const badge=documentReport.createElement('span');
+        badge.className='stop-summary-badge-v340';
+        const answered=definitions.filter(([key])=>Boolean(data?.stopFactors?.[key])).length;
+        badge.textContent=answered===definitions.length?'проверены':`${definitions.length-answered} не проверено`;
+        summary.append(title,badge);
+        const body=documentReport.createElement('div');
+        body.className='details-body';
+        const note=documentReport.createElement('p');
+        note.className='section-note';
+        note.textContent='Условия, которые могут запретить открытие независимо от общего балла.';
+        const grid=documentReport.createElement('div');
+        grid.className='stop-grid-v340';
+        for(const [key,label] of definitions){
+          const row=documentReport.createElement('div');
+          row.className='stop-row-v340';
+          const strong=documentReport.createElement('strong');
+          strong.textContent=label;
+          row.append(strong,staticStopValue(documentReport,data?.stopFactors?.[key]||''));
+          grid.appendChild(row);
+        }
+        body.append(note,grid);
+        section.append(summary,body);
+      }
+
       const overview=reportCard.querySelector('.decision-overview-v340');
       if(overview)overview.insertAdjacentElement('afterend',section);
       else reportCard.querySelector('.report-location-body,.location-body')?.prepend(section);
     }
 
-    function finalizeMarkup(html){
+    async function finalizeMarkup(html){
       const parser=new DOMParser();
       const documentReport=parser.parseFromString(html,'text/html');
       for(const card of documentReport.querySelectorAll('.report-location-card')){
@@ -97,7 +134,7 @@
           'Арендодатель и условия',
           'Собственник, контактное лицо, контакты и договорённости.'
         );
-        addMissingStopFactors(documentReport,card);
+        await addMissingStopFactors(documentReport,card);
         card.querySelectorAll('.profile-caption-v416').forEach(caption=>{
           const value=caption.textContent.trim();
           if(value&&!value.endsWith(':'))caption.textContent=`${value}:`;
@@ -130,7 +167,7 @@
       }
       try{
         await ensureReportModules();
-        return finalizeMarkup(await baseBuild(...args));
+        return await finalizeMarkup(await baseBuild(...args));
       }finally{
         restoreBlur?.();
       }
@@ -178,7 +215,7 @@
     buildLiveReportHtml.__pdfAction=openPdfReportLive;
     api.build=buildLiveReportHtml;
     claim(buildLiveReportHtml);
-    [100,300,700,1500,3000,5000].forEach(delay=>setTimeout(()=>claim(buildLiveReportHtml),delay));
+    setTimeout(()=>claim(buildLiveReportHtml),1000);
   }
 
   function claim(builder){
