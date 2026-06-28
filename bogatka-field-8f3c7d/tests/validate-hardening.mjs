@@ -49,6 +49,15 @@ verify('version-authority-v426.js',[
   'installVersionedBackup'
 ]);
 
+const functionPath=path.resolve('supabase/functions/bogatka-version/index.ts');
+if(!fs.existsSync(functionPath))failures.push('Missing Supabase version resolver source');
+else{
+  const source=fs.readFileSync(functionPath,'utf8');
+  for(const marker of ['BASE_VERSION = "4.2.5"','d3d86f22ce9d260b07efa8550594038537871e52','compare/${BASE_COMMIT}...main','versionToken','Access-Control-Allow-Origin']){
+    if(!source.includes(marker))failures.push(`Supabase version resolver missing ${marker}`);
+  }
+}
+
 const sw=read('sw-v340.js');
 for(const asset of ['./version-authority-v426.js','./location-card-collapse-v422.js','./location-card-collapse-v422.css','./location-global-v421.js']){
   if(sw&&!sw.includes(`'${asset}'`))failures.push(`Service Worker does not cache ${asset}`);
