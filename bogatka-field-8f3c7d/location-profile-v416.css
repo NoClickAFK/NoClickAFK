@@ -1,4 +1,4 @@
-/* Bogatka 4.1.6 — structured location and landlord profile */
+/* Bogatka 4.2.5 — structured location and landlord profile */
 
 .location-overview-v416{
   display:grid;
@@ -51,7 +51,8 @@
 }
 .inspection-grid-v416>.field,
 .landlord-grid-v416>.field,
-.inspection-grid-v416>.object-other{
+.inspection-grid-v416>.object-other,
+.landlord-grid-v416>.contact-role-other-v425{
   min-width:0;
   margin:0;
 }
@@ -59,6 +60,8 @@
 .inspection-grid-v416 select,
 .inspection-grid-v416 .premium-select-trigger,
 .landlord-grid-v416 input,
+.landlord-grid-v416 select,
+.landlord-grid-v416 .premium-select-trigger,
 .landlord-grid-v416 textarea{
   width:100%;
   min-height:46px;
@@ -74,7 +77,9 @@
 .profile-wide-v416{
   grid-column:1/-1;
 }
-.object-other.hidden{
+.object-other.hidden,
+.contact-role-other-v425.hidden,
+.profile-hidden-v425{
   display:none!important;
 }
 .inspection-note-v416{

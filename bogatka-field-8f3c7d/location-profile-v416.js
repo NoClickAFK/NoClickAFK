@@ -1,32 +1,31 @@
 (function(){
   if(window.BogatkaLocationProfileV416?.ready)return;
 
-  const VERSION='4.1.6';
+  const VERSION='4.2.5';
   const FRIENDLY_STREET='Магазин с отдельным входом с улицы';
+  const CONTACT_ROLE_OPTIONS=[
+    ['','Не выбрано'],['Собственник','Собственник'],['Директор','Директор'],['Управляющий','Управляющий'],
+    ['Представитель собственника','Представитель собственника'],['Агент / посредник','Агент / посредник'],['Другое','Другое'],
+  ];
   const EXTRA_FIELDS=[
-    ['ownerName','Собственник / организация','text','Название организации или ФИО собственника',false],
-    ['contactPhone','Телефон','tel','+375 29 000-00-00',false],
-    ['contactEmail','Email','email','name@example.com',false],
-    ['contactMessenger','Мессенджер','text','Telegram, Viber, WhatsApp',false],
-    ['rentConditions','Дополнительные условия аренды','textarea','Депозит, каникулы, коммунальные, индексация, ремонт',true],
-    ['contactNotes','Дополнительная информация','textarea','Роль контакта, удобное время связи, договорённости',true],
+    {field:'ownerName',label:'Собственник / организация',kind:'text',placeholder:'Название организации или ФИО собственника'},
+    {field:'contactRole',label:'Роль контактного лица',kind:'select',options:CONTACT_ROLE_OPTIONS},
+    {field:'contactPhone',label:'Телефон',kind:'tel',placeholder:'+375 29 000-00-00'},
+    {field:'contactEmail',label:'Email',kind:'email',placeholder:'name@example.com'},
+    {field:'contactMessenger',label:'Мессенджер',kind:'text',placeholder:'Telegram, Viber, WhatsApp'},
+    {field:'rentConditions',label:'Дополнительные условия аренды',kind:'textarea',placeholder:'Депозит, каникулы, коммунальные, индексация, ремонт',wide:true},
+    {field:'contactNotes',label:'Дополнительная информация',kind:'textarea',placeholder:'Удобное время связи, договорённости и важные детали',wide:true},
   ];
   const FIELD_LABELS={
-    objectTypeOther:'Уточнение типа объекта',
-    ownerName:'Собственник / организация',
-    contactPhone:'Телефон арендодателя',
-    contactEmail:'Email арендодателя',
-    contactMessenger:'Мессенджер арендодателя',
-    rentConditions:'Дополнительные условия аренды',
-    contactNotes:'Дополнительная информация по контакту',
+    objectTypeOther:'Уточнение типа объекта',ownerName:'Собственник / организация',contactRole:'Роль контактного лица',
+    contactRoleOther:'Уточнение роли контактного лица',contactPhone:'Телефон арендодателя',contactEmail:'Email арендодателя',
+    contactMessenger:'Мессенджер арендодателя',rentConditions:'Дополнительные условия аренды',contactNotes:'Дополнительная информация по контакту',
   };
-
   let timer=null;
   let reportAttempts=0;
 
-  function labelOf(control){
-    return control?.closest('label.field,label.object-other')||null;
-  }
+  const filled=value=>value!==undefined&&value!==null&&String(value).trim()!=='';
+  const labelOf=control=>control?.closest('label.field,label.object-other,label.contact-role-other-v425')||null;
 
   function relabel(label,text){
     if(!label)return;
@@ -51,58 +50,69 @@
       control.dataset.profileRevisionV416=String(revision);
       control.dataset.profileDirtyV416='1';
       control._profileSaveTimerV416=setTimeout(async()=>{
-        try{
-          await saveField(control);
-        }catch(error){
-          showError(error);
-        }finally{
+        try{await saveField(control)}catch(error){showError(error)}finally{
           if(control.dataset.profileRevisionV416===String(revision)){
             delete control.dataset.profileDirtyV416;
             control._profileSaveTimerV416=null;
           }
         }
-      },250);
+      },eventName==='change'?80:250);
     });
   }
 
-  function makeField(locationId,[field,label,kind,placeholder,wide]){
+  function makeControl(locationId,definition){
+    let control;
+    if(definition.kind==='textarea'){
+      control=document.createElement('textarea');
+      control.rows=2;
+    }else if(definition.kind==='select'){
+      control=document.createElement('select');
+      for(const [value,label] of definition.options||[]){
+        const option=document.createElement('option');
+        option.value=value;
+        option.textContent=label;
+        control.appendChild(option);
+      }
+    }else{
+      control=document.createElement('input');
+      control.type=definition.kind||'text';
+    }
+    control.dataset.location=locationId;
+    control.dataset.field=definition.field;
+    control.dataset.profileV416='1';
+    if(definition.placeholder)control.placeholder=definition.placeholder;
+    if(definition.kind==='tel')control.autocomplete='tel';
+    if(definition.kind==='email')control.autocomplete='email';
+    bindField(control);
+    return control;
+  }
+
+  function makeField(locationId,definition){
     const wrapper=document.createElement('label');
-    wrapper.className=`field profile-field-v416${wide?' profile-wide-v416':''}`;
+    wrapper.className=`field profile-field-v416${definition.wide?' profile-wide-v416':''}`;
+    wrapper.dataset.profileField=definition.field;
     const caption=document.createElement('span');
     caption.className='profile-caption-v416';
-    caption.textContent=label;
-    const control=kind==='textarea'?document.createElement('textarea'):document.createElement('input');
-    if(kind!=='textarea')control.type=kind;
-    control.dataset.location=locationId;
-    control.dataset.field=field;
-    control.dataset.profileV416='1';
-    control.placeholder=placeholder;
-    if(kind==='textarea')control.rows=2;
-    if(kind==='tel')control.autocomplete='tel';
-    if(kind==='email')control.autocomplete='email';
-    wrapper.append(caption,control);
-    bindField(control);
+    caption.textContent=definition.label;
+    wrapper.append(caption,makeControl(locationId,definition));
     return wrapper;
   }
 
   function syncPremium(select){
-    const trigger=select?.nextElementSibling;
+    if(!select)return;
+    const trigger=select.nextElementSibling;
+    if(trigger?.classList.contains('premium-select-trigger')&&trigger.dataset.syncedValue===select.value)return;
     if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-    else if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
-      bogatkaSyncPremiumSelect(select,trigger);
-      trigger.dataset.syncedValue=select.value;
-    }
+    else if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+    const currentTrigger=select.nextElementSibling;
+    if(currentTrigger?.classList.contains('premium-select-trigger'))currentTrigger.dataset.syncedValue=select.value;
   }
 
   function ensureObjectType(locationId,select){
     const street=[...select.options].find(option=>option.value==='Стрит-ритейл'||option.textContent.trim()==='Стрит-ритейл'||option.textContent.trim()===FRIENDLY_STREET);
-    if(street){
-      street.value='Стрит-ритейл';
-      if(street.textContent!==FRIENDLY_STREET)street.textContent=FRIENDLY_STREET;
-    }
+    if(street){street.value='Стрит-ритейл';street.textContent=FRIENDLY_STREET}
     select.setAttribute('aria-label','Тип объекта');
     syncPremium(select);
-
     let wrapper=document.querySelector(`[data-object-other="${CSS.escape(locationId)}"]`);
     if(!wrapper){
       wrapper=document.createElement('label');
@@ -110,7 +120,7 @@
       wrapper.dataset.objectOther=locationId;
       const caption=document.createElement('span');
       caption.className='profile-caption-v416';
-      caption.textContent='Уточните тип объекта';
+      caption.textContent='Уточните другой тип объекта';
       const input=document.createElement('input');
       input.type='text';
       input.dataset.location=locationId;
@@ -121,13 +131,49 @@
       bindField(input);
     }else{
       wrapper.classList.add('profile-wide-v416');
-      relabel(wrapper,'Уточните тип объекта');
+      relabel(wrapper,'Уточните другой тип объекта');
       bindField(wrapper.querySelector('[data-field="objectTypeOther"]'));
     }
-
     const update=()=>wrapper.classList.toggle('hidden',select.value!=='Другое');
     if(select.dataset.objectTypeV416!=='1'){
       select.dataset.objectTypeV416='1';
+      select.addEventListener('change',update);
+      select.addEventListener('bogatka:object-type-restored',update);
+    }
+    update();
+    return wrapper;
+  }
+
+  function ensureContactRoleOther(locationId,select){
+    if(!select)return null;
+    select.setAttribute('aria-label','Роль контактного лица');
+    let wrapper=document.querySelector(`[data-contact-role-other="${CSS.escape(locationId)}"]`);
+    if(!wrapper){
+      wrapper=document.createElement('label');
+      wrapper.className='field contact-role-other-v425 hidden profile-wide-v416';
+      wrapper.dataset.contactRoleOther=locationId;
+      const caption=document.createElement('span');
+      caption.className='profile-caption-v416';
+      caption.textContent='Уточните роль контактного лица';
+      const input=document.createElement('input');
+      input.type='text';
+      input.dataset.location=locationId;
+      input.dataset.field='contactRoleOther';
+      input.dataset.profileV416='1';
+      input.placeholder='Например: бухгалтер, юрист, администратор объекта';
+      wrapper.append(caption,input);
+      bindField(input);
+    }else{
+      relabel(wrapper,'Уточните роль контактного лица');
+      bindField(wrapper.querySelector('[data-field="contactRoleOther"]'));
+    }
+    const update=()=>{
+      const hidden=select.value!=='Другое';
+      wrapper.classList.toggle('hidden',hidden);
+      if(wrapper.hidden!==hidden)wrapper.hidden=hidden;
+    };
+    if(select.dataset.contactRoleV425!=='1'){
+      select.dataset.contactRoleV425='1';
       select.addEventListener('change',update);
     }
     update();
@@ -145,14 +191,46 @@
     return head;
   }
 
+  async function migrateLegacyRent(card,data){
+    if(!data||!filled(data.rent))return data;
+    const next={...data,tech:{...(data.tech||{})},migrations:{...(data.migrations||{})}};
+    if(!filled(next.tech.rentPerMonth))next.tech.rentPerMonth=String(next.rent).trim();
+    next.rent='';
+    next.migrations.rentToTechV425=true;
+    next.updatedAt=new Date().toISOString();
+    await idbPut(STORE,next,`location:${card.dataset.locationCard}`);
+    const techRent=card.querySelector('[data-field="tech.rentPerMonth"]');
+    if(techRent&&techRent!==document.activeElement)techRent.value=next.tech.rentPerMonth||'';
+    if(typeof updateSummary==='function')await updateSummary();
+    return next;
+  }
+
   async function restoreNewFields(card){
     const id=card.dataset.locationCard;
-    const data=await getLocationData(id);
+    let data=await getLocationData(id);
+    data=await migrateLegacyRent(card,data);
     card.querySelectorAll('[data-profile-v416][data-field]').forEach(control=>{
       if(control===document.activeElement||control.dataset.profileDirtyV416==='1')return;
       const value=getNested(data,control.dataset.field);
       const next=value===undefined||value===null?'':String(value);
-      if(control.value!==next)control.value=next;
+      if(control.value!==next){
+        control.value=next;
+        if(control.tagName==='SELECT')syncPremium(control);
+      }
+    });
+    ensureContactRoleOther(id,card.querySelector('select[data-field="contactRole"]'));
+  }
+
+  function orderLandlordFields(grid,locationId,contactLabel){
+    const byField=field=>labelOf(grid.querySelector(`[data-location="${CSS.escape(locationId)}"][data-field="${field}"]`));
+    const nodes=[
+      byField('ownerName'),byField('contactRole'),grid.querySelector(`[data-contact-role-other="${CSS.escape(locationId)}"]`),
+      contactLabel,byField('contactPhone'),byField('contactMessenger'),byField('contactEmail'),byField('rentConditions'),byField('contactNotes'),
+    ];
+    nodes.forEach((node,index)=>{
+      if(!node)return;
+      const current=grid.children[index];
+      if(current!==node)grid.insertBefore(node,current||null);
     });
   }
 
@@ -177,21 +255,18 @@
     if(!overview){
       overview=document.createElement('div');
       overview.className='location-overview-v416';
-
       const inspection=document.createElement('section');
       inspection.className='inspection-card-v416';
       inspection.append(sectionHeader('Параметры осмотра','Статус, формат объекта и время проверки локации.'));
       const inspectionGrid=document.createElement('div');
       inspectionGrid.className='inspection-grid-v416';
       inspection.append(inspectionGrid);
-
       const landlord=document.createElement('section');
       landlord.className='landlord-card-v416';
-      landlord.append(sectionHeader('Арендодатель и условия','Контакты и договорённости хранятся вместе с конкретной локацией.'));
+      landlord.append(sectionHeader('Арендодатель и условия','Собственник, роль контактного лица, контакты и договорённости.'));
       const landlordGrid=document.createElement('div');
       landlordGrid.className='landlord-grid-v416';
       landlord.append(landlordGrid);
-
       overview.append(inspection,landlord);
       body.prepend(overview);
     }
@@ -199,39 +274,42 @@
     const inspectionGrid=overview.querySelector('.inspection-grid-v416');
     const landlordGrid=overview.querySelector('.landlord-grid-v416');
     const objectOther=ensureObjectType(locationId,objectType);
-
     const statusLabel=labelOf(status),objectLabel=labelOf(objectType),dateLabel=labelOf(date),timeLabel=labelOf(time);
     const rentLabel=labelOf(rent),contactLabel=labelOf(contact);
     relabel(statusLabel,'Статус');
     relabel(objectLabel,'Тип объекта');
     relabel(dateLabel,'Дата осмотра');
     relabel(timeLabel,'Время осмотра');
-    relabel(rentLabel,'Аренда, BYN / месяц');
     relabel(contactLabel,'Контактное лицо');
-
     [statusLabel,objectLabel,objectOther,dateLabel,timeLabel].forEach(label=>label&&inspectionGrid.appendChild(label));
-    rentLabel?.classList.add('profile-wide-v416');
-    [rentLabel,contactLabel].forEach(label=>label&&landlordGrid.appendChild(label));
+    if(rentLabel){
+      rentLabel.hidden=true;
+      rentLabel.classList.add('profile-hidden-v425');
+      rentLabel.setAttribute('aria-hidden','true');
+    }
+    contactLabel&&landlordGrid.appendChild(contactLabel);
 
     for(const definition of EXTRA_FIELDS){
-      const field=definition[0];
-      let control=landlordGrid.querySelector(`[data-location="${CSS.escape(locationId)}"][data-field="${field}"]`);
-      if(!control)landlordGrid.appendChild(makeField(locationId,definition));
-      else bindField(control);
+      let control=landlordGrid.querySelector(`[data-location="${CSS.escape(locationId)}"][data-field="${definition.field}"]`);
+      if(!control){
+        const field=makeField(locationId,definition);
+        landlordGrid.appendChild(field);
+        control=field.querySelector('[data-field]');
+      }else bindField(control);
     }
+    const role=landlordGrid.querySelector('select[data-field="contactRole"]');
+    const roleOther=ensureContactRoleOther(locationId,role);
+    if(roleOther&&roleOther.parentElement!==landlordGrid)landlordGrid.appendChild(roleOther);
+    orderLandlordFields(landlordGrid,locationId,contactLabel);
 
     const undo=body.querySelector(`[data-undo-note="${CSS.escape(locationId)}"]`);
-    if(undo){
-      undo.classList.add('inspection-note-v416');
-      inspectionGrid.appendChild(undo);
-    }
+    if(undo){undo.classList.add('inspection-note-v416');inspectionGrid.appendChild(undo)}
     const statusRow=body.querySelector(':scope > .status-row');
     const quickGrid=body.querySelector(':scope > .quick-grid');
     if(statusRow&&!statusRow.children.length)statusRow.remove();
-    if(quickGrid&&!quickGrid.children.length)quickGrid.remove();
-
-    await restoreNewFields(card);
+    if(quickGrid&&![...quickGrid.children].some(child=>!child.hidden))quickGrid.remove();
     card.dataset.profileV416='1';
+    await restoreNewFields(card);
   }
 
   function enhanceModal(){
@@ -246,7 +324,7 @@
     if(!modal.querySelector('.location-modal-guide-v416')){
       const guide=document.createElement('div');
       guide.className='location-modal-guide-v416';
-      guide.textContent='Создайте карточку по точному адресу. Статус, тип объекта, аренду и контакты заполните уже внутри новой локации.';
+      guide.textContent='Создайте карточку по точному адресу. Статус, тип объекта, финансовые параметры и контакты заполните уже внутри новой локации.';
       modal.querySelector('#locationModalTitle')?.insertAdjacentElement('afterend',guide);
     }
   }
@@ -262,8 +340,17 @@
     return data?.objectType||'—';
   }
 
+  function friendlyContactRole(data){
+    if(data?.contactRole==='Другое'&&data?.contactRoleOther)return `Другое: ${data.contactRoleOther}`;
+    return data?.contactRole||'—';
+  }
+
+  function reportCell(section,label){
+    return [...section.querySelectorAll('.report-summary-grid > div')].find(item=>item.querySelector('b')?.textContent.trim()===label);
+  }
+
   function replaceReportValue(section,label,value){
-    const cell=[...section.querySelectorAll('.report-summary-grid > div')].find(item=>item.querySelector('b')?.textContent.trim()===label);
+    const cell=reportCell(section,label);
     if(!cell)return;
     const strong=cell.querySelector('b');
     cell.replaceChildren(strong,document.createTextNode(` ${value||'—'}`));
@@ -278,9 +365,9 @@
     const grid=documentReport.createElement('div');
     grid.className='report-landlord-grid-v416';
     const entries=[
-      ['Аренда',data.rent],['Дополнительные условия',data.rentConditions],['Собственник / организация',data.ownerName],
-      ['Контактное лицо',data.contact],['Телефон',data.contactPhone],['Email',data.contactEmail],
-      ['Мессенджер',data.contactMessenger],['Дополнительная информация',data.contactNotes],
+      ['Собственник / организация',data.ownerName],['Роль контактного лица',friendlyContactRole(data)],
+      ['Контактное лицо',data.contact],['Телефон',data.contactPhone],['Мессенджер',data.contactMessenger],
+      ['Email',data.contactEmail],['Дополнительные условия',data.rentConditions],['Дополнительная информация',data.contactNotes],
     ];
     for(const [name,value] of entries){
       const item=documentReport.createElement('div');
@@ -299,7 +386,7 @@
       if(reportAttempts<80)setTimeout(installReportWrapper,250);
       return;
     }
-    if(window.buildReportHtml.__locationProfileV416)return;
+    if(window.buildReportHtml.__locationProfileV425)return;
     const base=window.buildReportHtml;
     const wrapped=async function(...args){
       const html=await base(...args);
@@ -312,6 +399,7 @@
         if(!id)continue;
         const data=await getLocationData(id);
         replaceReportValue(section,'Тип объекта:',friendlyObjectType(data));
+        reportCell(section,'Аренда:')?.remove();
         addReportContacts(documentReport,section,data);
       }
       if(!documentReport.querySelector('#reportProfileStyleV416')){
@@ -323,6 +411,7 @@
       return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
     };
     wrapped.__locationProfileV416=true;
+    wrapped.__locationProfileV425=true;
     wrapped.__base=base;
     window.buildReportHtml=wrapped;
     try{buildReportHtml=wrapped}catch(_){}
@@ -352,19 +441,19 @@
   window.addEventListener('load',()=>schedule(80),{once:true});
 
   window.BogatkaLocationProfileV416={
-    version:VERSION,
-    ready:true,
-    enhanceAll,
-    friendlyObjectType,
+    version:VERSION,ready:true,enhanceAll,friendlyObjectType,friendlyContactRole,
     audit(){
       const cards=[...document.querySelectorAll('[data-location-card]')];
-      const required=['status','objectType','date','time','rent','contact','ownerName','contactPhone','contactEmail','contactMessenger','rentConditions','contactNotes'];
+      const required=['status','objectType','date','time','contact','ownerName','contactRole','contactRoleOther','contactPhone','contactEmail','contactMessenger','rentConditions','contactNotes'];
       const failures=[];
       for(const card of cards){
         const id=card.dataset.locationCard;
         for(const field of required)if(!card.querySelector(`[data-location="${CSS.escape(id)}"][data-field="${field}"]`))failures.push(`${id}:${field}`);
-        const select=card.querySelector('[data-field="objectType"]');
-        if(select&&![...select.options].some(option=>option.textContent===FRIENDLY_STREET))failures.push(`${id}:friendly-object-type-label`);
+        if(card.querySelector('.landlord-grid-v416 [data-field="rent"]'))failures.push(`${id}:duplicate-rent-visible`);
+        const type=card.querySelector('[data-field="objectType"]');
+        if(type&&![...type.options].some(option=>option.textContent===FRIENDLY_STREET))failures.push(`${id}:friendly-object-type-label`);
+        const role=card.querySelector('[data-field="contactRole"]');
+        if(role&&![...role.options].some(option=>option.value==='Другое'))failures.push(`${id}:contact-role-other-option`);
       }
       return {ok:failures.length===0,cards:cards.length,failures};
     },
