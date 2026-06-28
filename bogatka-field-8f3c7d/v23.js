@@ -45,6 +45,37 @@ function installSyncIntegrityGate(){
   window.cloudInit=cloudInit;
 }
 
+function installLegacyRentMigrationV425(){
+  if(window.__bogatkaLegacyRentMigrationV425||typeof getLocationData!=='function'||typeof idbPut!=='function')return;
+  window.__bogatkaLegacyRentMigrationV425=true;
+  const baseGetLocationData=window.getLocationData||getLocationData;
+  const wrapped=async function migratedGetLocationData(id){
+    const data=await baseGetLocationData(id);
+    const legacy=String(data?.rent??'').trim();
+    if(!legacy)return data;
+    const compact=legacy.replace(/\s+/g,'').replace(',','.');
+    const amount=compact.match(/\d+(?:\.\d+)?/)?.[0]||'';
+    const numericOnly=/^\s*\d[\d\s]*(?:[.,]\d+)?\s*(?:BYN|бел\.?\s*руб\.?|руб\.?|р\.?)?\s*$/i.test(legacy);
+    const next={...data,tech:{...(data.tech||{})},migrations:{...(data.migrations||{})}};
+    if(amount&&!String(next.tech.rentPerMonth??'').trim())next.tech.rentPerMonth=amount;
+    if(!numericOnly){
+      const note=`Аренда: ${legacy}`;
+      const current=String(next.rentConditions||'').trim();
+      if(!current)next.rentConditions=note;
+      else if(!current.includes(legacy))next.rentConditions=`${current}\n${note}`;
+    }
+    next.rent='';
+    next.migrations.rentToTechV425=true;
+    next.updatedAt=new Date().toISOString();
+    await idbPut(STORE,next,`location:${id}`);
+    return next;
+  };
+  wrapped.__legacyRentMigrationV425=true;
+  wrapped.__base=baseGetLocationData;
+  window.getLocationData=wrapped;
+  try{getLocationData=wrapped}catch(_){}
+}
+
 function ensureWorkflowEnhancements(){
   const run=()=>{
     const result=window.BogatkaWorkflowV414?.enhanceAll?.();
@@ -61,6 +92,7 @@ function applyVersion23Enhancements(){
   if(accessButton)accessButton.textContent='Пригласить участника';
   upgradeAccessScreen();
   installSyncIntegrityGate();
+  installLegacyRentMigrationV425();
 
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./members-v32.css'});
