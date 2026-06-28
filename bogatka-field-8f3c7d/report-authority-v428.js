@@ -62,6 +62,11 @@
     buildReportHtmlV428.__reportAuthorityV428=true;
     buildReportHtmlV428.__reportPolishV428=true;
     buildReportHtmlV428.__liveReportFinalV427=true;
+    buildReportHtmlV428.__locationProfileV416=true;
+    buildReportHtmlV428.__locationProfileV425=true;
+    buildReportHtmlV428.__locationOverviewV417=true;
+    buildReportHtmlV428.__locationOverviewV421=true;
+    buildReportHtmlV428.__locationPanelsV419=true;
     buildReportHtmlV428.__htmlAction=exportHtmlReportV428;
     buildReportHtmlV428.__pdfAction=openPdfReportV428;
     buildReportHtmlV428.__base=baseBuild;
