@@ -27,6 +27,16 @@
     }
   }
 
+  function syncConditionalOther(select){
+    const id=select?.dataset.location;
+    if(!id)return;
+    const wrapper=document.querySelector(`[data-object-other="${CSS.escape(id)}"]`);
+    if(!wrapper)return;
+    const hidden=select.value!=='Другое';
+    wrapper.classList.toggle('hidden',hidden);
+    if(wrapper.hidden!==hidden)wrapper.hidden=hidden;
+  }
+
   function previousVisibleValue(select){
     const trigger=select.nextElementSibling;
     return select.dataset.objectTypeLastValueV421||trigger?.dataset?.syncedValue||'';
@@ -52,6 +62,7 @@
         pendingEmptyResets.delete(id);
         delete select.dataset.objectTypeResetPendingV421;
         delete select.dataset.profileDirtyV416;
+        syncConditionalOther(select);
         schedule();
       },450);
     }
@@ -60,6 +71,7 @@
   function handleObjectTypeChange(select){
     const id=select?.dataset.location;
     if(!id)return;
+    syncConditionalOther(select);
     const previous=previousVisibleValue(select);
     const revision=Number(select.dataset.objectTypeResetRevisionV421||0)+1;
     select.dataset.objectTypeResetRevisionV421=String(revision);
@@ -67,6 +79,7 @@
       select.dataset.objectTypeLastValueV421=select.value;
       pendingEmptyResets.delete(id);
       delete select.dataset.objectTypeResetPendingV421;
+      syncConditionalOther(select);
       return;
     }
     if(!previous)return;
@@ -74,6 +87,7 @@
     select.dataset.objectTypeResetPendingV421='1';
     select.dataset.profileDirtyV416='1';
     syncVisible(select);
+    syncConditionalOther(select);
     Promise.resolve().then(()=>persistIntentionalEmpty(select,revision));
   }
 
@@ -82,7 +96,10 @@
     if(typeof getLocationData!=='function'||typeof idbPut!=='function'||typeof STORE==='undefined')return;
     for(const select of document.querySelectorAll('select[data-location][data-field="objectType"]')){
       const id=select.dataset.location;
-      if(!id||running.has(id)||pendingEmptyResets.has(id)||select.dataset.objectTypeResetPendingV421==='1'||document.activeElement===select||select.dataset.profileDirtyV416==='1')continue;
+      if(!id||running.has(id)||pendingEmptyResets.has(id)||select.dataset.objectTypeResetPendingV421==='1'||document.activeElement===select||select.dataset.profileDirtyV416==='1'){
+        syncConditionalOther(select);
+        continue;
+      }
       running.add(id);
       try{
         const data=await getLocationData(id);
@@ -102,11 +119,14 @@
           select.value=canonical;
           select.dataset.objectTypeLastValueV421=canonical;
           syncVisible(select);
+          syncConditionalOther(select);
           select.dispatchEvent(new CustomEvent('bogatka:object-type-restored',{bubbles:true,detail:{value:canonical}}));
         }else if(canonical){
           select.dataset.objectTypeLastValueV421=canonical;
+          syncConditionalOther(select);
         }else if(!stored){
           select.dataset.objectTypeLastValueV421='';
+          syncConditionalOther(select);
         }
       }catch(error){console.warn('Не удалось нормализовать тип объекта',error)}
       finally{running.delete(id)}
@@ -124,11 +144,15 @@
       const select=event.target?.closest?.('select[data-location][data-field="objectType"]');
       if(select&&root.contains(select))handleObjectTypeChange(select);
     },true);
+    root.addEventListener('bogatka:object-type-restored',event=>{
+      const select=event.target?.closest?.('select[data-location][data-field="objectType"]');
+      if(select&&root.contains(select))syncConditionalOther(select);
+    },true);
     schedule();
     new MutationObserver(schedule).observe(root,{childList:true,subtree:true});
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
-  window.BogatkaObjectTypeNormalizeV416={version:'4.2.1',ready:true,normalize,repair,polishProfileInputs,handleObjectTypeChange};
+  window.BogatkaObjectTypeNormalizeV416={version:'4.3.0',ready:true,normalize,repair,polishProfileInputs,handleObjectTypeChange,syncConditionalOther};
 })();
