@@ -1,9 +1,9 @@
 (function(){
 if(window.BogatkaDecisionEngine)return;
-const VERSION='4.3.0';
+const VERSION='4.3.1';
 const WEIGHTS={housing:8,occupied:8,foot:12,car:4,parking:7,stop:4,anchor:6,visibility:8,sign:7,loading:6,condition:6,storage:5,competition:8,overall:11};
 const DEAL=window.BogatkaCriticalDeal;
-if(!DEAL)throw new Error('Не загружена каноническая схема критических условий сделки.');
+if(!DEAL)throw new Error('Не загружена схема проверок перед арендой.');
 const CRITICAL_DEAL_CONDITIONS=DEAL.CONDITIONS;
 const STOPS=CRITICAL_DEAL_CONDITIONS.map(item=>[item.key,item.title]);
 const PHOTO_KEYS=['street','entrance','parking','interior','engineering'];
@@ -27,7 +27,7 @@ const missing=[];
 [[data.status,'статус'],[data.objectType,'тип объекта'],[data.date,'дата'],[data.time,'время'],[data.ownerName,'собственник / организация'],[data.contactRole,'роль контактного лица'],[data.contact,'контакт']].forEach(([v,l])=>{if(!filled(v))missing.push(l)});
 const ms=scores.filter(v=>!filled(v)).length;if(ms)missing.push(`${ms} оценок из 14`);
 [[data?.tech?.totalArea,'площадь'],[data?.tech?.rentPerMonth,'аренда в месяц'],[data?.tech?.powerKw,'мощность'],[data?.tech?.openingHours,'режим работы']].forEach(([v,l])=>{if(!filled(v))missing.push(l)});
-const pending=conditions.filter(value=>!value).length;if(pending)missing.push(`${pending} критических условий не завершено`);
+const pending=conditions.filter(value=>!value).length;if(pending)missing.push(`${pending} проверок перед арендой не завершено`);
 if(!filled(data.decision))missing.push('итоговое решение');
 return{percent,sections,missing}}
 function recommend(m){if(m.dealGate.code==='blocked')return{label:'СТОП',className:'stop',reason:m.dealGate.text};if(m.completion<35)return{label:'Недостаточно данных',className:'empty',reason:'Заполните карточку минимум на 35%'};if(m.weighted>=75&&m.completion>=70)return{label:'Высокий приоритет',className:'priority',reason:'Сильная оценка и достаточная полнота данных'};if(m.weighted>=60)return{label:'Перспективно',className:'good',reason:'Стоит продолжать переговоры'};if(m.weighted>=45)return{label:'Средний потенциал',className:'medium',reason:'Нужны улучшения условий'};return{label:'Слабая локация',className:'weak',reason:'Текущая оценка ниже рабочего порога'}}
