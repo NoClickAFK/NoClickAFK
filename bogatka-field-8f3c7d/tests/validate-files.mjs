@@ -34,7 +34,7 @@ if (!failures.length) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
   if (!serviceWorker.includes("searchParams.get('v')") || !serviceWorker.includes('bogatka-location-v${BUILD_TOKEN}')) failures.push('Service Worker cache name is not derived from the resolved build token');
-  if (!serviceWorker.includes("||'431'")) failures.push('Service Worker fallback build token is not v431');
+  if (!serviceWorker.includes("||'432'")) failures.push('Service Worker fallback build token is not v432');
   if (!serviceWorker.includes("updateViaCache") && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
 
   const versionAuthority = read('version-authority-v426.js');
@@ -93,17 +93,20 @@ if (!failures.length) {
   for (const marker of ['FRIENDLY_STREET','objectTypeOther','contactPhone','contactEmail','contactMessenger','rentConditions','contactNotes','enhanceModal','installReportWrapper','audit']) if (!profile.includes(marker)) failures.push(`location-profile-v416.js is missing ${marker}`);
 
   const schema = read('critical-deal-schema-v430.js');
-  for (const marker of ["VERSION='4.3.1'",'criticalDealConditions','leaseAuthority','thirdPartyRights','documentedLayout','landlordObligations','investmentProtection','writtenWorkApproval','petStoreFormatApproval','futureDisruptionPlans','needs_formalization','not_applicable','oral_promise','validateCondition','evaluate','Запросите проект договора аренды','Нужно подтвердить письменно']) {
+  for (const marker of ["VERSION='4.3.2'",'criticalDealConditions','leaseAuthority','investmentProtection','thirdPartyRights','documentedLayout','landlordObligations','writtenWorkApproval','petStoreFormatApproval','futureDisruptionPlans','premisesCondition','additionalPayments','in_progress','needs_formalization','oral_agreement','evidenceLabel','evidenceTypes','validateCondition','evaluate','Получите проект договора аренды','Нужно подтвердить письменно']) {
     if (!schema.includes(marker)) failures.push(`critical-deal-schema-v430.js is missing ${marker}`);
   }
   const decisionUi = read('decision-ui-v340.js');
-  for (const marker of ['Проверки перед арендой','Чем подтверждено','Комментарий / что ещё нужно получить','data-collaboration','decision-panel-v412,.decision','data-critical-field','criticalDealConditions']) if (!decisionUi.includes(marker)) failures.push(`decision-ui-v340.js is missing ${marker}`);
+  for (const marker of ['Проверки перед арендой','evidenceLabel','evidenceOptions','Комментарий / что ещё нужно получить','data-collaboration','decision-panel-v412,.decision','data-critical-field','criticalDealConditions','schemaVersion']) if (!decisionUi.includes(marker)) failures.push(`decision-ui-v340.js is missing ${marker}`);
+  if (decisionUi.includes('section.open=true')) failures.push('Lease checks are still forced open on page load');
   for (const legacyLabel of ['Критические условия сделки','Основание / что требуется закрепить','Нет проблемы','Есть риск / уточнить','Есть стоп-фактор']) if (decisionUi.includes(legacyLabel)) failures.push(`decision-ui-v340.js contains legacy label: ${legacyLabel}`);
+  const criticalCss = read('critical-deal-v430.css');
+  for (const marker of ["content:'▶'",'.critical-deal-v430[open]>summary::before','.launch-project-v400>summary','.economy-v400>summary','justify-self:end!important']) if (!criticalCss.includes(marker)) failures.push(`critical-deal-v430.css is missing ${marker}`);
   const comparison = read('compare-v430.js');
   if (!comparison.includes('Перед арендой') || !comparison.includes('dealGate')) failures.push('compare-v430.js does not expose the lease-check gate');
 
   const decision = read('decision-core-v340.js');
-  if (!decision.includes("VERSION='4.3.1'")) failures.push('decision-core-v340.js version is not 4.3.1');
+  if (!decision.includes("VERSION='4.3.1'")) failures.push('decision-core-v340.js compatibility version is not 4.3.1');
   const weightsMatch = decision.match(/const WEIGHTS=\{([^}]+)\}/);
   if (!weightsMatch) failures.push('Cannot locate weighted score configuration');
   else {
@@ -117,7 +120,7 @@ if (!failures.length) {
   const report = read('report-v400.js');
   for (const marker of ['economyHtml','stopHtml','photoPlanHtml','taskHtml','launchHtml','executiveTable']) if (!report.includes(marker)) failures.push(`report-v400.js is missing ${marker}`);
   const reportFix = read('report/fix-v400.js');
-  for (const marker of ['BogatkaCriticalDeal','Проверки перед арендой','gate.entries','Перед арендой','Чем подтверждено']) if (!reportFix.includes(marker)) failures.push(`Public report fix is missing ${marker}`);
+  for (const marker of ['BogatkaCriticalDeal','Проверки перед арендой','gate.entries','Перед арендой','evidenceLabel']) if (!reportFix.includes(marker)) failures.push(`Public report fix is missing ${marker}`);
   const reportStability = read('report-stability-v429.js');
   for (const marker of ['Чем подтверждено','Комментарий / что ещё нужно получить']) if (!reportStability.includes(marker)) failures.push(`Local report polish is missing ${marker}`);
 
@@ -127,7 +130,7 @@ if (!failures.length) {
 
   const signup = read('auth-signup-fix-v31.js');
   const reset = read('reset/reset.js');
-  if (!signup.includes('length<12') || !signup.includes('\\p{L}')) failures.push('Signup password policy is weaker than required');
+  if (!signup.includes('length<12') || !signup.includes('\p{L}')) failures.push('Signup password policy is weaker than required');
   if (!reset.includes('length<12') || !reset.includes('bogatka_build_meta_v426')) failures.push('Recovery password policy or return URL is outdated');
   if (read('reset/index.html').includes('?v=400') || reset.includes("APP_URL='../?v=400'")) failures.push('Recovery flow still contains a fixed legacy version');
 }
