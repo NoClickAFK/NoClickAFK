@@ -18,6 +18,7 @@ test('critical deal modules reach the rendered location cards',async({page})=>{
     suiteReady:Boolean(window.BogatkaSuite),
     locationCount:Array.isArray(window.locations)?window.locations.length:null,
     cardCount:document.querySelectorAll('[data-location-card]').length,
+    overviewCount:document.querySelectorAll('.location-overview-v416').length,
     quickGridCount:document.querySelectorAll('.quick-grid').length,
     criticalSectionCount:document.querySelectorAll('[data-critical-deal]').length,
     legacySectionCount:document.querySelectorAll('.stop-factors-v340').length,
@@ -32,7 +33,8 @@ test('critical deal modules reach the rendered location cards',async({page})=>{
   expect(state.engineVersion,details).toBe('4.3.0');
   expect(state.decisionUiReady,details).toBe(true);
   expect(state.cardCount,details).toBeGreaterThan(0);
-  expect(state.quickGridCount,details).toBeGreaterThan(0);
+  expect(state.overviewCount,details).toBe(state.cardCount);
+  expect(state.quickGridCount,details).toBe(0);
   expect(state.criticalSectionCount,details).toBe(state.cardCount);
   expect(state.legacySectionCount,details).toBe(0);
 });
