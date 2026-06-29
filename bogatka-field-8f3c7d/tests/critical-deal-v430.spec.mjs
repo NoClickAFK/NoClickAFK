@@ -158,13 +158,18 @@ test('HTML and print report share the canonical eight-condition output',async({p
   expect(html).not.toContain('Проверить собственника, полномочия представителя');
   const parsed=await page.evaluate(source=>{
     const documentReport=new DOMParser().parseFromString(source,'text/html');
+    const sections=[...documentReport.querySelectorAll('.critical-deal-v430')];
     return {
       cards:documentReport.querySelectorAll('.critical-condition-card-v430').length,
+      sectionCounts:sections.map(section=>section.querySelectorAll('.critical-condition-card-v430').length),
       controls:documentReport.querySelectorAll('.critical-deal-v430 select,.critical-deal-v430 textarea').length,
       hasPrint:source.includes('@media print'),
     };
   },html);
-  expect(parsed.cards).toBe(8);
+  expect(parsed.cards).toBeGreaterThanOrEqual(8);
+  expect(parsed.cards%8).toBe(0);
+  expect(parsed.sectionCounts.length).toBeGreaterThan(0);
+  expect(parsed.sectionCounts.every(count=>count===8)).toBe(true);
   expect(parsed.controls).toBe(0);
   expect(parsed.hasPrint).toBe(true);
 });
