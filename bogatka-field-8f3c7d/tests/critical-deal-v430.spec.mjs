@@ -1,15 +1,17 @@
 import {test,expect} from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=431';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=432';
 const TITLES=[
-  'Запросите документ, подтверждающий право сдавать помещение',
+  'Проверьте собственника помещения и уточните, кто подпишет договор',
+  'Получите проект договора аренды',
   'Уточните, нет ли других арендаторов, споров или ограничений',
-  'Сверьте помещение с документами',
+  'Сверьте фактическое помещение с техническими документами',
   'Зафиксируйте, что арендодатель должен сделать до передачи помещения',
-  'Запросите проект договора аренды',
   'Получите письменное разрешение на необходимые работы',
-  'Уточните, разрешён ли зоомагазин и нужный ассортимент',
-  'Уточните, не планируются ли изменения, которые помешают работе',
+  'Уточните, разрешены ли зоомагазин и нужный ассортимент',
+  'Уточните, нет ли планов, которые в дальнейшем могут помешать работе магазина',
+  'Зафиксируйте состояние помещения и все имеющиеся недостатки',
+  'Уточните все обязательные платежи кроме основной аренды',
 ];
 
 async function openApp(page,{width=1440,height=1100}={}){
@@ -17,30 +19,52 @@ async function openApp(page,{width=1440,height=1100}={}){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
-    window.BogatkaCriticalDeal?.VERSION==='4.3.1'&&
-    window.BogatkaDecisionEngine?.VERSION==='4.3.1'&&
+    window.BogatkaCriticalDeal?.VERSION==='4.3.2'&&
+    window.BogatkaDecisionEngine&&
     document.querySelector('[data-location-card] [data-critical-deal]')&&
     document.querySelector('[data-location-card] [data-collaboration]')&&
+    document.querySelector('[data-location-card] [data-economy-details]')&&
+    document.querySelector('[data-location-card] [data-launch-details]')&&
     document.querySelector('[data-location-card] .decision-panel-v412')
   ),{timeout:20000});
 }
 
 const condition=(card,key)=>card.locator(`[data-critical-condition="${key}"]`);
 
-test('lease checks use simple wording and sit before the preliminary decision',async({page})=>{
+async function expandLeaseChecks(card){
+  const section=card.locator('[data-critical-deal]');
+  if(!(await section.evaluate(element=>element.open)))await section.locator(':scope > summary').click();
+  await expect(section.locator('.critical-grid-v430')).toBeVisible();
+  return section;
+}
+
+test('ten tailored lease checks are collapsed and use the same accordion presentation',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
   const section=card.locator('[data-critical-deal]');
+  await expect(section).not.toHaveAttribute('open','');
   await expect(section.locator('summary strong')).toHaveText('Проверки перед арендой');
   await expect(section.locator('summary small')).toHaveText('Что нужно уточнить и получить от арендодателя перед авансом и подписанием договора.');
+  await expect(section.locator('[data-critical-summary]')).toHaveText('10 не проверено');
+  await section.locator(':scope > summary').click();
   await expect(section.locator('.critical-condition-copy-v430 strong')).toHaveText(TITLES);
+  await expect(section.locator('.critical-condition-card-v430')).toHaveCount(10);
   await expect(section.locator('[data-critical-field="status"]').first().locator('option')).toHaveText([
-    'Не проверено','Подтверждено','Нужно подтвердить письменно','Блокирует аренду','Не относится',
+    'Не проверено','В работе / ждём ответ','Подтверждено','Нужно подтвердить письменно','Блокирует аренду',
   ]);
-  await expect(section.locator('[data-critical-field="evidenceType"]').first().locator('option')).toHaveText([
-    'Пока ничем','Документ','Проект договора','Письмо / сообщение','Устная договорённость','Другое',
+  await expect(section.locator('[data-critical-field="status"]').first().locator('option')).not.toContainText('Не относится');
+
+  const authority=condition(card,'leaseAuthority');
+  await expect(authority.locator('[data-critical-field="evidenceType"] option')).toHaveText([
+    'Пока ничем','Сведения о собственнике помещения','Доверенность','Разрешение собственника на субаренду','Письменное подтверждение собственника','Письмо / сообщение','Устная договорённость','Другое',
   ]);
-  await expect(section.locator('.critical-condition-help-v430').first()).toHaveAttribute('data-help',/собственник.*доверенность/s);
+  expect(await authority.locator('.critical-condition-controls-v430 .field').nth(1).evaluate(label=>label.childNodes[0].textContent.trim())).toBe('Чем подтверждены собственник и право подписи');
+  const contract=condition(card,'investmentProtection');
+  await expect(contract.locator('[data-critical-field="evidenceType"] option')).toHaveText([
+    'Проект не получен','Проект получен','Наши правки отправлены','Правки и изменения обсуждаются','Проект согласован','Есть только устная договорённость','Другое',
+  ]);
+  expect(await contract.locator('.critical-condition-controls-v430 .field').nth(1).evaluate(label=>label.childNodes[0].textContent.trim())).toBe('На каком этапе проект договора');
+
   const order=await card.evaluate(element=>{
     const children=[...element.querySelector(':scope > .location-body').children];
     return [
@@ -51,42 +75,120 @@ test('lease checks use simple wording and sit before the preliminary decision',a
   });
   expect(order[1]).toBe(order[0]+1);
   expect(order[2]).toBe(order[1]+1);
+
+  const presentation=await card.evaluate(element=>{
+    const lease=element.querySelector('[data-critical-deal]>summary');
+    const economy=element.querySelector('[data-economy-details]>summary');
+    const launch=element.querySelector('[data-launch-details]>summary');
+    const collaboration=element.querySelector('[data-collaboration]>summary');
+    return {
+      leaseArrow:getComputedStyle(lease,'::before').content,
+      economyArrow:getComputedStyle(economy,'::before').content,
+      launchArrow:getComputedStyle(launch,'::before').content,
+      leaseDisplay:getComputedStyle(lease).display,
+      economyDisplay:getComputedStyle(economy).display,
+      launchDisplay:getComputedStyle(launch).display,
+      leaseFont:getComputedStyle(lease).fontSize,
+      collaborationFont:getComputedStyle(collaboration).fontSize,
+      economyStatusAlign:getComputedStyle(element.querySelector('[data-economy-status]')).justifySelf,
+    };
+  });
+  expect(presentation.leaseArrow).toContain('▶');
+  expect(presentation.economyArrow).toContain('▶');
+  expect(presentation.launchArrow).toContain('▶');
+  expect(presentation.leaseDisplay).toBe('grid');
+  expect(presentation.economyDisplay).toBe('grid');
+  expect(presentation.launchDisplay).toBe('grid');
+  expect(presentation.leaseFont).toBe(presentation.collaborationFont);
+  expect(presentation.economyStatusAlign).toBe('end');
 });
 
-test('lease checks persist and do not change legacy data or scores',async({page})=>{
+test('tailored answers persist without changing scores or legacy stop factors',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
   const id=await card.getAttribute('data-location-card');
   const scoreBefore=await card.locator('.scorebox strong').textContent();
   await page.evaluate(async locationId=>{
     const data=await getLocationData(locationId);
-    data.stopFactors={legacyMarker:'preserve-me'};
+    data.stopFactors={...(data.stopFactors||{}),legacyMarker:'preserve-me'};
     await idbPut(STORE,data,`location:${locationId}`);
   },id);
+  await expandLeaseChecks(card);
+
   const authority=condition(card,'leaseAuthority');
   await authority.locator('[data-critical-field="status"]').selectOption('confirmed');
-  await expect(authority.locator('[data-critical-error]')).toHaveAttribute('data-message',/чем это подтверждено/i);
-  await authority.locator('[data-critical-field="evidenceType"]').selectOption('document');
-  await authority.locator('[data-critical-field="note"]').fill('Получена выписка.');
+  await expect(authority.locator('[data-critical-error]')).toHaveAttribute('data-message',/подходящее подтверждение/i);
+  await authority.locator('[data-critical-field="evidenceType"]').selectOption('ownership_information');
+  await authority.locator('[data-critical-field="note"]').fill('Собственник указан в полученных сведениях.');
+
   const contract=condition(card,'investmentProtection');
-  await contract.locator('[data-critical-field="status"]').selectOption('needs_formalization');
-  await contract.locator('[data-critical-field="evidenceType"]').selectOption('draft_contract');
-  await contract.locator('[data-critical-field="note"]').fill('Проект договора отправят на почту.');
-  await contract.locator('[data-critical-field="note"]').blur();
-  await expect(card.locator('[data-critical-gate]')).toHaveText('Продолжать можно только после письменного подтверждения');
-  await page.waitForFunction(async locationId=>(await getLocationData(locationId)).criticalDealConditions?.investmentProtection?.note?.includes('почту'),id);
+  await contract.locator('[data-critical-field="status"]').selectOption('in_progress');
+  await expect(contract.locator('[data-critical-error]')).toHaveAttribute('data-message',/Добавьте пояснение/);
+  await contract.locator('[data-critical-field="evidenceType"]').selectOption('amendments_discussed');
+  await contract.locator('[data-critical-field="note"]').fill('Обсуждаем срок аренды и возврат депозита.');
+
+  const payments=condition(card,'additionalPayments');
+  await payments.locator('[data-critical-field="status"]').selectOption('confirmed');
+  await payments.locator('[data-critical-field="evidenceType"]').selectOption('additional_cost_calculation');
+  await payments.locator('[data-critical-field="note"]').fill('Получен расчёт всех дополнительных платежей.');
+  await payments.locator('[data-critical-field="note"]').blur();
+
+  await page.waitForFunction(async locationId=>{
+    const data=await getLocationData(locationId);
+    return data.criticalDealConditions?.leaseAuthority?.evidenceType==='ownership_information'&&
+      data.criticalDealConditions?.investmentProtection?.evidenceType==='amendments_discussed'&&
+      data.criticalDealConditions?.additionalPayments?.status==='confirmed';
+  },id);
   const stored=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(stored.stopFactors.legacyMarker).toBe('preserve-me');
   await expect(card.locator('.scorebox strong')).toHaveText(scoreBefore||'0');
+
+  await page.reload({waitUntil:'networkidle'});
+  await page.waitForFunction(locationId=>Boolean(document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] [data-critical-deal]`)),id);
+  const reloaded=page.locator(`[data-location-card="${id}"]`);
+  await expandLeaseChecks(reloaded);
+  await expect(condition(reloaded,'leaseAuthority').locator('[data-critical-field="evidenceType"]')).toHaveValue('ownership_information');
+  await expect(condition(reloaded,'investmentProtection').locator('[data-critical-field="evidenceType"]')).toHaveValue('amendments_discussed');
+  await expect(condition(reloaded,'additionalPayments').locator('[data-critical-field="note"]')).toHaveValue('Получен расчёт всех дополнительных платежей.');
 });
 
-test('oral agreement requires written confirmation and a blocker overrides the recommendation',async({page})=>{
+test('legacy values are shown safely without deleting the saved comment',async({page})=>{
+  await openApp(page);
+  const id=await page.locator('[data-location-card]').first().getAttribute('data-location-card');
+  await page.evaluate(async locationId=>{
+    const data=await getLocationData(locationId);
+    data.criticalDealConditions={...(data.criticalDealConditions||{}),
+      futureDisruptionPlans:{status:'not_applicable',evidenceType:'written_message',note:'Старый комментарий сохранён.'},
+      investmentProtection:{status:'confirmed',evidenceType:'draft_contract',note:'Проект был получен ранее.'},
+    };
+    await idbPut(STORE,data,`location:${locationId}`);
+  },id);
+  await page.reload({waitUntil:'networkidle'});
+  const card=page.locator(`[data-location-card="${id}"]`);
+  await expandLeaseChecks(card);
+  await expect(condition(card,'futureDisruptionPlans').locator('[data-critical-field="status"]')).toHaveValue('unchecked');
+  await expect(condition(card,'futureDisruptionPlans').locator('[data-critical-field="note"]')).toHaveValue('Старый комментарий сохранён.');
+  await expect(condition(card,'investmentProtection').locator('[data-critical-field="evidenceType"]')).toHaveValue('draft_received');
+  const raw=await page.evaluate(locationId=>getLocationData(locationId),id);
+  expect(raw.criticalDealConditions.futureDisruptionPlans.status).toBe('not_applicable');
+  expect(raw.criticalDealConditions.futureDisruptionPlans.note).toBe('Старый комментарий сохранён.');
+});
+
+test('oral agreement requires writing, other requires a comment and a blocker overrides recommendation',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
+  await expandLeaseChecks(card);
   const landlord=condition(card,'landlordObligations');
   await landlord.locator('[data-critical-field="status"]').selectOption('confirmed');
-  await landlord.locator('[data-critical-field="evidenceType"]').selectOption('oral_promise');
+  await landlord.locator('[data-critical-field="evidenceType"]').selectOption('oral_agreement');
   await expect(landlord.locator('[data-critical-field="status"]')).toHaveValue('needs_formalization');
+
+  const premises=condition(card,'premisesCondition');
+  await premises.locator('[data-critical-field="status"]').selectOption('confirmed');
+  await premises.locator('[data-critical-field="evidenceType"]').selectOption('other');
+  await expect(premises.locator('[data-critical-error]')).toHaveAttribute('data-message',/обязательно добавьте комментарий/i);
+  await premises.locator('[data-critical-field="note"]').fill('Недостатки перечислены в отдельном файле осмотра.');
+
   const works=condition(card,'writtenWorkApproval');
   await works.locator('[data-critical-field="status"]').selectOption('blocked');
   await works.locator('[data-critical-field="note"]').fill('Собственник запретил необходимую вентиляцию.');
@@ -95,22 +197,25 @@ test('oral agreement requires written confirmation and a blocker overrides the r
   await expect(card.locator('[data-recommendation]')).toHaveText('СТОП');
 });
 
-test('reports and mobile layout use the new lease-check presentation',async({page})=>{
+test('reports viewer mode and mobile layout support all ten checks',async({page})=>{
   await openApp(page,{width:390,height:844});
   const card=page.locator('[data-location-card]').first();
   const toggle=card.locator('.location-collapse-toggle-v422');
   if(await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
-  const section=card.locator('[data-critical-deal]');
-  await section.evaluate(element=>{element.open=true});
+  const section=await expandLeaseChecks(card);
   const grid=section.locator('.critical-grid-v430');
-  await expect(grid).toBeVisible();
   expect(await grid.evaluate(element=>getComputedStyle(element).gridTemplateColumns.split(' ').filter(Boolean).length)).toBe(1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await expect(grid.locator('.premium-select-trigger').first()).toBeVisible();
   await page.waitForFunction(()=>window.BogatkaLiveReport?.build?.__reportStabilityV429,{timeout:20000});
   const html=await page.evaluate(()=>window.buildReportHtml());
   expect(html).toContain('Проверки перед арендой');
-  expect(html).toContain('Чем подтверждено');
-  expect(html).toContain('Комментарий / что ещё нужно получить');
+  expect(html).toContain('Зафиксируйте состояние помещения и все имеющиеся недостатки');
+  expect(html).toContain('Уточните все обязательные платежи кроме основной аренды');
   expect(html).not.toContain('Критические условия сделки');
   expect(html).not.toContain('Стоп-факторы');
+
+  await page.evaluate(()=>{cloudRole='viewer'});
+  await expect(section.locator('select').first()).toBeDisabled({timeout:5000});
+  await expect(section.locator('textarea').first()).toBeDisabled();
 });
