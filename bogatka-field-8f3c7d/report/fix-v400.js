@@ -24,7 +24,7 @@ escapeHtml=function(value=''){return String(value).replace(/[&<>"']/g,function(c
     const gate=deal.evaluate(data);
     const tone=gate.code==='blocked'?'stop':gate.code==='needs_formalization'?'risk':gate.code==='confirmed'?'good':'empty';
     const rows=gate.entries.map(function(entry){
-      return '<tr><td><strong>'+escapeHtml(entry.definition.title)+'</strong></td><td><b>Статус:</b> '+escapeHtml(deal.statusLabel(entry.value.status))+'<br><b>Чем подтверждено:</b> '+escapeHtml(deal.evidenceLabel(entry.value.evidenceType))+'<br><b>Комментарий / что ещё нужно получить:</b> '+display(entry.value.note)+'</td></tr>';
+      return '<tr><td><strong>'+escapeHtml(entry.definition.title)+'</strong></td><td><b>Статус:</b> '+escapeHtml(deal.statusLabel(entry.value.status))+'<br><b>'+escapeHtml(entry.definition.evidenceLabel||'Чем подтверждено')+':</b> '+escapeHtml(deal.evidenceLabel(entry.value.evidenceType,entry.definition))+'<br><b>Комментарий / что ещё нужно получить:</b> '+display(entry.value.note)+'</td></tr>';
     }).join('');
     return '<section class="report-extra critical-deal-report"><h3>Проверки перед арендой</h3><p><span class="rec '+tone+'">'+escapeHtml(gate.text)+'</span></p><table><tbody>'+rows+'</tbody></table></section>';
   };
