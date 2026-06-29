@@ -101,6 +101,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./insights-v331.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./compare-v332.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./decision-v340.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./critical-deal-v430.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./compare-v340.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./suite-v400.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./visual-v411.css'});
@@ -121,10 +122,11 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./account-v34.js'});
   loadBogatkaPatch('script',{src:'./insights-v331.js'});
   loadBogatkaPatch('script',{src:'./version-guard-v340.js'});
+  loadBogatkaPatch('script',{src:'./critical-deal-schema-v430.js'});
   loadBogatkaPatch('script',{src:'./decision-core-v340.js'});
   loadBogatkaPatch('script',{src:'./suite-core-v400.js'});
   loadBogatkaPatch('script',{src:'./decision-ui-v340.js'});
-  loadBogatkaPatch('script',{src:'./compare-v340.js'});
+  loadBogatkaPatch('script',{src:'./compare-v430.js'});
   loadBogatkaPatch('script',{src:'./suite-ui-v400.js'});
   loadBogatkaPatch('script',{src:'./archive-label-v400.js'});
   loadBogatkaPatch('script',{src:'./backup-v400.js'});

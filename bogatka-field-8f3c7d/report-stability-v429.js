@@ -31,6 +31,17 @@
     const documentReport=parser.parseFromString(html,'text/html');
     documentReport.getElementById('reportStabilityV429')?.remove();
     documentReport.querySelectorAll('.report-location-card .location-head-side-v422').forEach(node=>node.remove());
+    documentReport.querySelectorAll('.stop-factors-v340').forEach(node=>node.remove());
+    documentReport.querySelectorAll('.critical-condition-help-v430,.critical-condition-error-v430').forEach(node=>node.remove());
+    documentReport.querySelectorAll('.critical-condition-card-v430').forEach(card=>{
+      const labels=['Статус','Основание','Комментарий'];
+      [...card.querySelectorAll('.critical-condition-controls-v430 .field')].forEach((field,index)=>{
+        const value=field.querySelector('.report-control-value');
+        if(!value)return;
+        field.textContent=`${labels[index]||'Значение'}: `;
+        field.appendChild(value);
+      });
+    });
     const style=documentReport.createElement('style');
     style.id='reportStabilityV429';
     style.textContent=`
@@ -68,9 +79,23 @@
         font-size:11px!important;
         line-height:1.2!important;
       }
+      .critical-deal-v430>summary>span:first-child{display:flex;flex-direction:column;gap:3px}
+      .critical-deal-v430>summary small{color:var(--muted);font-size:10px;font-weight:500}
+      .critical-summary-badge-v430{padding:4px 8px;border-radius:999px;background:#eef3f0;color:#526a5d;font-size:10px}
+      .critical-deal-gate-v430{margin:0 0 10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:#f2f6f4;font-size:11px;font-weight:800}
+      .critical-deal-gate-v430.blocked{border-color:#e4a8a8;background:#fee8e8;color:#922f2f}
+      .critical-deal-gate-v430.needs-formalization{border-color:#e6c98f;background:#fff2d9;color:#82560f}
+      .critical-deal-gate-v430.confirmed{border-color:#a9d4bb;background:#e8f6ed;color:#17623e}
+      .critical-grid-v430{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .critical-condition-card-v430{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fbfdfc;break-inside:avoid}
+      .critical-condition-copy-v430 strong{display:block;color:var(--green);font-size:11px;line-height:1.35}
+      .critical-condition-controls-v430{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      .critical-condition-note-v430{grid-column:1/-1}
+      .critical-condition-controls-v430 .report-control-value{min-height:34px;padding:7px 8px;font-size:10px}
       @media(max-width:680px){
         .report-location-card .location-head{grid-template-columns:1fr!important;gap:14px!important}
         .report-head-metrics-v428{grid-column:1!important;grid-row:auto!important;width:100%!important;max-width:316px!important;justify-self:start!important}
+        .critical-grid-v430{grid-template-columns:1fr}
       }
       @media print{
         .report-location-card .location-head{grid-template-columns:minmax(0,1fr) 78mm!important;gap:5mm!important}
@@ -78,6 +103,8 @@
         .report-head-metric-v428{min-height:14mm!important;padding:1.5mm!important}
         .report-head-metric-line-v428 strong{font-size:15px!important}
         .report-head-status-v428{min-height:7mm!important;padding:1mm 2mm!important}
+        .critical-grid-v430{grid-template-columns:repeat(2,minmax(0,1fr));gap:2mm}
+        .critical-condition-card-v430{padding:2mm}
       }
     `;
     documentReport.head.appendChild(style);
