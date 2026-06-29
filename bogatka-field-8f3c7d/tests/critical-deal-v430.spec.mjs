@@ -185,7 +185,13 @@ test('viewer can read the section but cannot edit it',async({page})=>{
 
 test('mobile layout is single-column without horizontal overflow',async({page})=>{
   await openApp(page,{width:390,height:844});
-  const grid=page.locator('[data-location-card]').first().locator('.critical-grid-v430');
+  const card=page.locator('[data-location-card]').first();
+  const collapseToggle=card.locator('.location-collapse-toggle-v422');
+  if(await collapseToggle.getAttribute('aria-expanded')==='false')await collapseToggle.click();
+  const section=card.locator('[data-critical-deal]');
+  await section.evaluate(element=>{element.open=true});
+  const grid=section.locator('.critical-grid-v430');
+  await grid.scrollIntoViewIfNeeded();
   const layout=await grid.evaluate(element=>({
     columns:getComputedStyle(element).gridTemplateColumns.split(' ').filter(Boolean).length,
     overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
