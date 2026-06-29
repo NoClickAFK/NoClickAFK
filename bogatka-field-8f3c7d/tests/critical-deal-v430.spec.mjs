@@ -49,10 +49,11 @@ test('ten tailored lease checks are collapsed and use the same accordion present
   await section.locator(':scope > summary').click();
   await expect(section.locator('.critical-condition-copy-v430 strong')).toHaveText(TITLES);
   await expect(section.locator('.critical-condition-card-v430')).toHaveCount(10);
-  await expect(section.locator('[data-critical-field="status"]').first().locator('option')).toHaveText([
+  const statusOptions=section.locator('[data-critical-field="status"]').first().locator('option');
+  await expect(statusOptions).toHaveText([
     'Не проверено','В работе / ждём ответ','Подтверждено','Нужно подтвердить письменно','Блокирует аренду',
   ]);
-  await expect(section.locator('[data-critical-field="status"]').first().locator('option')).not.toContainText('Не относится');
+  expect(await statusOptions.allTextContents()).not.toContain('Не относится');
 
   const authority=condition(card,'leaseAuthority');
   await expect(authority.locator('[data-critical-field="evidenceType"] option')).toHaveText([
