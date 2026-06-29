@@ -1,7 +1,7 @@
 (function(){
   if(window.__bogatkaViewerExtraV400)return;
   window.__bogatkaViewerExtraV400=true;
-  const selector='[data-global],[data-location-card] button,.photo-add,.photo-delete,.photo-edit-switch input';
+  const selector='[data-global],[data-location-card] button,.photo-add,.photo-delete,.photo-edit-switch input,.critical-deal-v430 select,.critical-deal-v430 textarea';
   function apply(){
     const viewer=typeof cloudRole!=='undefined'&&cloudRole==='viewer';
     document.querySelectorAll(selector).forEach(element=>{

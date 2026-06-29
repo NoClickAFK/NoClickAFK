@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const root = path.resolve('bogatka-field-8f3c7d');
 const required = [
-  'v23.js','decision-core-v340.js','decision-ui-v340.js','decision-v340.css','compare-v340.js','compare-v340.css',
+  'v23.js','decision-core-v340.js','decision-ui-v340.js','decision-v340.css','critical-deal-schema-v430.js','critical-deal-v430.css','compare-v430.js','compare-v340.css',
   'suite-core-v400.js','suite-ui-v400.js','suite-v400.css','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js',
   'address-fix-v400.js','viewer-extra-v400.js','report-v400.js','access-version-v400.js','version-authority-v426.js','selftest-v400.js','auth-signup-fix-v31.js',
   'sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css',
@@ -19,9 +19,10 @@ for (const file of required) if (!fs.existsSync(path.join(root, file))) failures
 
 if (!failures.length) {
   const loader = read('v23.js');
-  for (const file of ['decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v340.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-card-collapse-v422.js','location-card-collapse-v422.css']) {
+  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v430.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-card-collapse-v422.js','location-card-collapse-v422.css']) {
     if (!loader.includes(file)) failures.push(`v23.js does not load ${file}`);
   }
+  if (loader.includes("src:'./compare-v340.js'")) failures.push('v23.js still loads the legacy comparison implementation');
 
   const backup = read('backup-v400.js');
   for (const file of ['cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','selftest-v400.js','location-global-v421.js','location-card-collapse-v422.js']) {
@@ -29,7 +30,7 @@ if (!failures.length) {
   }
 
   const serviceWorker = read('sw-v340.js');
-  for (const file of ['suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','version-authority-v426.js','reset/index.html','reset/reset.js']) {
+  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','compare-v430.js','suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','version-authority-v426.js','reset/index.html','reset/reset.js']) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
   if (!serviceWorker.includes("searchParams.get('v')") || !serviceWorker.includes('bogatka-location-v${BUILD_TOKEN}')) failures.push('Service Worker cache name is not derived from the resolved build token');
@@ -90,6 +91,16 @@ if (!failures.length) {
   const profile = read('location-profile-v416.js');
   for (const marker of ['FRIENDLY_STREET','objectTypeOther','contactPhone','contactEmail','contactMessenger','rentConditions','contactNotes','enhanceModal','installReportWrapper','audit']) if (!profile.includes(marker)) failures.push(`location-profile-v416.js is missing ${marker}`);
 
+  const schema = read('critical-deal-schema-v430.js');
+  for (const marker of ['criticalDealConditions','leaseAuthority','thirdPartyRights','documentedLayout','landlordObligations','investmentProtection','writtenWorkApproval','petStoreFormatApproval','futureDisruptionPlans','needs_formalization','not_applicable','oral_promise','validateCondition','evaluate']) {
+    if (!schema.includes(marker)) failures.push(`critical-deal-schema-v430.js is missing ${marker}`);
+  }
+  const decisionUi = read('decision-ui-v340.js');
+  for (const marker of ['Критические условия сделки','Основание / что требуется закрепить','data-critical-field','criticalDealConditions']) if (!decisionUi.includes(marker)) failures.push(`decision-ui-v340.js is missing ${marker}`);
+  for (const legacyLabel of ['Нет проблемы','Есть риск / уточнить','Есть стоп-фактор']) if (decisionUi.includes(legacyLabel)) failures.push(`decision-ui-v340.js contains legacy label: ${legacyLabel}`);
+  const comparison = read('compare-v430.js');
+  if (!comparison.includes('Условия сделки') || !comparison.includes('dealGate')) failures.push('compare-v430.js does not expose the deal gate');
+
   const decision = read('decision-core-v340.js');
   const weightsMatch = decision.match(/const WEIGHTS=\{([^}]+)\}/);
   if (!weightsMatch) failures.push('Cannot locate weighted score configuration');
@@ -103,9 +114,12 @@ if (!failures.length) {
 
   const report = read('report-v400.js');
   for (const marker of ['economyHtml','stopHtml','photoPlanHtml','taskHtml','launchHtml','executiveTable']) if (!report.includes(marker)) failures.push(`report-v400.js is missing ${marker}`);
+  const reportFix = read('report/fix-v400.js');
+  for (const marker of ['BogatkaCriticalDeal','Критические условия сделки','gate.entries','Условия сделки']) if (!reportFix.includes(marker)) failures.push(`Public report fix is missing ${marker}`);
 
   const publicReport = read('report/app.js');
   for (const marker of ['renderComparison','renderEconomy','renderPhotoPlan','renderTasksComments','renderLaunch']) if (!publicReport.includes(marker)) failures.push(`Public report is missing ${marker}`);
+  if (!read('report/index.html').includes('../critical-deal-schema-v430.js')) failures.push('Public report does not load the canonical critical-deal schema');
 
   const signup = read('auth-signup-fix-v31.js');
   const reset = read('reset/reset.js');
