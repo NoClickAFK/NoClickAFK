@@ -192,6 +192,7 @@ test('mobile layout is single-column without horizontal overflow',async({page})=
   }));
   expect(layout.columns).toBe(1);
   expect(layout.overflow).toBeLessThanOrEqual(1);
-  await expect(grid.locator('select').first()).toBeVisible();
+  await expect(grid.locator('select').first()).toBeAttached();
+  await expect(grid.locator('.premium-select-trigger').first()).toBeVisible();
   await expect(grid.locator('textarea').first()).toBeVisible();
 });
