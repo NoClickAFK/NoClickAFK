@@ -150,6 +150,29 @@
   const statusLabels=Object.fromEntries(STATUSES.map(item=>[item.value,item.label]));
   const EVIDENCE_TYPES=[...new Map(CONDITIONS.flatMap(item=>item.evidenceTypes).map(item=>[item.value,item])).values()];
   const empty=value=>String(value??'').trim()==='';
+  const LEGACY_EVIDENCE_MAP={
+    document:{
+      leaseAuthority:'ownership_information',
+      investmentProtection:'draft_received',
+      thirdPartyRights:'landlord_written_confirmation',
+      documentedLayout:'technical_passport',
+      landlordObligations:'agreed_work_list',
+      writtenWorkApproval:'owner_written_approval',
+      petStoreFormatApproval:'landlord_written_consent',
+      futureDisruptionPlans:'owner_written_response'
+    },
+    draft_contract:{
+      leaseAuthority:'owner_written_confirmation',
+      investmentProtection:'draft_received',
+      thirdPartyRights:'contract_warranty',
+      documentedLayout:'contract_plan_attachment',
+      landlordObligations:'contract_clause_attachment',
+      writtenWorkApproval:'contract_clause_attachment',
+      petStoreFormatApproval:'permitted_use_clause',
+      futureDisruptionPlans:'access_compensation_clause'
+    },
+    written_message:{investmentProtection:'draft_received'}
+  };
 
   function definitionOf(keyOrDefinition){
     if(keyOrDefinition&&typeof keyOrDefinition==='object')return keyOrDefinition;
@@ -173,7 +196,8 @@
     const definition=definitionOf(keyOrDefinition);
     let normalized=value;
     if(normalized==='oral_promise')normalized='oral_agreement';
-    if(normalized==='draft_contract'&&definition?.key==='investmentProtection')normalized='draft_received';
+    const mapped=LEGACY_EVIDENCE_MAP[normalized]?.[definition?.key];
+    if(mapped)normalized=mapped;
     const allowed=new Set(evidenceOptions(definition).map(item=>item.value));
     return allowed.has(normalized)?normalized:'not_confirmed';
   }
