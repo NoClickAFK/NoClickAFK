@@ -31,6 +31,7 @@
     const documentReport=parser.parseFromString(html,'text/html');
     documentReport.getElementById('reportStabilityV429')?.remove();
     documentReport.querySelectorAll('.report-location-card .location-head-side-v422').forEach(node=>node.remove());
+    documentReport.querySelectorAll('.stop-factors-v340').forEach(node=>node.remove());
     documentReport.querySelectorAll('.critical-condition-help-v430,.critical-condition-error-v430').forEach(node=>node.remove());
     documentReport.querySelectorAll('.critical-condition-card-v430').forEach(card=>{
       const labels=['Статус','Основание','Комментарий'];
