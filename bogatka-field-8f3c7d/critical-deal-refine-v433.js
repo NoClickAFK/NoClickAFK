@@ -36,14 +36,21 @@
     const mapped=legacy[def?.key]?.[source.evidenceType];
     return mapped?{...source,evidenceType:mapped}:source;
   };
+  const contextualErrors=(errors,def)=>def?.key==='investmentProtection'?errors.map(message=>message.replace('«Подтверждено»','«Выполнено»').replace('«Нужно подтвердить письменно»','«Нужен письменный проект договора»')):errors;
   deal.normalizeCondition=(value,keyOrDefinition)=>baseNormalize(mappedValue(value,keyOrDefinition),keyOrDefinition);
-  deal.validateCondition=(value,keyOrDefinition)=>baseValidate(mappedValue(value,keyOrDefinition),keyOrDefinition);
+  deal.validateCondition=(value,keyOrDefinition)=>{
+    const def=definition(keyOrDefinition);
+    const result=baseValidate(mappedValue(value,def),def);
+    return {...result,errors:contextualErrors(result.errors,def)};
+  };
   deal.isCompleted=(value,keyOrDefinition)=>{const result=deal.validateCondition(value,keyOrDefinition);return result.valid&&!['unchecked','in_progress'].includes(result.condition.status);};
   deal.evaluate=data=>{
     const source=data?.criticalDealConditions||{};
     const copy={...data,criticalDealConditions:{...source}};
     for(const key of Object.keys(legacy))copy.criticalDealConditions[key]=mappedValue(source[key],key);
-    return baseEvaluate(copy);
+    const gate=baseEvaluate(copy);
+    gate.entries=gate.entries.map(entry=>entry.definition.key==='investmentProtection'?{...entry,validation:{...entry.validation,errors:contextualErrors(entry.validation.errors,entry.definition)}}:entry);
+    return gate;
   };
   deal.statusOptions=keyOrDefinition=>{
     const def=definition(keyOrDefinition);
