@@ -154,5 +154,5 @@
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
-  window.BogatkaObjectTypeNormalizeV416={version:'4.3.0',ready:true,normalize,repair,polishProfileInputs,handleObjectTypeChange,syncConditionalOther};
+  window.BogatkaObjectTypeNormalizeV416={version:'4.2.1',ready:true,normalize,repair,polishProfileInputs,handleObjectTypeChange,syncConditionalOther};
 })();
