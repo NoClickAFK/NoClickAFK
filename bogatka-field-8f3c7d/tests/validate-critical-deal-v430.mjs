@@ -55,11 +55,14 @@ assert.equal(deal.evaluate(data).text,'СТОП: есть условие, бло
 
 const ui=fs.readFileSync(path.join(root,'decision-ui-v340.js'),'utf8');
 const report=fs.readFileSync(path.join(root,'report/fix-v400.js'),'utf8');
+const reportStability=fs.readFileSync(path.join(root,'report-stability-v429.js'),'utf8');
 const comparison=fs.readFileSync(path.join(root,'compare-v430.js'),'utf8');
 assert.ok(ui.includes('Критические условия сделки'));
 assert.ok(!ui.includes('Нет проблемы'));
 assert.ok(!ui.includes('Есть риск / уточнить'));
 assert.ok(!ui.includes('Есть стоп-фактор'));
 assert.ok(report.includes('deal.CONDITIONS')||report.includes('gate.entries'));
+assert.ok(report.includes('left.gate.priority-right.gate.priority'),'Public report must rank blocked deals after non-blocked deals.');
+assert.ok(reportStability.includes("querySelectorAll('.stop-factors-v340')"),'Final HTML/PDF report must remove legacy stop-factor blocks.');
 assert.ok(comparison.includes('Условия сделки'));
 console.log('Critical deal v430 validation passed.');
