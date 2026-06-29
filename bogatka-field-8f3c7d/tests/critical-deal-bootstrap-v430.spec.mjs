@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=432';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=433';
 
 test('lease-check modules reach the rendered location cards',async({page})=>{
   const pageErrors=[];
@@ -31,7 +31,7 @@ test('lease-check modules reach the rendered location cards',async({page})=>{
   console.log('CRITICAL_DEAL_BOOTSTRAP',JSON.stringify({state,pageErrors,consoleErrors}));
   const details=JSON.stringify({state,pageErrors,consoleErrors});
   expect(pageErrors,details).toEqual([]);
-  expect(state.schemaVersion,details).toBe('4.3.2');
+  expect(state.schemaVersion,details).toBe('4.3.3');
   expect(state.engineVersion,details).toBe('4.3.1');
   expect(state.decisionUiReady,details).toBe(true);
   expect(state.cardCount,details).toBeGreaterThan(0);
