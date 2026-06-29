@@ -2,31 +2,31 @@
   'use strict';
   if(window.BogatkaCriticalDeal)return;
 
-  const VERSION='4.3.0';
+  const VERSION='4.3.1';
   const CONDITIONS=[
-    {key:'leaseAuthority',title:'Право сдачи помещения подтверждено',help:'Проверить собственника, полномочия представителя и право подписывать договор аренды.'},
-    {key:'thirdPartyRights',title:'На помещение нет прав третьих лиц и незавершённых споров',help:'Проверить действующих арендаторов, субарендаторов, споры и иные права на помещение.'},
-    {key:'documentedLayout',title:'Фактическая планировка соответствует документам',help:'Сверить площадь, входы, перегородки и перепланировку с техническими документами.'},
-    {key:'landlordObligations',title:'Обязательства арендодателя до запуска и ответственность за задержку зафиксированы',help:'Зафиксировать работы, документы, сроки и последствия задержки со стороны арендодателя.'},
-    {key:'investmentProtection',title:'Срок аренды и условия расторжения защищают вложения',help:'Проверить срок договора, продление, досрочное расторжение и защиту вложений.'},
-    {key:'writtenWorkApproval',title:'Необходимые работы разрешены собственником письменно',help:'Получить письменное разрешение на ремонт, инженерные работы, вывеску и оборудование.'},
-    {key:'petStoreFormatApproval',title:'Формат и ассортимент зоомагазина разрешены правилами объекта',help:'Проверить ограничения объекта на формат магазина, ассортимент и хранение товара.'},
-    {key:'futureDisruptionPlans',title:'Нет известных планов, способных сорвать работу точки',help:'Уточнить реконструкцию, ремонт, продажу объекта, закрытие входов и другие будущие изменения.'}
+    {key:'leaseAuthority',title:'Запросите документ, подтверждающий право сдавать помещение',help:'Попросите выписку или другой документ, где указан собственник помещения. Если переговоры ведёт не собственник, попросите доверенность или другой документ, который разрешает этому человеку подписывать договор аренды.'},
+    {key:'thirdPartyRights',title:'Уточните, нет ли других арендаторов, споров или ограничений',help:'Спросите, занято ли помещение сейчас, есть ли действующий договор аренды или субаренды, судебный спор, арест или другое ограничение. Попросите подтвердить ответ документом, если это возможно.'},
+    {key:'documentedLayout',title:'Сверьте помещение с документами',help:'Попросите план помещения. Сравните с ним площадь, входы, стены, перегородки и другие изменения. Если помещение переделывали, уточните, оформлены ли эти изменения официально.'},
+    {key:'landlordObligations',title:'Зафиксируйте, что арендодатель должен сделать до передачи помещения',help:'Составьте список работ и документов, которые должен подготовить арендодатель. Укажите точные сроки и что будет, если он задержит ремонт, электричество, доступ, документы или другие обещанные работы.'},
+    {key:'investmentProtection',title:'Запросите проект договора аренды',help:'Попросите отправить проект договора на почту или в мессенджер. Проверьте срок аренды, продление, повышение арендной платы, досрочное расторжение, возврат депозита и компенсацию вложений в ремонт.'},
+    {key:'writtenWorkApproval',title:'Получите письменное разрешение на необходимые работы',help:'Перечислите все изменения, которые нужны для магазина: ремонт, вывеска, кондиционер, вентиляция, перегородки, проводка и оборудование. Получите письменное согласие собственника на каждую важную работу.'},
+    {key:'petStoreFormatApproval',title:'Уточните, разрешён ли зоомагазин и нужный ассортимент',help:'Спросите, можно ли открыть в этом помещении зоомагазин, продавать нужные товары, хранить корм и работать в выбранном режиме. Если у объекта есть свои правила, попросите показать их.'},
+    {key:'futureDisruptionPlans',title:'Уточните, не планируются ли изменения, которые помешают работе',help:'Спросите о будущем ремонте, реконструкции, продаже объекта, закрытии входов, изменении парковки или других планах. Важно понять, не станет ли помещение неудобным или недоступным после открытия.'}
   ];
   const STATUSES=[
     {value:'unchecked',label:'Не проверено'},
     {value:'confirmed',label:'Подтверждено'},
-    {value:'needs_formalization',label:'Нужно закрепить'},
-    {value:'blocked',label:'Блокирует сделку'},
-    {value:'not_applicable',label:'Не применимо'}
+    {value:'needs_formalization',label:'Нужно подтвердить письменно'},
+    {value:'blocked',label:'Блокирует аренду'},
+    {value:'not_applicable',label:'Не относится'}
   ];
   const EVIDENCE_TYPES=[
-    {value:'not_confirmed',label:'Не подтверждено'},
+    {value:'not_confirmed',label:'Пока ничем'},
     {value:'document',label:'Документ'},
     {value:'draft_contract',label:'Проект договора'},
     {value:'written_message',label:'Письмо / сообщение'},
-    {value:'oral_promise',label:'Устное обещание'},
-    {value:'other',label:'Иное'}
+    {value:'oral_promise',label:'Устная договорённость'},
+    {value:'other',label:'Другое'}
   ];
   const statusValues=new Set(STATUSES.map(item=>item.value));
   const evidenceValues=new Set(EVIDENCE_TYPES.map(item=>item.value));
@@ -57,9 +57,9 @@
   function validateCondition(value){
     const condition=normalizeCondition(value);
     const errors=[];
-    if(condition.status==='confirmed'&&condition.evidenceType==='not_confirmed')errors.push('Для статуса «Подтверждено» укажите основание.');
-    if(condition.status==='confirmed'&&condition.evidenceType==='oral_promise')errors.push('Устное обещание нельзя считать подтверждением. Выберите «Нужно закрепить».');
-    if(['needs_formalization','blocked','not_applicable'].includes(condition.status)&&empty(condition.note))errors.push('Добавьте пояснение в поле «Основание / что требуется закрепить».');
+    if(condition.status==='confirmed'&&condition.evidenceType==='not_confirmed')errors.push('Для статуса «Подтверждено» укажите, чем это подтверждено.');
+    if(condition.status==='confirmed'&&condition.evidenceType==='oral_promise')errors.push('Устной договорённости недостаточно. Выберите «Нужно подтвердить письменно».');
+    if(['needs_formalization','blocked','not_applicable'].includes(condition.status)&&empty(condition.note))errors.push('Добавьте пояснение в поле «Комментарий / что ещё нужно получить».');
     return {valid:errors.length===0,errors,condition};
   }
 
@@ -80,24 +80,24 @@
     const invalidCompletion=entries.filter(entry=>!entry.validation.valid&&!['blocked','needs_formalization'].includes(entry.value.status)).length;
     const pending=counts.unchecked+invalidCompletion;
     let code='confirmed';
-    let text='Критические условия сделки подтверждены';
+    let text='Все проверки перед арендой пройдены';
     let compactText='Подтверждено';
     let className='confirmed';
     let priority=0;
     if(counts.blocked){
-      code='blocked';text='СТОП: есть условие, блокирующее сделку';compactText='СТОП';className='blocked';priority=4;
+      code='blocked';text='СТОП: есть условие, которое не позволяет арендовать помещение';compactText='СТОП';className='blocked';priority=4;
     }else if(counts.needs_formalization){
-      code='needs_formalization';text='Продолжать только после письменного закрепления условий';compactText='Нужно закрепить';className='needs-formalization';priority=3;
+      code='needs_formalization';text='Продолжать можно только после письменного подтверждения';compactText='Нужно письменно';className='needs-formalization';priority=3;
     }else if(pending){
-      code='incomplete';text='Критические условия проверены не полностью';compactText='Не полностью';className='incomplete';priority=2;
+      code='incomplete';text='Проверки перед арендой пройдены не полностью';compactText='Не полностью';className='incomplete';priority=2;
     }
     const badge=counts.blocked
-      ?`${counts.blocked} блокирует сделку`
+      ?`${counts.blocked} блокирует аренду`
       :counts.needs_formalization
-        ?`${counts.needs_formalization} нужно закрепить`
+        ?`${counts.needs_formalization} нужно подтвердить письменно`
         :pending
           ?`${pending} не проверено`
-          :'Все условия подтверждены';
+          :'Все проверки пройдены';
     return {state,entries,counts,pending,code,text,compactText,className,priority,badge};
   }
 
