@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=431';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=432';
 
 test('lease-check modules reach the rendered location cards',async({page})=>{
   const pageErrors=[];
@@ -21,6 +21,8 @@ test('lease-check modules reach the rendered location cards',async({page})=>{
     overviewCount:document.querySelectorAll('.location-overview-v416').length,
     quickGridCount:document.querySelectorAll('.quick-grid').length,
     criticalSectionCount:document.querySelectorAll('[data-critical-deal]').length,
+    criticalConditionCount:document.querySelectorAll('[data-critical-deal] [data-critical-condition]').length,
+    openCriticalSectionCount:document.querySelectorAll('[data-critical-deal][open]').length,
     legacySectionCount:document.querySelectorAll('.stop-factors-v340').length,
     appHidden:document.querySelector('#app')?.classList.contains('hidden')??null,
     lockHidden:document.querySelector('#lock')?.classList.contains('hidden')??null,
@@ -29,12 +31,14 @@ test('lease-check modules reach the rendered location cards',async({page})=>{
   console.log('CRITICAL_DEAL_BOOTSTRAP',JSON.stringify({state,pageErrors,consoleErrors}));
   const details=JSON.stringify({state,pageErrors,consoleErrors});
   expect(pageErrors,details).toEqual([]);
-  expect(state.schemaVersion,details).toBe('4.3.1');
+  expect(state.schemaVersion,details).toBe('4.3.2');
   expect(state.engineVersion,details).toBe('4.3.1');
   expect(state.decisionUiReady,details).toBe(true);
   expect(state.cardCount,details).toBeGreaterThan(0);
   expect(state.overviewCount,details).toBe(state.cardCount);
   expect(state.quickGridCount,details).toBe(0);
   expect(state.criticalSectionCount,details).toBe(state.cardCount);
+  expect(state.criticalConditionCount,details).toBe(state.cardCount*10);
+  expect(state.openCriticalSectionCount,details).toBe(0);
   expect(state.legacySectionCount,details).toBe(0);
 });
