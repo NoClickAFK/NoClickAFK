@@ -49,6 +49,12 @@ assert.equal(legacyNotApplicable.status,'unchecked');
 assert.equal(legacyNotApplicable.note,'Старый комментарий');
 assert.equal(deal.normalizeCondition({status:'confirmed',evidenceType:'draft_contract'},'investmentProtection').evidenceType,'draft_received');
 assert.equal(deal.normalizeCondition({status:'confirmed',evidenceType:'oral_promise'},'landlordObligations').evidenceType,'oral_agreement');
+assert.equal(deal.normalizeCondition({status:'confirmed',evidenceType:'document'},'leaseAuthority').evidenceType,'ownership_information');
+assert.equal(deal.normalizeCondition({status:'confirmed',evidenceType:'document'},'documentedLayout').evidenceType,'technical_passport');
+assert.equal(deal.normalizeCondition({status:'confirmed',evidenceType:'draft_contract'},'thirdPartyRights').evidenceType,'contract_warranty');
+assert.equal(deal.normalizeCondition({status:'confirmed',evidenceType:'written_message'},'investmentProtection').evidenceType,'draft_received');
+assert.equal(deal.validateCondition({status:'confirmed',evidenceType:'document',note:''},'leaseAuthority').valid,true);
+assert.equal(deal.validateCondition({status:'confirmed',evidenceType:'draft_contract',note:''},'thirdPartyRights').valid,true);
 
 assert.equal(deal.validateCondition({status:'confirmed',evidenceType:'not_confirmed',note:''},'leaseAuthority').valid,false);
 assert.equal(deal.validateCondition({status:'confirmed',evidenceType:'oral_agreement',note:'Обещано устно'},'leaseAuthority').valid,false);
