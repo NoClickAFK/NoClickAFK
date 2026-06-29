@@ -34,7 +34,7 @@
     documentReport.querySelectorAll('.stop-factors-v340').forEach(node=>node.remove());
     documentReport.querySelectorAll('.critical-condition-help-v430,.critical-condition-error-v430').forEach(node=>node.remove());
     documentReport.querySelectorAll('.critical-condition-card-v430').forEach(card=>{
-      const labels=['Статус','Основание','Комментарий'];
+      const labels=['Статус','Чем подтверждено','Комментарий / что ещё нужно получить'];
       [...card.querySelectorAll('.critical-condition-controls-v430 .field')].forEach((field,index)=>{
         const value=field.querySelector('.report-control-value');
         if(!value)return;
