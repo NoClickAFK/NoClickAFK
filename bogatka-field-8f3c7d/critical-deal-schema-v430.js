@@ -5,7 +5,6 @@
   const VERSION='4.3.2';
   const option=(value,label)=>({value,label});
   const baseEvidence=[option('not_confirmed','Пока ничем')];
-  const commonTail=[option('written_message','Письмо / сообщение'),option('oral_agreement','Устная договорённость'),option('other','Другое')];
   const evidence=(specific,{oral=true}={})=>[
     ...baseEvidence,
     ...specific,
@@ -158,7 +157,7 @@
   }
 
   function evidenceOptions(keyOrDefinition){
-    return definitionOf(keyOrDefinition)?.evidenceTypes||baseEvidence.concat(commonTail);
+    return definitionOf(keyOrDefinition)?.evidenceTypes||EVIDENCE_TYPES;
   }
 
   function defaultCondition(){
