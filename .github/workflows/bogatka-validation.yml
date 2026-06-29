@@ -80,6 +80,7 @@ jobs:
             fi
             sleep 1
           done
+          npx playwright test bogatka-field-8f3c7d/tests/critical-deal-bootstrap-v430.spec.mjs --workers=1 --reporter=line > /tmp/critical-deal-bootstrap.log 2>&1
           npx playwright test bogatka-field-8f3c7d/tests --workers=1 --reporter=json > /tmp/playwright-output.log 2>&1
 
       - name: Upload browser test diagnostics
@@ -89,6 +90,7 @@ jobs:
           name: bogatka-browser-diagnostics
           path: |
             test-results/playwright-results.json
+            /tmp/critical-deal-bootstrap.log
             /tmp/playwright-output.log
             /tmp/bogatka-http.log
           if-no-files-found: warn
@@ -98,6 +100,9 @@ jobs:
         if: steps.smoke.outcome != 'success'
         run: |
           echo 'Bogatka browser acceptance tests failed. Diagnostics were uploaded as an artifact.'
+          if [ -f /tmp/critical-deal-bootstrap.log ]; then
+            cat /tmp/critical-deal-bootstrap.log
+          fi
           if [ -f test-results/playwright-results.json ]; then
             node - <<'NODE'
           const fs = require('fs');
