@@ -3,6 +3,8 @@
   if(window.BogatkaWorkflowRefineV440?.ready)return;
 
   const VERSION='4.4.0';
+  const TASK_HELP='Опишите конкретный результат, назначьте ответственного, срок и приоритет. После создания можно изменить статус задачи: перевести её в работу, поставить на ожидание или завершить.';
+  const NOTES_HELP='Здесь можно отдельно зафиксировать основные выводы по локации, чтобы они не потерялись среди обычных комментариев участников.';
   const TASK_EXAMPLES={
     normal:[
       'Собрать недостающие документы и ответы по локации',
@@ -33,6 +35,8 @@
   function updateExamplesSummary(details){
     const summary=details?.querySelector(':scope > summary');
     if(!summary)return;
+    const state=details.open?'open':'closed';
+    if(summary.dataset.taskExamplesStateV440===state)return;
     const instruction=document.createElement('span');
     instruction.dataset.taskExamplesInstructionV440='1';
     if(details.open){
@@ -43,6 +47,7 @@
       instruction.appendChild(strong);
     }
     summary.replaceChildren(document.createTextNode('Примеры задач — '),instruction);
+    summary.dataset.taskExamplesStateV440=state;
   }
 
   function examplesMarkup(){
@@ -79,16 +84,16 @@
 
   function enhanceTaskCopy(card){
     const help=card.querySelector('.task-form-help-v414 span');
-    if(help)help.textContent='Опишите конкретный результат, назначьте ответственного, срок и приоритет. После создания можно изменить статус задачи: перевести её в работу, поставить на ожидание или завершить.';
+    if(help&&help.textContent!==TASK_HELP)help.textContent=TASK_HELP;
     const title=card.querySelector('.task-form-v400 textarea[name="title"]');
-    if(title)title.placeholder='Например: собрать недостающие документы и ответы по локации';
+    if(title&&title.placeholder!=='Например: собрать недостающие документы и ответы по локации')title.placeholder='Например: собрать недостающие документы и ответы по локации';
   }
 
   function enhanceStructuredNotes(card){
     const structured=card.querySelector('.structured-notes-v414');
     if(!structured)return;
     const description=structured.querySelector('.structured-notes-head-v414 span');
-    if(description)description.textContent='Здесь можно отдельно зафиксировать основные выводы по локации, чтобы они не потерялись среди обычных комментариев участников.';
+    if(description&&description.textContent!==NOTES_HELP)description.textContent=NOTES_HELP;
     structured.querySelector('[data-note-slot-v414="questions"]')?.remove();
   }
 
