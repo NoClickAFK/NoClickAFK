@@ -90,6 +90,8 @@ test('comparative evaluation keeps fourteen five-point criteria and the approved
 
   await expect(scoreSection.locator('.score-label-v414 > strong')).toHaveText(EXPECTED_SCORE_LABELS);
   await expect(scoreSection.locator('.score-guide-v331 p')).toHaveText('Чек-лист подтверждает наличие конкретных условий, а оценка помогает сравнить локации по спросу, потоку, доступности, заметности и пригодности помещения.');
+  await expect(scoreSection.locator('.score-guide-note-v331')).toContainText('ставьте балл только после проверки факта');
+  await expect(scoreSection.locator('.score-guide-note-v331')).not.toContainText('Слабость конкурентов рядом');
   await expect(scoreSection.locator('select[data-field^="score."]')).toHaveCount(14);
   await expect(card.locator('.scorebox small')).toContainText('/ 70');
 
