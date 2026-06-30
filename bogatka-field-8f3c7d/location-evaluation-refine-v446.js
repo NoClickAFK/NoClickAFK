@@ -3,6 +3,7 @@
   if(window.BogatkaLocationEvaluationRefineV446?.ready)return;
 
   const VERSION='4.4.6';
+  const COMPARISON_LABEL='Соответствие формату';
   const SCORE_GUIDANCE={
     housing:{label:'Плотность жилой застройки',low:'1 — жилья рядом мало или оно далеко',high:'5 — плотный жилой массив непосредственно вокруг точки'},
     occupied:{label:'Фактическая заселённость района',low:'1 — много пустующих или строящихся домов',high:'5 — дома давно и плотно заселены'},
@@ -54,6 +55,24 @@
     note.replaceChildren(title,document.createTextNode(' ставьте балл только после проверки факта. Пустое значение означает «ещё не оценено», а не ноль.'));
   }
 
+  function updateComparisonLabels(){
+    const panel=document.getElementById('locationComparisonPanel');
+    if(!panel)return;
+    panel.querySelectorAll('[data-compare-sort="competition"]').forEach(button=>{
+      let label=[...button.childNodes].find(node=>node.nodeType===Node.TEXT_NODE);
+      if(!label){
+        label=document.createTextNode(COMPARISON_LABEL);
+        button.prepend(label);
+      }else if(label.textContent!==COMPARISON_LABEL){
+        label.textContent=COMPARISON_LABEL;
+      }
+    });
+    panel.querySelectorAll('.comparison-table-v332 thead th').forEach(cell=>{
+      if(cell.querySelector('[data-compare-sort="competition"]'))return;
+      if(cell.textContent.trim()==='Конкуренты')cell.textContent=COMPARISON_LABEL;
+    });
+  }
+
   function updateScoreSection(card){
     const details=[...card.querySelectorAll(':scope .location-body > details')].find(item=>{
       const title=item.querySelector(':scope > summary')?.textContent||'';
@@ -101,6 +120,7 @@
   function enhanceAll(){
     patchWorkflowDefinitions();
     document.querySelectorAll('[data-location-card]').forEach(enhanceCard);
+    updateComparisonLabels();
   }
 
   function schedule(delay=40){
@@ -110,8 +130,10 @@
 
   const observer=new MutationObserver(()=>schedule());
   function install(){
-    const root=document.getElementById('locations')||document.body;
-    observer.observe(root,{childList:true,subtree:true});
+    const locationsRoot=document.getElementById('locations')||document.body;
+    observer.observe(locationsRoot,{childList:true,subtree:true});
+    const summaryRoot=document.querySelector('.summary.card');
+    if(summaryRoot&&summaryRoot!==locationsRoot)observer.observe(summaryRoot,{childList:true,subtree:true});
     enhanceAll();
     [120,400,900,1800].forEach(delay=>setTimeout(enhanceAll,delay));
   }
