@@ -64,6 +64,7 @@
     if(!details||!body)return;
     const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
     clearTimeout(details.__bogatkaExamplesTimerV443);
+    details.dataset.taskExamplesTargetV444=open?'open':'closed';
 
     if(!animate||reducedMotion){
       details.open=open;
@@ -148,6 +149,8 @@
         }
       }));
       setExamplesOpen(details,details.open,{animate:false});
+    }else if(details.dataset.taskExamplesAnimatingV443==='1'){
+      updateExamplesSummary(details,details.dataset.taskExamplesTargetV444==='open');
     }else{
       updateExamplesSummary(details,details.open);
     }
@@ -163,8 +166,14 @@
   function enhanceStructuredNotes(card){
     const structured=card.querySelector('.structured-notes-v414');
     if(!structured)return;
-    const description=structured.querySelector('.structured-notes-head-v414 span');
-    if(description&&description.textContent!==NOTES_HELP)description.textContent=NOTES_HELP;
+    let header=structured.querySelector(':scope > .structured-notes-head-v414');
+    if(!header&&structured.previousElementSibling?.classList.contains('structured-notes-head-v414'))header=structured.previousElementSibling;
+    if(header&&header.parentElement===structured)structured.insertAdjacentElement('beforebegin',header);
+    if(header){
+      header.dataset.commentsIntroV444='1';
+      const description=header.querySelector('span');
+      if(description&&description.textContent!==NOTES_HELP)description.textContent=NOTES_HELP;
+    }
     structured.querySelector('[data-note-slot-v414="questions"]')?.remove();
   }
 

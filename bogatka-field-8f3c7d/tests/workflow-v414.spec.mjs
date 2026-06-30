@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=443';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=444';
 
 async function authorize(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -41,10 +41,27 @@ test('lease checks precede collaboration and structured notes avoid duplicated l
   const card=page.locator('[data-location-card]').first();
   await expect(card.locator(':scope > .location-body > .notes-grid')).toHaveCount(0);
   const comments=card.locator('[data-collab-pane="comments"]');
+  const commentsHeader=comments.locator('.structured-notes-head-v414');
+  const structured=comments.locator('.structured-notes-v414');
   await expect(comments.locator('.structured-note-v414')).toHaveCount(5);
   await expect(comments.locator('[data-field="questions"]')).toHaveCount(0);
-  await expect(comments.locator('.structured-notes-head-v414 span')).toHaveText('Здесь можно отдельно зафиксировать основные выводы по локации, чтобы они не потерялись среди обычных комментариев участников.');
+  await expect(commentsHeader.locator('span')).toHaveText('Здесь можно отдельно зафиксировать основные выводы по локации, чтобы они не потерялись среди обычных комментариев участников.');
+  await expect(commentsHeader).toHaveAttribute('data-comments-intro-v444','1');
   await expect(comments.locator('[data-field="pros"]')).toHaveAttribute('placeholder',/усиливает локацию/);
+  const commentsStructure=await comments.evaluate(pane=>{
+    const header=pane.querySelector('.structured-notes-head-v414');
+    const structured=pane.querySelector('.structured-notes-v414');
+    return {
+      directHeader:header?.parentElement===pane,
+      immediatelyBefore:structured?.previousElementSibling===header,
+      headerInsideBox:Boolean(structured?.querySelector('.structured-notes-head-v414')),
+    };
+  });
+  expect(commentsStructure.directHeader).toBe(true);
+  expect(commentsStructure.immediatelyBefore).toBe(true);
+  expect(commentsStructure.headerInsideBox).toBe(false);
+  await expect(structured).toHaveCount(1);
+
   const order=await card.evaluate(element=>{
     const body=element.querySelector('.location-body');
     const children=[...body.children];
@@ -61,7 +78,53 @@ test('lease checks precede collaboration and structured notes avoid duplicated l
   expect(order.launch).toBe(order.economy+1);
 });
 
-test('task editor breathes, examples precede the form, and expansion moves the form smoothly',async({page})=>{
+test('task and comments introductions share the same position and spacing',async({page})=>{
+  await authorize(page);
+  await page.goto(APP_URL,{waitUntil:'networkidle'});
+  await waitForWorkflow(page);
+  const card=page.locator('[data-location-card]').first();
+
+  await openCollaborationPane(page,'tasks');
+  const taskPane=card.locator('[data-collab-pane="tasks"]');
+  const taskHelp=taskPane.locator('.task-form-help-v414');
+  await expect(taskHelp).toBeVisible();
+  const taskMetrics=await taskPane.evaluate(pane=>{
+    const intro=pane.querySelector('.task-form-help-v414');
+    const paneRect=pane.getBoundingClientRect();
+    const style=getComputedStyle(intro);
+    const titleStyle=getComputedStyle(intro.querySelector('strong'));
+    return {
+      top:intro.getBoundingClientRect().top-paneRect.top,
+      gap:parseFloat(style.rowGap||style.gap),
+      marginBottom:parseFloat(style.marginBottom),
+      titleSize:parseFloat(titleStyle.fontSize),
+    };
+  });
+
+  await openCollaborationPane(page,'comments');
+  const commentsPane=card.locator('[data-collab-pane="comments"]');
+  const commentsHelp=commentsPane.locator('.structured-notes-head-v414');
+  await expect(commentsHelp).toBeVisible();
+  const commentsMetrics=await commentsPane.evaluate(pane=>{
+    const intro=pane.querySelector('.structured-notes-head-v414');
+    const paneRect=pane.getBoundingClientRect();
+    const style=getComputedStyle(intro);
+    const titleStyle=getComputedStyle(intro.querySelector('strong'));
+    return {
+      top:intro.getBoundingClientRect().top-paneRect.top,
+      gap:parseFloat(style.rowGap||style.gap),
+      marginBottom:parseFloat(style.marginBottom),
+      titleSize:parseFloat(titleStyle.fontSize),
+    };
+  });
+
+  expect(Math.abs(taskMetrics.top-commentsMetrics.top)).toBeLessThanOrEqual(1);
+  expect(commentsMetrics.gap).toBe(taskMetrics.gap);
+  expect(commentsMetrics.marginBottom).toBe(taskMetrics.marginBottom);
+  expect(commentsMetrics.titleSize).toBe(taskMetrics.titleSize);
+});
+
+test('task editor breathes, examples precede the form, and expansion closes without text flicker',async({page})=>{
   await authorize(page);
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await waitForWorkflow(page);
@@ -142,6 +205,25 @@ test('task editor breathes, examples precede the form, and expansion moves the f
   }));
   expect(Math.abs(heights.title-heights.date)).toBeLessThanOrEqual(1);
   expect(Math.abs(heights.title-heights.button)).toBeLessThanOrEqual(1);
+
+  const closeResult=await page.evaluate(async()=>{
+    const details=document.querySelector('[data-location-card] .task-examples-v414');
+    const summary=details.querySelector(':scope > summary');
+    const states=[];
+    const observer=new MutationObserver(()=>{
+      const text=summary.textContent||'';
+      if(text.includes('выберите подходящий вариант'))states.push('open');
+      if(text.includes('нажмите, чтобы открыть'))states.push('closed');
+    });
+    observer.observe(summary,{attributes:true,childList:true,subtree:true});
+    summary.click();
+    await new Promise(resolve=>setTimeout(resolve,360));
+    observer.disconnect();
+    return {states,open:details.open,text:summary.textContent||''};
+  });
+  expect(closeResult.open).toBe(false);
+  expect(closeResult.text).toContain('нажмите, чтобы открыть');
+  expect(closeResult.states).not.toContain('open');
 });
 
 test('history uses readable labels and ten entries per page',async({page})=>{
