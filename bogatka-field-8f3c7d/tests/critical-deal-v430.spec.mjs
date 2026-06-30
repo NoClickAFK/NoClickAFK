@@ -2,11 +2,11 @@ import {test,expect} from '@playwright/test';
 
 const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=433';
 const TITLES=[
-  'Уточните, кто собственник помещения и кто подпишет договор',
+  'Уточните, кто собственник помещения и кто будет подписывать договор',
   'Получите проект договора аренды',
   'Уточните, нет ли других арендаторов, споров или ограничений',
   'Сверьте фактическое помещение с техническими документами',
-  'Зафиксируйте, что арендодатель должен сделать до передачи помещения (ремонт, электрика, устранение недостатков)',
+  'Зафиксируйте, что арендодатель должен сделать до передачи помещения',
   'Получите письменное разрешение на необходимые работы',
   'Уточните, разрешено ли открыть зоомагазин и продавать нужный ассортимент',
   'Уточните, нет ли планов, которые в дальнейшем могут помешать работе магазина',
@@ -189,7 +189,7 @@ test('reports viewer mode and mobile layout support all ten checks',async({page}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await page.waitForFunction(()=>window.BogatkaLiveReport?.build?.__reportStabilityV429,{timeout:20000});
   const html=await page.evaluate(()=>window.buildReportHtml());
-  expect(html).toContain('Уточните, кто собственник помещения и кто подпишет договор');
+  expect(html).toContain('Уточните, кто собственник помещения и кто будет подписывать договор');
   expect(html).toContain('Проверки перед арендой');
   await page.evaluate(()=>{cloudRole='viewer'});
   await expect(section.locator('select').first()).toBeDisabled({timeout:5000});
