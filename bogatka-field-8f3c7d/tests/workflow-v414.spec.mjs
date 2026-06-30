@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=414';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=440';
 
 async function authorize(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -8,6 +8,7 @@ async function authorize(page){
 
 async function waitForWorkflow(page){
   await page.waitForFunction(()=>window.BogatkaWorkflowV414?.ready===true);
+  await page.waitForFunction(()=>window.BogatkaWorkflowRefineV440?.ready===true);
   await page.waitForFunction(()=>document.querySelector('[data-location-card] .structured-notes-v414'));
 }
 
@@ -33,28 +34,34 @@ test('checklist and score explain different decisions',async({page})=>{
   await expect(score.locator('.score-label-v414').first()).toContainText('Плотность и близость жилой застройки');
 });
 
-test('notes move into comments and economy follows preliminary decision',async({page})=>{
+test('lease checks precede collaboration and structured notes avoid duplicated landlord questions',async({page})=>{
   await authorize(page);
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await waitForWorkflow(page);
   const card=page.locator('[data-location-card]').first();
   await expect(card.locator(':scope > .location-body > .notes-grid')).toHaveCount(0);
   const comments=card.locator('[data-collab-pane="comments"]');
-  await expect(comments.locator('.structured-note-v414')).toHaveCount(6);
+  await expect(comments.locator('.structured-note-v414')).toHaveCount(5);
+  await expect(comments.locator('[data-field="questions"]')).toHaveCount(0);
+  await expect(comments.locator('.structured-notes-head-v414 span')).toHaveText('Здесь можно отдельно зафиксировать основные выводы по локации, чтобы они не потерялись среди обычных комментариев участников.');
   await expect(comments.locator('[data-field="pros"]')).toHaveAttribute('placeholder',/усиливает локацию/);
   const order=await card.evaluate(element=>{
     const body=element.querySelector('.location-body');
     const children=[...body.children];
+    const lease=children.findIndex(item=>item.matches('[data-critical-deal]'));
+    const collaboration=children.findIndex(item=>item.matches('[data-collaboration]'));
     const decision=children.findIndex(item=>item.matches('.decision,.decision-panel-v412'));
     const economy=children.findIndex(item=>item.matches('.economy-v400'));
     const launch=children.findIndex(item=>item.matches('.launch-project-v400'));
-    return {decision,economy,launch};
+    return {lease,collaboration,decision,economy,launch};
   });
+  expect(order.collaboration).toBe(order.lease+1);
+  expect(order.decision).toBe(order.collaboration+1);
   expect(order.economy).toBe(order.decision+1);
   expect(order.launch).toBe(order.economy+1);
 });
 
-test('task editor has participants, editable examples, and aligned controls',async({page})=>{
+test('task editor has approved examples, dynamic guidance, and aligned controls',async({page})=>{
   await authorize(page);
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await waitForWorkflow(page);
@@ -63,13 +70,31 @@ test('task editor has participants, editable examples, and aligned controls',asy
   const form=card.locator('.task-form-v400');
   await expect(form.locator('.task-field-v414')).toHaveCount(4);
   await expect(form.locator('textarea[name="title"]')).toBeVisible();
+  await expect(form.locator('textarea[name="title"]')).toHaveAttribute('placeholder','Например: собрать недостающие документы и ответы по локации');
   await expect(form.locator('select[name="assignee"]')).toHaveCount(1);
   await expect(form.locator('.task-submit-v414')).toHaveText('Добавить');
+  await expect(card.locator('.task-form-help-v414 span')).toHaveText('Опишите конкретный результат, назначьте ответственного, срок и приоритет. После создания можно изменить статус задачи: перевести её в работу, поставить на ожидание или завершить.');
+
   const examples=card.locator('.task-examples-v414');
+  await expect(examples.locator('summary')).toHaveText('Примеры задач — нажмите, чтобы открыть');
+  await expect(examples.locator('summary strong')).toHaveText('нажмите, чтобы открыть');
   await examples.locator('summary').click();
-  await expect(examples.locator('[data-task-example-title]')).toHaveCount(6);
+  await expect(examples.locator('summary')).toHaveText('Примеры задач — выберите подходящий вариант и нажмите на него');
+  await expect(examples.locator('.task-examples-note-v440')).toHaveText('Текст задачи и приоритет подставятся автоматически — при необходимости их можно изменить.');
+  await expect(examples.locator('[data-task-example-title]')).toHaveCount(9);
+  await expect(examples.locator('[data-task-example-title]')).toHaveText([
+    'Собрать недостающие документы и ответы по локации',
+    'Подготовить список открытых вопросов к следующему обсуждению',
+    'Сверить полученные документы с результатами осмотра помещения',
+    'Получить письменный ответ по спорному условию аренды',
+    'Зафиксировать, кто и за чей счёт устраняет недостатки помещения',
+    'Подтвердить срок устранения выявленного недостатка помещения',
+    'Получить документы, подтверждающие законность перепланировки помещения',
+    'Получить письменное разрешение на обязательные работы',
+    'Устранить ограничение, которое блокирует аренду помещения (если это возможно)',
+  ]);
   await examples.locator('[data-task-example-priority="critical"]').first().click();
-  await expect(form.locator('textarea[name="title"]')).not.toHaveValue('');
+  await expect(form.locator('textarea[name="title"]')).toHaveValue('Получить документы, подтверждающие законность перепланировки помещения');
   await expect(form.locator('select[name="priority"]')).toHaveValue('critical');
   const heights=await form.evaluate(element=>({
     title:element.querySelector('textarea[name="title"]').getBoundingClientRect().height,
