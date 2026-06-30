@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=433';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=440';
 const TITLES=[
   'Уточните, кто собственник помещения и кто будет подписывать договор',
   'Получите проект договора аренды',
@@ -75,7 +75,7 @@ test('ten tailored lease checks are collapsed and use the same accordion present
 
   const order=await card.evaluate(element=>{
     const children=[...element.querySelector(':scope > .location-body').children];
-    return [children.indexOf(element.querySelector('[data-collaboration]')),children.indexOf(element.querySelector('[data-critical-deal]')),children.indexOf(element.querySelector('.decision-panel-v412'))];
+    return [children.indexOf(element.querySelector('[data-critical-deal]')),children.indexOf(element.querySelector('[data-collaboration]')),children.indexOf(element.querySelector('.decision-panel-v412'))];
   });
   expect(order[1]).toBe(order[0]+1);
   expect(order[2]).toBe(order[1]+1);
