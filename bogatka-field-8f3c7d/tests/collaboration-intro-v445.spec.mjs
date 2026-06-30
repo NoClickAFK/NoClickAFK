@@ -14,7 +14,7 @@ async function openPane(page,pane){
 
 async function readIntro(page,pane,selector){
   await openPane(page,pane);
-  return page.locator(`[data-collab-pane="${pane}"]`).evaluate((root,introSelector)=>{
+  return page.locator('[data-location-card]').first().locator(`[data-collab-pane="${pane}"]`).evaluate((root,introSelector)=>{
     const intro=root.querySelector(introSelector);
     const title=intro?.querySelector(':scope > strong');
     const description=intro?.querySelector(':scope > span');
