@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=440';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=443';
 
 async function authorize(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -61,25 +61,64 @@ test('lease checks precede collaboration and structured notes avoid duplicated l
   expect(order.launch).toBe(order.economy+1);
 });
 
-test('task editor has approved examples, dynamic guidance, and aligned controls',async({page})=>{
+test('task editor breathes, examples precede the form, and expansion moves the form smoothly',async({page})=>{
   await authorize(page);
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await waitForWorkflow(page);
   await openCollaborationPane(page,'tasks');
   const card=page.locator('[data-location-card]').first();
   const form=card.locator('.task-form-v400');
+  const help=card.locator('.task-form-help-v414');
+  const examples=card.locator('.task-examples-v414');
+  const summary=examples.locator(':scope > summary');
+  const examplesBody=examples.locator(':scope > div');
+
   await expect(form.locator('.task-field-v414')).toHaveCount(4);
   await expect(form.locator('textarea[name="title"]')).toBeVisible();
   await expect(form.locator('textarea[name="title"]')).toHaveAttribute('placeholder','Например: собрать недостающие документы и ответы по локации');
   await expect(form.locator('select[name="assignee"]')).toHaveCount(1);
   await expect(form.locator('.task-submit-v414')).toHaveText('Добавить');
-  await expect(card.locator('.task-form-help-v414 span')).toHaveText('Опишите конкретный результат, назначьте ответственного, срок и приоритет. После создания можно изменить статус задачи: перевести её в работу, поставить на ожидание или завершить.');
+  await expect(help.locator('span')).toHaveText('Опишите конкретный результат, назначьте ответственного, срок и приоритет. После создания можно изменить статус задачи: перевести её в работу, поставить на ожидание или завершить.');
 
-  const examples=card.locator('.task-examples-v414');
-  await expect(examples.locator('summary')).toHaveText('Примеры задач — нажмите, чтобы открыть');
-  await expect(examples.locator('summary strong')).toHaveText('нажмите, чтобы открыть');
-  await examples.locator('summary').click();
-  await expect(examples.locator('summary')).toHaveText('Примеры задач — выберите подходящий вариант и нажмите на него');
+  const layout=await card.evaluate(element=>{
+    const form=element.querySelector('.task-form-v400');
+    const help=element.querySelector('.task-form-help-v414');
+    const examples=element.querySelector('.task-examples-v414');
+    const children=[...form.parentElement.children];
+    return {
+      help:children.indexOf(help),
+      examples:children.indexOf(examples),
+      form:children.indexOf(form),
+      titleSize:parseFloat(getComputedStyle(help.querySelector('strong')).fontSize),
+      helpMarginBottom:parseFloat(getComputedStyle(help).marginBottom),
+      examplesMarginBottom:parseFloat(getComputedStyle(examples).marginBottom),
+    };
+  });
+  expect(layout.examples).toBe(layout.help+1);
+  expect(layout.form).toBe(layout.examples+1);
+  expect(layout.titleSize).toBeGreaterThan(14);
+  expect(layout.helpMarginBottom).toBeGreaterThanOrEqual(12);
+  expect(layout.examplesMarginBottom).toBeGreaterThanOrEqual(15);
+
+  await expect(summary.locator('[data-task-examples-instruction-v440] strong')).toHaveText('нажмите, чтобы открыть');
+  expect(await summary.locator('[data-task-examples-prefix-v443]').evaluate(node=>node.textContent.endsWith('\u00a0'))).toBe(true);
+  const transition=await examplesBody.evaluate(node=>getComputedStyle(node).transitionProperty);
+  expect(transition).toContain('height');
+
+  const collapsedTop=await form.evaluate(node=>node.getBoundingClientRect().top+window.scrollY);
+  await summary.click();
+  await expect(examples).toHaveAttribute('open','');
+  await expect(summary.locator('[data-task-examples-instruction-v440]')).toHaveText('выберите подходящий вариант и нажмите на него');
+  expect(await summary.locator('[data-task-examples-prefix-v443]').evaluate(node=>node.textContent.endsWith('\u00a0'))).toBe(true);
+  await page.waitForTimeout(320);
+  await expect(examplesBody).toBeVisible();
+  const expandedState=await form.evaluate(node=>({
+    top:node.getBoundingClientRect().top+window.scrollY,
+    examplesHeight:node.previousElementSibling?.getBoundingClientRect().height||0,
+  }));
+  expect(expandedState.top).toBeGreaterThan(collapsedTop+50);
+  expect(expandedState.examplesHeight).toBeGreaterThan(50);
+
   await expect(examples.locator('.task-examples-note-v440')).toHaveText('Текст задачи и приоритет подставятся автоматически — при необходимости их можно изменить.');
   await expect(examples.locator('[data-task-example-title]')).toHaveCount(9);
   await expect(examples.locator('[data-task-example-title]')).toHaveText([

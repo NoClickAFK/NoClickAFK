@@ -3,6 +3,7 @@
   if(window.BogatkaWorkflowRefineV440?.ready)return;
 
   const VERSION='4.4.0';
+  const ANIMATION_MS=240;
   const TASK_HELP='Опишите конкретный результат, назначьте ответственного, срок и приоритет. После создания можно изменить статус задачи: перевести её в работу, поставить на ожидание или завершить.';
   const NOTES_HELP='Здесь можно отдельно зафиксировать основные выводы по локации, чтобы они не потерялись среди обычных комментариев участников.';
   const TASK_EXAMPLES={
@@ -32,38 +33,106 @@
     if(trigger&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
   }
 
-  function updateExamplesSummary(details){
+  function updateExamplesSummary(details,open=details.open){
     const summary=details?.querySelector(':scope > summary');
     if(!summary)return;
-    const state=details.open?'open':'closed';
+    const state=open?'open':'closed';
     if(summary.dataset.taskExamplesStateV440===state)return;
+    const prefix=document.createElement('span');
+    prefix.dataset.taskExamplesPrefixV443='1';
+    prefix.textContent='Примеры задач —\u00a0';
     const instruction=document.createElement('span');
     instruction.dataset.taskExamplesInstructionV440='1';
-    if(details.open){
+    if(open){
       instruction.textContent='выберите подходящий вариант и нажмите на него';
     }else{
       const strong=document.createElement('strong');
       strong.textContent='нажмите, чтобы открыть';
       instruction.appendChild(strong);
     }
-    summary.replaceChildren(document.createTextNode('Примеры задач — '),instruction);
+    summary.replaceChildren(prefix,instruction);
     summary.dataset.taskExamplesStateV440=state;
+    summary.setAttribute('aria-expanded',String(open));
   }
 
   function examplesMarkup(){
-    return `<p class="task-examples-note-v440">Текст задачи и приоритет подставятся автоматически — при необходимости их можно изменить.</p>${Object.entries(TASK_EXAMPLES).map(([priority,items])=>`<section><strong>${esc(PRIORITY_LABELS[priority])}</strong>${items.map(title=>`<button type="button" data-task-example-title="${esc(title)}" data-task-example-priority="${priority}">${esc(title)}</button>`).join('')}</section>`).join('')}`;
+    return `<div class="task-examples-content-v443"><p class="task-examples-note-v440">Текст задачи и приоритет подставятся автоматически — при необходимости их можно изменить.</p>${Object.entries(TASK_EXAMPLES).map(([priority,items])=>`<section><strong>${esc(PRIORITY_LABELS[priority])}</strong>${items.map(title=>`<button type="button" data-task-example-title="${esc(title)}" data-task-example-priority="${priority}">${esc(title)}</button>`).join('')}</section>`).join('')}</div>`;
+  }
+
+  function setExamplesOpen(details,open,{animate=true}={}){
+    const body=details?.querySelector(':scope > div');
+    if(!details||!body)return;
+    const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    clearTimeout(details.__bogatkaExamplesTimerV443);
+
+    if(!animate||reducedMotion){
+      details.open=open;
+      body.style.removeProperty('height');
+      body.style.removeProperty('opacity');
+      details.dataset.taskExamplesAnimatingV443='0';
+      updateExamplesSummary(details,open);
+      return;
+    }
+
+    if(details.dataset.taskExamplesAnimatingV443==='1')return;
+    details.dataset.taskExamplesAnimatingV443='1';
+    const startHeight=body.getBoundingClientRect().height;
+    body.style.height=`${startHeight}px`;
+    body.style.opacity=open?'0':'1';
+
+    if(open){
+      details.open=true;
+      updateExamplesSummary(details,true);
+      const targetHeight=body.scrollHeight;
+      requestAnimationFrame(()=>{
+        body.style.height=`${targetHeight}px`;
+        body.style.opacity='1';
+      });
+    }else{
+      updateExamplesSummary(details,false);
+      requestAnimationFrame(()=>{
+        body.style.height='0px';
+        body.style.opacity='0';
+      });
+    }
+
+    details.__bogatkaExamplesTimerV443=setTimeout(()=>{
+      details.open=open;
+      body.style.removeProperty('height');
+      body.style.removeProperty('opacity');
+      details.dataset.taskExamplesAnimatingV443='0';
+      updateExamplesSummary(details,open);
+    },ANIMATION_MS+50);
+  }
+
+  function moveExamplesBeforeForm(card,details,form){
+    const help=card.querySelector('.task-form-help-v414');
+    if(help){
+      if(help.nextElementSibling!==details)help.insertAdjacentElement('afterend',details);
+      return;
+    }
+    if(form.previousElementSibling!==details)form.insertAdjacentElement('beforebegin',details);
   }
 
   function enhanceTaskExamples(card){
     const form=card.querySelector('.task-form-v400');
     const details=card.querySelector('.task-examples-v414');
     const body=details?.querySelector(':scope > div');
-    if(!form||!details||!body)return;
+    const summary=details?.querySelector(':scope > summary');
+    if(!form||!details||!body||!summary)return;
+
+    moveExamplesBeforeForm(card,details,form);
 
     if(details.dataset.workflowRefineV440!=='1'){
       details.dataset.workflowRefineV440='1';
       body.innerHTML=examplesMarkup();
-      details.addEventListener('toggle',()=>updateExamplesSummary(details));
+      summary.addEventListener('click',event=>{
+        event.preventDefault();
+        setExamplesOpen(details,!details.open);
+      });
+      details.addEventListener('toggle',()=>{
+        if(details.dataset.taskExamplesAnimatingV443!=='1')updateExamplesSummary(details,details.open);
+      });
       body.querySelectorAll('[data-task-example-title]').forEach(button=>button.addEventListener('click',()=>{
         const title=form.querySelector('textarea[name="title"]');
         const priority=form.querySelector('select[name="priority"]');
@@ -78,8 +147,10 @@
           syncVisibleSelect(priority);
         }
       }));
+      setExamplesOpen(details,details.open,{animate:false});
+    }else{
+      updateExamplesSummary(details,details.open);
     }
-    updateExamplesSummary(details);
   }
 
   function enhanceTaskCopy(card){
