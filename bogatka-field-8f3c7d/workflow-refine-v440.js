@@ -4,6 +4,7 @@
 
   const VERSION='4.4.0';
   const ANIMATION_MS=240;
+  const INTRO_CLASS='collaboration-intro-v445';
   const TASK_HELP='Опишите конкретный результат, назначьте ответственного, срок и приоритет. После создания можно изменить статус задачи: перевести её в работу, поставить на ожидание или завершить.';
   const NOTES_HELP='Здесь можно отдельно зафиксировать основные выводы по локации, чтобы они не потерялись среди обычных комментариев участников.';
   const TASK_EXAMPLES={
@@ -31,6 +32,16 @@
   function syncVisibleSelect(select){
     const trigger=select?.nextElementSibling?.classList.contains('premium-select-trigger')?select.nextElementSibling:null;
     if(trigger&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+  }
+
+  function normalizeIntro(intro){
+    if(!intro)return;
+    intro.classList.add(INTRO_CLASS);
+    intro.dataset.collaborationIntroV445='1';
+    const title=intro.querySelector(':scope > strong');
+    const description=intro.querySelector(':scope > span');
+    if(title)title.dataset.collaborationIntroTitleV445='1';
+    if(description)description.dataset.collaborationIntroDescriptionV445='1';
   }
 
   function updateExamplesSummary(details,open=details.open){
@@ -157,7 +168,9 @@
   }
 
   function enhanceTaskCopy(card){
-    const help=card.querySelector('.task-form-help-v414 span');
+    const intro=card.querySelector('.task-form-help-v414');
+    normalizeIntro(intro);
+    const help=intro?.querySelector(':scope > span');
     if(help&&help.textContent!==TASK_HELP)help.textContent=TASK_HELP;
     const title=card.querySelector('.task-form-v400 textarea[name="title"]');
     if(title&&title.placeholder!=='Например: собрать недостающие документы и ответы по локации')title.placeholder='Например: собрать недостающие документы и ответы по локации';
@@ -171,7 +184,8 @@
     if(header&&header.parentElement===structured)structured.insertAdjacentElement('beforebegin',header);
     if(header){
       header.dataset.commentsIntroV444='1';
-      const description=header.querySelector('span');
+      normalizeIntro(header);
+      const description=header.querySelector(':scope > span');
       if(description&&description.textContent!==NOTES_HELP)description.textContent=NOTES_HELP;
     }
     structured.querySelector('[data-note-slot-v414="questions"]')?.remove();
