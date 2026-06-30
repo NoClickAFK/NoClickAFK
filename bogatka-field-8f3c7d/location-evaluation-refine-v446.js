@@ -21,6 +21,7 @@
   };
   const SCORE_FIELD_LABELS=Object.fromEntries(Object.entries(SCORE_GUIDANCE).map(([key,value])=>[`score.${key}`,value.label]));
   const SCORE_DESCRIPTION='Чек-лист подтверждает наличие конкретных условий, а оценка помогает сравнить локации по спросу, потоку, доступности, заметности и пригодности помещения.';
+  const SCORE_RULE='Правило: ставьте балл только после проверки факта. Пустое значение означает «ещё не оценено», а не ноль.';
   let timer=null;
 
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -45,6 +46,14 @@
     Object.assign(workflow.FIELD_LABELS||{},SCORE_FIELD_LABELS,{rentConditions:'Предварительные условия аренды'});
   }
 
+  function updateGuideRule(guide){
+    const note=guide?.querySelector('.score-guide-note-v331');
+    if(!note||note.textContent.trim()===SCORE_RULE)return;
+    const title=document.createElement('b');
+    title.textContent='Правило:';
+    note.replaceChildren(title,document.createTextNode(' ставьте балл только после проверки факта. Пустое значение означает «ещё не оценено», а не ноль.'));
+  }
+
   function updateScoreSection(card){
     const details=[...card.querySelectorAll(':scope .location-body > details')].find(item=>{
       const title=item.querySelector(':scope > summary')?.textContent||'';
@@ -56,6 +65,7 @@
     const guide=details.querySelector('.score-guide-v331');
     const paragraph=guide?.querySelector('p');
     if(paragraph&&paragraph.textContent!==SCORE_DESCRIPTION)paragraph.textContent=SCORE_DESCRIPTION;
+    updateGuideRule(guide);
     details.querySelectorAll('.score-table tbody tr').forEach(row=>{
       const select=row.querySelector('select[data-field^="score."]');
       const key=String(select?.dataset.field||'').replace(/^score\./,'');
