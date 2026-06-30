@@ -108,6 +108,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./decision-panel-v412.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-v414.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-fixes-v415.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-refine-v440.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-profile-v416.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-overview-v417.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-panels-v419.css'});
@@ -136,6 +137,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./decision-panel-v412.js'});
   loadBogatkaPatch('script',{src:'./workflow-v414.js'});
   loadBogatkaPatch('script',{src:'./workflow-fixes-v415.js'});
+  loadBogatkaPatch('script',{src:'./workflow-refine-v440.js'});
   loadBogatkaPatch('script',{src:'./score-guide-fix-v415.js'});
   loadBogatkaPatch('script',{src:'./sync-field-compat-v416.js'});
   loadBogatkaPatch('script',{src:'./field-integrity-v416.js'});
