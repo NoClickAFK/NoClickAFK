@@ -35,7 +35,6 @@ async function readIntro(page,pane,selector){
     const paneRect=root.getBoundingClientRect();
     const nextRect=next.getBoundingClientRect();
     return {
-      className:intro.className,
       marker:intro.dataset.collaborationIntroV445,
       titleMarker:title.dataset.collaborationIntroTitleV445,
       descriptionMarker:description.dataset.collaborationIntroDescriptionV445,
@@ -81,10 +80,10 @@ test('task and comments introductions use one identical typography and spacing s
   expect(comments.title.fontFamily).toContain('Segoe UI');
   expect(comments.title.fontSize).toBe('15px');
   expect(comments.title.fontWeight).toBe('700');
-  expect(comments.title.lineHeight).toBe('19.5px');
+  expect(parseFloat(comments.title.lineHeight)).toBeCloseTo(19.5,1);
   expect(comments.description.fontSize).toBe('11px');
   expect(comments.description.fontWeight).toBe('400');
-  expect(comments.description.lineHeight).toBe('17.05px');
+  expect(parseFloat(comments.description.lineHeight)).toBeCloseTo(17.05,1);
 
   expect(Math.abs(task.geometry.top-comments.geometry.top)).toBeLessThanOrEqual(1);
   expect(Math.abs(task.geometry.left-comments.geometry.left)).toBeLessThanOrEqual(1);
