@@ -105,14 +105,19 @@ test('task editor breathes, examples precede the form, and expansion moves the f
   const transition=await examplesBody.evaluate(node=>getComputedStyle(node).transitionProperty);
   expect(transition).toContain('height');
 
-  const collapsedTop=(await form.boundingBox()).y;
+  const collapsedTop=await form.evaluate(node=>node.getBoundingClientRect().top+window.scrollY);
   await summary.click();
   await expect(examples).toHaveAttribute('open','');
   await expect(summary.locator('[data-task-examples-instruction-v440]')).toHaveText('выберите подходящий вариант и нажмите на него');
   expect(await summary.locator('[data-task-examples-prefix-v443]').evaluate(node=>node.textContent.endsWith('\u00a0'))).toBe(true);
   await page.waitForTimeout(320);
-  const expandedTop=(await form.boundingBox()).y;
-  expect(expandedTop).toBeGreaterThan(collapsedTop+50);
+  await expect(examplesBody).toBeVisible();
+  const expandedState=await form.evaluate(node=>({
+    top:node.getBoundingClientRect().top+window.scrollY,
+    examplesHeight:node.previousElementSibling?.getBoundingClientRect().height||0,
+  }));
+  expect(expandedState.top).toBeGreaterThan(collapsedTop+50);
+  expect(expandedState.examplesHeight).toBeGreaterThan(50);
 
   await expect(examples.locator('.task-examples-note-v440')).toHaveText('Текст задачи и приоритет подставятся автоматически — при необходимости их можно изменить.');
   await expect(examples.locator('[data-task-example-title]')).toHaveCount(9);
