@@ -143,6 +143,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./field-integrity-v416.js'});
   loadBogatkaPatch('script',{src:'./object-type-normalize-v416.js'});
   loadBogatkaPatch('script',{src:'./location-profile-v416.js'});
+  loadBogatkaPatch('script',{src:'./location-evaluation-refine-v446.js'});
   loadBogatkaPatch('script',{src:'./location-overview-v417.js'});
   loadBogatkaPatch('script',{src:'./location-overview-init-v417.js'});
   loadBogatkaPatch('script',{src:'./location-panels-v419.js'});
