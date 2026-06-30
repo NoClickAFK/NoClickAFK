@@ -62,6 +62,12 @@
       const definition=SCORE_GUIDANCE[key];
       const cell=row.querySelector('td:first-child');
       if(!definition||!cell)return;
+      const currentTitle=cell.querySelector('.score-label-v414 > strong')?.textContent||'';
+      const currentHints=[...cell.querySelectorAll('.score-label-v414 small > span')].map(item=>item.textContent||'');
+      if(currentTitle===definition.label&&currentHints[0]===definition.low&&currentHints[1]===definition.high){
+        row.dataset.evaluationRefineV446='1';
+        return;
+      }
       cell.innerHTML=`<div class="score-label-v414"><strong>${esc(definition.label)}</strong><small><span>${esc(definition.low)}</span><span>${esc(definition.high)}</span></small></div>`;
       row.dataset.evaluationRefineV446='1';
     });
@@ -71,7 +77,8 @@
     const rentConditions=card.querySelector('[data-field="rentConditions"]');
     if(rentConditions){
       relabelField(rentConditions,'Предварительные условия аренды');
-      rentConditions.placeholder='Что предварительно озвучил арендодатель: депозит, каникулы, коммунальные платежи, индексация, ремонт';
+      const placeholder='Что предварительно озвучил арендодатель: депозит, каникулы, коммунальные платежи, индексация, ремонт';
+      if(rentConditions.placeholder!==placeholder)rentConditions.placeholder=placeholder;
     }
     relabelField(card.querySelector('[data-field="competitor.name"]'),'Ближайший прямой конкурент');
   }
