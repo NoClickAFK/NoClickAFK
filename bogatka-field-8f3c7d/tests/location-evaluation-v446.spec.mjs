@@ -97,6 +97,12 @@ test('comparative evaluation keeps fourteen five-point criteria and the approved
 
   await expect(scoreSection.locator('[data-field="score.competition"]').locator('xpath=ancestor::tr').locator('.score-label-v414 > strong')).toHaveText('Соответствие помещения формату магазина');
   await expect(scoreSection.locator('[data-field="score.condition"]').locator('xpath=ancestor::tr').locator('.score-label-v414 > strong')).toHaveText('Простота подготовки помещения к запуску');
+
+  const comparison=page.locator('#locationComparisonPanel');
+  await expect(comparison).toHaveCount(1);
+  if(!(await comparison.evaluate(element=>element.open)))await comparison.locator(':scope > summary').click();
+  await expect(comparison.locator('thead')).toContainText('Соответствие формату');
+  await expect(comparison.locator('thead')).not.toContainText('Конкуренты');
 });
 
 test('traffic, preliminary rent conditions and competitor labels use the approved copy',async({page})=>{
