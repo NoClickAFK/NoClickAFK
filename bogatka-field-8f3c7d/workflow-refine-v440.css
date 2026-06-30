@@ -1,13 +1,13 @@
 /* Bogatka 4.4.0 — approved workflow wording refinements */
-.task-form-help-v414,.structured-notes-head-v414{gap:6px!important;margin:0 0 13px!important}
-.task-form-help-v414 strong,.structured-notes-head-v414 strong{font-size:15px!important;line-height:1.3}
-.task-form-help-v414 span,.structured-notes-head-v414 span{line-height:1.55}
+.collaboration-intro-v445{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-auto-flow:row!important;align-content:start!important;align-items:start!important;justify-content:stretch!important;justify-items:start!important;gap:6px!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0 0 13px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#174f3a!important;font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif!important;font-style:normal!important;font-variant:normal!important;font-stretch:normal!important;font-synthesis:none!important;font-kerning:normal!important;font-feature-settings:"kern" 1!important;letter-spacing:0!important;text-align:left!important;text-indent:0!important;text-transform:none!important;word-spacing:0!important;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.collaboration-intro-v445>[data-collaboration-intro-title-v445]{display:block!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;color:#174f3a!important;font-family:inherit!important;font-size:15px!important;font-style:normal!important;font-variant:normal!important;font-weight:700!important;font-stretch:normal!important;line-height:1.3!important;letter-spacing:0!important;text-align:left!important;text-decoration:none!important;text-indent:0!important;text-transform:none!important;white-space:normal!important;word-spacing:0!important}
+.collaboration-intro-v445>[data-collaboration-intro-description-v445]{display:block!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;color:#6d7c74!important;font-family:inherit!important;font-size:11px!important;font-style:normal!important;font-variant:normal!important;font-weight:400!important;font-stretch:normal!important;line-height:1.55!important;letter-spacing:0!important;text-align:left!important;text-decoration:none!important;text-indent:0!important;text-transform:none!important;white-space:normal!important;word-spacing:0!important}
+.collaboration-intro-v445+.task-examples-v414,.collaboration-intro-v445+.structured-notes-v414{margin-top:0!important}
 .task-examples-v414{margin:0 0 16px!important}
 .task-examples-v414>summary [data-task-examples-instruction-v440] strong{color:#174f3a;font-weight:900}
 .task-examples-v414>div{display:block!important;height:0;overflow:hidden;padding:0!important;opacity:0;transition:height .24s ease,opacity .18s ease}
 .task-examples-v414[open]>div{height:auto;opacity:1}
 .task-examples-content-v443{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:0 11px 11px}
 .task-examples-note-v440{grid-column:1/-1;margin:0;padding:1px 2px;color:#6d7c74;font-size:10px;line-height:1.45}
-.structured-notes-head-v414[data-comments-intro-v444]{width:100%}
 @media(max-width:900px){.task-examples-content-v443{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.task-examples-v414>div{transition:none}}
