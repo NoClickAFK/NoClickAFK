@@ -80,11 +80,26 @@
     }
   }
 
+  function alignProfiles(root=document){
+    const api=window.BogatkaLocationGlobalV421;
+    if(!api?.alignPairedCaptions)return false;
+    root.querySelectorAll?.('[data-location-card]').forEach(card=>{
+      api.syncPairState?.(card);
+      api.alignPairedCaptions(card);
+    });
+    if(root.matches?.('[data-location-card]')){
+      api.syncPairState?.(root);
+      api.alignPairedCaptions(root);
+    }
+    return true;
+  }
+
   function stabilizeAll(){
     attempts+=1;
     const selectReady=installIdempotentSelectSync();
     const saveReady=installSerializedChecklistSave();
     document.querySelectorAll('.check-group-progress-v451').forEach(stabilizeBadge);
+    alignProfiles(document);
     if(attempts<120&&(!window.BogatkaQuickChecklistV451?.ready||!selectReady||!saveReady))setTimeout(stabilizeAll,100);
   }
 
@@ -96,8 +111,15 @@
   function install(){
     stabilizeAll();
     const root=document.getElementById('locations')||document.body;
+    root.addEventListener('click',event=>{
+      if(!event.target.closest('.panel-toggle-v419'))return;
+      const card=event.target.closest('[data-location-card]');
+      if(!card)return;
+      alignProfiles(card);
+      setTimeout(()=>alignProfiles(card),50);
+    });
     new MutationObserver(()=>schedule(40)).observe(root,{childList:true,subtree:true});
-    [120,400,900,1800,3500].forEach(delay=>setTimeout(stabilizeAll,delay));
+    [120,400,900,1800,3500,5800,7300].forEach(delay=>setTimeout(stabilizeAll,delay));
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
@@ -109,6 +131,7 @@
     stabilizeAll,
     installIdempotentSelectSync,
     installSerializedChecklistSave,
+    alignProfiles,
     saveQueues,
   };
 })();
