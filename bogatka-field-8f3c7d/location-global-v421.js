@@ -105,17 +105,17 @@
 
   async function enhanceAll(options={}){
     ensureStyle();
-    if(!options.force&&isEditing()){
-      schedule(350);
-      return false;
-    }
+    const editing=!options.force&&isEditing();
     const labels=window.BogatkaWorkflowV414?.FIELD_LABELS;
     if(labels)Object.assign(labels,{
       premiseAvailability:'Доступность помещения',
       landlordReadiness:'Готовность собственника',
     });
+    // This pass only toggles attributes/classes and aligns captions. It never
+    // replaces or moves active controls, so it is safe while a field is focused.
     for(const card of document.querySelectorAll('[data-location-card]'))enhanceCard(card);
-    return true;
+    if(editing)schedule(350);
+    return !editing;
   }
 
   function schedule(delay=80){
