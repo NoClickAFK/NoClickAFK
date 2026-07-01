@@ -39,6 +39,36 @@
     if(caption&&caption.textContent!==label)caption.textContent=label;
   }
 
+  function ensureReportHeading(documentReport,panel){
+    let heading=panel.querySelector(':scope > .report-landlord-heading-v449');
+    if(!heading){
+      heading=documentReport.createElement('div');
+      heading.className='report-landlord-heading-v449';
+      const title=documentReport.createElement('strong');
+      const copy=documentReport.createElement('span');
+      heading.append(title,copy);
+      panel.prepend(heading);
+    }
+    const title=heading.querySelector('strong');
+    const copy=heading.querySelector('span');
+    if(title&&title.textContent!=='Арендодатель и условия')title.textContent='Арендодатель и условия';
+    if(copy&&copy.textContent!==SECTION_COPY)copy.textContent=SECTION_COPY;
+    return heading;
+  }
+
+  function ensureReportStyles(documentReport){
+    if(documentReport.getElementById('landlordConditionsStyleV449'))return;
+    const style=documentReport.createElement('style');
+    style.id='landlordConditionsStyleV449';
+    style.textContent=`
+      .report-landlord-heading-v449{display:grid;gap:2px;margin:0 0 10px;padding:0 0 9px;border-bottom:1px solid var(--line,#d6e3dc)}
+      .report-landlord-heading-v449>strong{color:var(--green,#15583f);font-size:15px;line-height:1.25}
+      .report-landlord-heading-v449>span{color:var(--muted,#65756d);font-size:10px;line-height:1.4}
+      @media print{.report-landlord-heading-v449{break-after:avoid}}
+    `;
+    documentReport.head.append(style);
+  }
+
   function patchWorkflowLabels(){
     const labels=window.BogatkaWorkflowV414?.FIELD_LABELS;
     if(labels)Object.assign(labels,{rentConditions:RENT_LABEL,contactNotes:CONTACT_LABEL});
@@ -97,8 +127,7 @@
     });
 
     documentReport.querySelectorAll('.report-location-card .landlord-card-v416').forEach(panel=>{
-      const copy=panelCopy(panel);
-      if(copy&&copy.textContent!==SECTION_COPY)copy.textContent=SECTION_COPY;
+      ensureReportHeading(documentReport,panel);
       relabelReportField(panel,'rentConditions',RENT_LABEL);
       relabelReportField(panel,'contactNotes',CONTACT_LABEL);
       panel.dataset.landlordConditionsV449='1';
@@ -112,6 +141,7 @@
       const caption=captionFor(control);
       if(caption)caption.textContent=CONTACT_LABEL;
     });
+    ensureReportStyles(documentReport);
     return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
   }
 
