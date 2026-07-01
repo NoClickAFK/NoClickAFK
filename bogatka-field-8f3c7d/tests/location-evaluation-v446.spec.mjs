@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=449';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=451';
 
 const EXPECTED_SCORE_LABELS=[
   'Плотность жилой застройки',
@@ -25,9 +25,11 @@ async function openApp(page){
   await page.waitForFunction(()=>Boolean(
     window.BogatkaLocationEvaluationRefineV446?.ready&&
     window.BogatkaLandlordConditionsV449?.ready&&
+    window.BogatkaQuickChecklistV451?.ready&&
+    window.BogatkaQuickChecklistV451.audit().ok&&
     document.querySelector('[data-location-card] .score-table')&&
     document.querySelector('[data-location-card] [data-field="rentConditions"]')
-  ),{timeout:20000});
+  ),{timeout:25000});
 }
 
 test('quick checklist contains only on-site facts and preserves hidden legacy values',async({page})=>{
@@ -55,7 +57,9 @@ test('quick checklist contains only on-site facts and preserves hidden legacy va
   const checklist=card.locator('details').filter({has:page.locator('summary:text-is("Быстрый чек-лист")')});
   await checklist.locator(':scope > summary').click();
   await expect(checklist.locator('.check-row')).toHaveCount(definitions.keys.length);
-  await expect(checklist.locator('.check-group h4')).toHaveText(definitions.groups);
+  const headings=await checklist.locator('.check-group h4').evaluateAll(nodes=>nodes.map(node=>node.firstChild?.textContent?.trim()||''));
+  expect(headings).toEqual(definitions.groups);
+  await expect(checklist.locator('.check-group-progress-v451')).toHaveCount(definitions.groups.length);
 
   const locationId=await card.getAttribute('data-location-card');
   await page.evaluate(async id=>{
