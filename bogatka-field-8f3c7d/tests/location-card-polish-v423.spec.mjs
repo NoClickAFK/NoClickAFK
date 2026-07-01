@@ -82,7 +82,7 @@ test('header recommendation has a compact bordered style and no numeric boxes',a
       recommendationHeight:Math.round(recommendationRect.height),
       recommendationBorderWidth:recommendationStyle.borderTopWidth,
       recommendationBorderColor:recommendationStyle.borderTopColor,
-      recommendationBackground:recommendationStyle.backgroundColor,
+      recommendationBackgroundImage:recommendationStyle.backgroundImage,
       recommendationRadius:recommendationStyle.borderTopLeftRadius,
       oldMetricCount:side.querySelectorAll('.decision-score-v340,.decision-complete-v340').length,
       rawVisible:getComputedStyle(side.querySelector(':scope > .scorebox')).display!=='none',
@@ -100,7 +100,7 @@ test('header recommendation has a compact bordered style and no numeric boxes',a
   expect(result.recommendationHeight).toBeGreaterThanOrEqual(70);
   expect(result.recommendationBorderWidth).toBe('1px');
   expect(result.recommendationBorderColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(result.recommendationBackground).not.toBe('rgba(0, 0, 0, 0)');
+  expect(result.recommendationBackgroundImage).not.toBe('none');
   expect(result.recommendationRadius).toBe('15px');
   expect(result.oldMetricCount).toBe(0);
   expect(result.rawVisible).toBe(false);
