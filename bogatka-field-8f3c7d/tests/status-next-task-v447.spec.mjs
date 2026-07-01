@@ -10,6 +10,8 @@ async function openApp(page){
     window.BogatkaStatusNextTaskV447?.ready&&
     window.BogatkaSuite&&
     window.BogatkaLiveReport?.build?.__statusNextTaskV447&&
+    window.BogatkaLiveReport.build.__reportStabilityV429&&
+    window.buildReportHtml===window.BogatkaLiveReport.build&&
     document.querySelector('[data-location-card] [data-next-task-v447]')
   ),{timeout:20000});
   return page.locator('[data-location-card]').first();
