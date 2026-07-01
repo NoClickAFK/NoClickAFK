@@ -7,7 +7,6 @@ async function openApp(page){
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaQuickChecklistV451?.ready&&
-    window.BogatkaQuickChecklistStabilityV451?.ready&&
     window.BogatkaQuickChecklistReportV451?.ready&&
     window.BogatkaLiveReport?.build?.__quickChecklistReportV451&&
     document.querySelector('[data-location-card] [data-quick-checklist-v451]')&&
