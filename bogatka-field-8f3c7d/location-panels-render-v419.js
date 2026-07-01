@@ -10,6 +10,9 @@
       await window.BogatkaLocationProfileV416?.enhanceAll?.();
       await window.BogatkaLocationOverviewV417?.enhanceAll?.();
       await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
+      await window.BogatkaLocationGlobalV421?.enhanceAll?.({force:true});
+      await window.BogatkaStatusNextTaskV447?.enhanceAll?.();
+      await window.BogatkaTechnicalEconomicsV450?.enhanceAll?.();
       return true;
     }catch(error){
       console.error(error);
@@ -49,7 +52,7 @@
   window.addEventListener('load',installRenderHook,{once:true});
 
   window.BogatkaLocationPanelsRenderV419={
-    version:'4.1.9',
+    version:'4.5.0',
     ready:true,
     installRenderHook,
     scheduleRefresh,

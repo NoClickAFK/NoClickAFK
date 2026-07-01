@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=446';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=449';
 
 const EXPECTED_SCORE_LABELS=[
   'Плотность жилой застройки',
@@ -24,6 +24,7 @@ async function openApp(page){
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaLocationEvaluationRefineV446?.ready&&
+    window.BogatkaLandlordConditionsV449?.ready&&
     document.querySelector('[data-location-card] .score-table')&&
     document.querySelector('[data-location-card] [data-field="rentConditions"]')
   ),{timeout:20000});
@@ -105,7 +106,7 @@ test('comparative evaluation keeps fourteen five-point criteria and the approved
   await expect(comparison.locator('thead')).not.toContainText('Конкуренты');
 });
 
-test('traffic, preliminary rent conditions and competitor labels use the approved copy',async({page})=>{
+test('traffic, landlord proposal and competitor labels use the approved copy',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
 
@@ -113,8 +114,8 @@ test('traffic, preliminary rent conditions and competitor labels use the approve
   await expect(traffic.locator('xpath=ancestor::label')).toContainText('Люди с собаками за 30 минут');
 
   const rentConditions=card.locator('[data-field="rentConditions"]');
-  await expect(rentConditions.locator('xpath=ancestor::label').locator(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446')).toHaveText('Предварительные условия аренды');
-  await expect(rentConditions).toHaveAttribute('placeholder','Что предварительно озвучил арендодатель: депозит, каникулы, коммунальные платежи, индексация, ремонт');
+  await expect(rentConditions.locator('xpath=ancestor::label').locator(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446')).toHaveText('Что предварительно предложил арендодатель');
+  await expect(rentConditions).toHaveAttribute('placeholder','Ставка, депозит, каникулы, коммунальные платежи, индексация, ремонт, срок аренды');
 
   const competitor=card.locator('[data-field="competitor.name"]');
   await expect(competitor.locator('xpath=ancestor::label').locator(':scope > .evaluation-caption-v446')).toHaveText('Ближайший прямой конкурент');

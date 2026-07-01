@@ -1,15 +1,15 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=422';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=448';
 
 async function openApp(page){
   await page.setViewportSize({width:1440,height:1000});
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaLocationCardCollapseV422?.ready&&document.querySelectorAll('[data-location-card]').length>1);
+  await page.waitForFunction(()=>window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&document.querySelectorAll('[data-location-card]').length>1);
   await page.waitForFunction(()=>{
     const card=document.querySelector('[data-location-card]');
-    return Boolean(window.BogatkaLocationCardCollapseV422.audit().ok&&card?.querySelector('.location-collapse-toggle-v422')&&card?.querySelector('.decision-score-v340')&&card?.querySelector('.decision-complete-v340'));
+    return Boolean(window.BogatkaLocationCardCollapseV422.audit().ok&&card?.querySelector('.location-collapse-toggle-v422')&&card?.querySelector('.card-recommendation-v448'));
   });
 }
 
@@ -30,46 +30,45 @@ test('whole location card collapses to its header and remembers state independen
   await expect(first.locator(':scope > .location-head')).toBeVisible();
   await expect(first.locator('.location-title-wrap h2')).toBeVisible();
   await expect(first.locator('.location-actions')).toBeVisible();
-  await expect(first.locator('.scorebox')).toBeVisible();
-  await expect(first.locator('.decision-score-v340')).toBeVisible();
-  await expect(first.locator('.decision-complete-v340')).toBeVisible();
+  await expect(first.locator('.scorebox')).toBeHidden();
+  await expect(first.locator('.decision-score-v340')).toHaveCount(0);
+  await expect(first.locator('.decision-complete-v340')).toHaveCount(0);
+  await expect(first.locator('.card-recommendation-v448')).toBeVisible();
   await expect(second.locator(':scope > .location-body')).toBeVisible();
 
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(locationId=>Boolean(window.BogatkaLocationCardCollapseV422?.ready&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .location-collapse-toggle-v422`)),firstId);
+  await page.waitForFunction(locationId=>Boolean(window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .location-collapse-toggle-v422`)),firstId);
   const reloaded=page.locator(`[data-location-card="${firstId}"]`);
   await expect(reloaded.locator('.location-collapse-toggle-v422')).toHaveAttribute('aria-expanded','false');
   await expect(reloaded.locator(':scope > .location-body')).toBeHidden();
+  await expect(reloaded.locator('.card-recommendation-v448')).toBeVisible();
 
   await reloaded.locator('.location-collapse-toggle-v422').click();
   await expect(reloaded.locator(':scope > .location-body')).toBeVisible();
 });
 
-test('raw score, weighted score and completion metrics have equal boxes and equal gaps',async({page})=>{
+test('header keeps one stable recommendation card instead of three numeric boxes',async({page})=>{
   await openApp(page);
   const result=await page.locator('[data-location-card]').first().evaluate(card=>{
-    const boxes=[
-      card.querySelector('.location-head-side-v422 > .scorebox'),
-      card.querySelector('.location-head-side-v422 .decision-score-v340'),
-      card.querySelector('.location-head-side-v422 .decision-complete-v340'),
-    ];
-    const rects=boxes.map(box=>box.getBoundingClientRect());
-    const fonts=boxes.map(box=>getComputedStyle(box.querySelector('strong')).fontSize);
+    const recommendation=card.querySelector('.location-head-side-v422 .card-recommendation-v448');
+    const rect=recommendation.getBoundingClientRect();
+    const style=getComputedStyle(recommendation);
     return {
-      widths:rects.map(rect=>Math.round(rect.width*10)/10),
-      heights:rects.map(rect=>Math.round(rect.height*10)/10),
-      gaps:[
-        Math.round((rects[1].left-rects[0].right)*10)/10,
-        Math.round((rects[2].left-rects[1].right)*10)/10,
-      ],
-      fonts,
+      width:Math.round(rect.width*10)/10,
+      height:Math.round(rect.height*10)/10,
+      borderWidth:style.borderTopWidth,
+      radius:style.borderTopLeftRadius,
+      oldMetricCount:card.querySelectorAll('.location-head-side-v422 .decision-score-v340,.location-head-side-v422 .decision-complete-v340').length,
+      rawVisible:getComputedStyle(card.querySelector('.location-head-side-v422 > .scorebox')).display!=='none',
     };
   });
 
-  expect(Math.max(...result.widths)-Math.min(...result.widths)).toBeLessThanOrEqual(1);
-  expect(Math.max(...result.heights)-Math.min(...result.heights)).toBeLessThanOrEqual(1);
-  expect(Math.abs(result.gaps[0]-result.gaps[1])).toBeLessThanOrEqual(1);
-  expect(new Set(result.fonts).size).toBe(1);
+  expect(result.width).toBeGreaterThan(230);
+  expect(result.height).toBeGreaterThanOrEqual(70);
+  expect(result.borderWidth).toBe('1px');
+  expect(result.radius).toBe('15px');
+  expect(result.oldMetricCount).toBe(0);
+  expect(result.rawVisible).toBe(false);
 });
 
 test('collapse state survives full card rerender without changing saved form data',async({page})=>{
@@ -86,7 +85,7 @@ test('collapse state survives full card rerender without changing saved form dat
   await page.evaluate(()=>renderLocations());
   await page.waitForFunction(locationId=>{
     const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
-    return Boolean(card?.querySelector('.location-collapse-toggle-v422')&&card.classList.contains('location-card-collapsed-v422'));
+    return Boolean(card?.querySelector('.location-collapse-toggle-v422')&&card.classList.contains('location-card-collapsed-v422')&&card.querySelector('.card-recommendation-v448'));
   },id);
 
   const rerendered=page.locator(`[data-location-card="${id}"]`);
