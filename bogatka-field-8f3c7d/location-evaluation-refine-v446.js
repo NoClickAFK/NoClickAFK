@@ -4,6 +4,10 @@
 
   const VERSION='4.4.6';
   const COMPARISON_LABEL='Соответствие формату';
+  const RENT_LABEL='Что предварительно предложил арендодатель';
+  const RENT_PLACEHOLDER='Ставка, депозит, каникулы, коммунальные платежи, индексация, ремонт, срок аренды';
+  const CONTACT_LABEL='Комментарий по контакту';
+  const CONTACT_PLACEHOLDER='Когда и как лучше связаться, кто принимает решение, важные детали общения';
   const SCORE_GUIDANCE={
     housing:{label:'Плотность жилой застройки',low:'1 — жилья рядом мало или оно далеко',high:'5 — плотный жилой массив непосредственно вокруг точки'},
     occupied:{label:'Фактическая заселённость района',low:'1 — много пустующих или строящихся домов',high:'5 — дома давно и плотно заселены'},
@@ -44,7 +48,7 @@
     const workflow=window.BogatkaWorkflowV414;
     if(!workflow)return;
     Object.assign(workflow.SCORE_GUIDANCE||{},SCORE_GUIDANCE);
-    Object.assign(workflow.FIELD_LABELS||{},SCORE_FIELD_LABELS,{rentConditions:'Предварительные условия аренды'});
+    Object.assign(workflow.FIELD_LABELS||{},SCORE_FIELD_LABELS,{rentConditions:RENT_LABEL,contactNotes:CONTACT_LABEL});
   }
 
   function updateGuideRule(guide){
@@ -105,9 +109,13 @@
   function updateProfileAndCompetitorCopy(card){
     const rentConditions=card.querySelector('[data-field="rentConditions"]');
     if(rentConditions){
-      relabelField(rentConditions,'Предварительные условия аренды');
-      const placeholder='Что предварительно озвучил арендодатель: депозит, каникулы, коммунальные платежи, индексация, ремонт';
-      if(rentConditions.placeholder!==placeholder)rentConditions.placeholder=placeholder;
+      relabelField(rentConditions,RENT_LABEL);
+      if(rentConditions.placeholder!==RENT_PLACEHOLDER)rentConditions.placeholder=RENT_PLACEHOLDER;
+    }
+    const contactNotes=card.querySelector('[data-field="contactNotes"]');
+    if(contactNotes){
+      relabelField(contactNotes,CONTACT_LABEL);
+      if(contactNotes.placeholder!==CONTACT_PLACEHOLDER)contactNotes.placeholder=CONTACT_PLACEHOLDER;
     }
     relabelField(card.querySelector('[data-field="competitor.name"]'),'Ближайший прямой конкурент');
   }
