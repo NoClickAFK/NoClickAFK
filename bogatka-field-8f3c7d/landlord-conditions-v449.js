@@ -43,6 +43,25 @@
     document.querySelectorAll('[data-location-card]').forEach(enhanceCard);
   }
 
+  function audit(){
+    const failures=[];
+    const cards=[...document.querySelectorAll('[data-location-card]')];
+    for(const card of cards){
+      const id=card.dataset.locationCard||'unknown';
+      const panel=card.querySelector('.landlord-card-v416');
+      const rent=panel?.querySelector('[data-field="rentConditions"]');
+      const contact=panel?.querySelector('[data-field="contactNotes"]');
+      const copy=panel?.querySelector('.profile-section-head-v416 > span')?.textContent||'';
+      if(!panel)failures.push(`${id}:panel`);
+      if(captionFor(rent)?.textContent!==RENT_LABEL)failures.push(`${id}:rent-label`);
+      if(rent?.placeholder!==RENT_PLACEHOLDER)failures.push(`${id}:rent-placeholder`);
+      if(captionFor(contact)?.textContent!==CONTACT_LABEL)failures.push(`${id}:contact-label`);
+      if(contact?.placeholder!==CONTACT_PLACEHOLDER)failures.push(`${id}:contact-placeholder`);
+      if(copy!==SECTION_COPY)failures.push(`${id}:section-copy`);
+    }
+    return{ok:failures.length===0,cards:cards.length,failures};
+  }
+
   function replaceReportLabel(block,oldLabels,newLabel){
     [...block.querySelectorAll('.report-landlord-grid-v416 > div')].forEach(item=>{
       const strong=item.querySelector('b');
@@ -154,6 +173,7 @@
     ready:true,
     enhanceAll,
     transformReport,
+    audit,
     labels:{rent:RENT_LABEL,contact:CONTACT_LABEL},
     placeholders:{rent:RENT_PLACEHOLDER,contact:CONTACT_PLACEHOLDER},
     sectionCopy:SECTION_COPY,
