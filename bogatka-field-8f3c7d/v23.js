@@ -157,6 +157,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./report-authority-v428.js'});
   loadBogatkaPatch('script',{src:'./status-next-task-v447.js'});
   loadBogatkaPatch('script',{src:'./card-progress-v448.js'});
+  loadBogatkaPatch('script',{src:'./card-progress-report-v448.js'});
   ensureWorkflowEnhancements();
 
   document.addEventListener('keydown',event=>{
