@@ -10,7 +10,7 @@
 .card-recommendation-v448.good{border-color:#bbdcca;background:#f1f9f4}.card-recommendation-v448.good>strong{color:#236747}
 .card-recommendation-v448.medium{border-color:#cad3ef;background:#f5f7ff}.card-recommendation-v448.medium>strong{color:#4c5f94}
 .card-recommendation-v448.weak{border-color:#dcc6c6;background:#faf4f4}.card-recommendation-v448.weak>strong{color:#805151}
-.decision-progress-v448{margin:14px 0 0!important;padding:16px!important;border:1px solid #cbded3!important;border-radius:18px!important;background:linear-gradient(180deg,#fbfdfc,#f1f7f3)!important}
+.decision-progress-v448{min-width:0;margin:14px 0 0!important;padding:16px!important;border:1px solid #cbded3!important;border-radius:18px!important;background:linear-gradient(180deg,#fbfdfc,#f1f7f3)!important}
 .progress-heading-v448{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,360px);align-items:start;gap:14px;margin-bottom:13px}
 .progress-heading-v448>div:first-child{display:grid;gap:3px;padding:2px}
 .progress-heading-v448>div:first-child>strong{color:#174f3a;font-size:17px;line-height:1.25}
@@ -25,7 +25,7 @@
 .progress-recommendation-v448.medium{border-color:#cbd3ee;background:#f5f7ff}.progress-recommendation-v448.medium>strong{color:#4c5f94}
 .progress-recommendation-v448.weak{border-color:#dcc7c7;background:#faf4f4}.progress-recommendation-v448.weak>strong{color:#805151}
 .progress-metrics-v448{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
-.progress-metrics-v448>article{display:grid;align-content:start;gap:4px;min-height:94px;padding:12px;border:1px solid #d7e4dc;border-radius:13px;background:#fff}
+.progress-metrics-v448>article{min-width:0;display:grid;align-content:start;gap:4px;min-height:94px;padding:12px;border:1px solid #d7e4dc;border-radius:13px;background:#fff}
 .progress-metrics-v448>article>span{color:#6b7971;font-size:11px;line-height:1.3}
 .progress-metrics-v448>article>strong{color:#174f3a;font-size:19px;line-height:1.2;overflow-wrap:anywhere}
 .progress-metrics-v448>article>small{color:#74817a;font-size:10px;line-height:1.35}
@@ -42,7 +42,7 @@
 .fill-plan-heading-v448{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:9px}
 .fill-plan-heading-v448>strong{color:#174f3a;font-size:14px}.fill-plan-heading-v448>span{color:#6d7b73;font-size:11px}
 .fill-plan-list-v448{display:grid;gap:8px}
-.fill-plan-item-v448{display:grid;grid-template-columns:minmax(0,1fr) 120px auto;align-items:center;gap:12px;padding:11px 12px;border:1px solid #d7e3dc;border-radius:12px;background:#fff}
+.fill-plan-item-v448{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 120px auto;align-items:center;gap:12px;padding:11px 12px;border:1px solid #d7e3dc;border-radius:12px;background:#fff}
 .fill-plan-item-v448.active{border-color:#c4d8cc;background:#f8fbf9;box-shadow:inset 3px 0 0 #2c7a58}
 .fill-plan-copy-v448{display:grid;gap:2px;min-width:0}.fill-plan-copy-v448>span{color:#7a887f;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.fill-plan-copy-v448>strong{color:#294d3d;font-size:13px}.fill-plan-copy-v448>small{color:#6d7b73;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
 .fill-plan-progress-v448{height:7px;overflow:hidden;border-radius:999px;background:#e3ece7}.fill-plan-progress-v448>span{display:block;height:100%;border-radius:inherit;background:#4c9270}
