@@ -102,8 +102,8 @@ test('critical lease checks remain unchanged',async({page})=>{
   await openApp(page);
   const state=await page.evaluate(()=>({
     version:window.BogatkaCriticalDeal?.VERSION,
-    count:window.BogatkaCriticalDeal?.DEFINITIONS?.length,
-    keys:window.BogatkaCriticalDeal?.DEFINITIONS?.map(item=>item.key),
+    count:window.BogatkaCriticalDeal?.CONDITIONS?.length,
+    keys:window.BogatkaCriticalDeal?.CONDITIONS?.map(item=>item.key),
   }));
   expect(state.version).toBe('4.3.3');
   expect(state.count).toBe(10);
