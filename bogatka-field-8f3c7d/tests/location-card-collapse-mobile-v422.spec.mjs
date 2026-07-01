@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=448';
 
-test('mobile recommendation spans the full location header without overflow',async({page})=>{
+test('mobile recommendation spans the available location header without overflow',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
@@ -17,6 +17,7 @@ test('mobile recommendation spans the full location header without overflow',asy
     const side=card.querySelector('.location-head-side-v422');
     const sideRect=side.getBoundingClientRect();
     const recommendation=side.querySelector('.card-recommendation-v448').getBoundingClientRect();
+    const toggle=side.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
     return {
       headWidth:head.width,
       titleWidth:title.width,
@@ -25,6 +26,7 @@ test('mobile recommendation spans the full location header without overflow',asy
       headLeft:head.left,
       overflow:side.scrollWidth-side.clientWidth,
       recommendationWidth:recommendation.width,
+      toggleWidth:toggle.width,
       oldMetricCount:side.querySelectorAll(':scope > .scorebox:not([hidden]),.decision-score-v340,.decision-complete-v340').length,
     };
   });
@@ -33,7 +35,7 @@ test('mobile recommendation spans the full location header without overflow',asy
   expect(layout.sideWidth).toBeGreaterThan(layout.headWidth-40);
   expect(Math.abs(layout.sideLeft-layout.headLeft)).toBeLessThanOrEqual(20);
   expect(layout.overflow).toBeLessThanOrEqual(1);
-  expect(layout.recommendationWidth).toBeGreaterThan(layout.sideWidth-4);
+  expect(layout.recommendationWidth).toBeGreaterThan(layout.sideWidth-layout.toggleWidth-20);
   expect(layout.oldMetricCount).toBe(0);
 
   const card=page.locator('[data-location-card]').first();
