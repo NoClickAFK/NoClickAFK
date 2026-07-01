@@ -56,25 +56,45 @@
   }
 
   function syncPremium(select){
-    if(!select)return;
+    if(!select)return false;
     const trigger=select.nextElementSibling?.classList.contains('premium-select-trigger')?select.nextElementSibling:null;
-    if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-    else if(trigger&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
-    if(trigger){
-      trigger.disabled=select.disabled;
-      trigger.setAttribute('aria-disabled',String(select.disabled));
-    }
+    if(!trigger)return false;
+    const selected=select.selectedOptions?.[0]||select.options?.[select.selectedIndex]||select.options?.[0];
+    const nextText=selected?.textContent||'Выберите';
+    const valueNode=trigger.querySelector('.premium-select-value');
+    if(valueNode&&valueNode.textContent!==nextText)valueNode.textContent=nextText;
+    if(trigger.disabled!==select.disabled)trigger.disabled=select.disabled;
+    const ariaDisabled=String(select.disabled);
+    if(trigger.getAttribute('aria-disabled')!==ariaDisabled)trigger.setAttribute('aria-disabled',ariaDisabled);
+    if(trigger.dataset.syncedValue!==select.value)trigger.dataset.syncedValue=select.value;
+    return true;
   }
 
   function updateRow(row,state){
     if(!row)return;
     const normalized=normalizeState(state);
-    row.dataset.checkState=normalized;
+    if(row.dataset.checkState!==normalized)row.dataset.checkState=normalized;
     row.classList.toggle('check-answered-v451',isAnswered(normalized));
     row.classList.toggle('check-unchecked-v451',normalized==='unchecked');
     row.classList.toggle('check-yes-v451',normalized==='yes');
     row.classList.toggle('check-no-v451',normalized==='no');
     row.classList.toggle('check-not-applicable-v451',normalized==='not_applicable');
+  }
+
+  function checklistSaveProxy(select){
+    const field=String(select?.dataset?.field||'');
+    if(!field.startsWith('check.'))return select;
+    const label=select.closest('.check-row')?.querySelector(':scope > span')?.textContent?.trim()||field;
+    return{
+      dataset:select.dataset,
+      type:select.type,
+      value:select.value,
+      checked:Boolean(select.checked),
+      closest(selector){
+        if(selector==='label')return{childNodes:[{textContent:label}]};
+        return select.closest?.(selector)||null;
+      },
+    };
   }
 
   function bindSelect(select){
@@ -94,7 +114,7 @@
       if(typeof showSaving==='function')showSaving();
       try{
         if(typeof saveField!=='function')throw new Error('Не найдена функция сохранения поля.');
-        await saveField(select);
+        await saveField(checklistSaveProxy(select));
         patchHistoryValues(card);
       }catch(error){
         if(typeof showError==='function')showError(error);else console.error(error);
@@ -107,6 +127,7 @@
     let select=row.querySelector('select[data-quick-checklist-v451]');
     if(select){
       bindSelect(select);
+      syncPremium(select);
       return select;
     }
     const checkbox=row.querySelector('input[type="checkbox"][data-field^="check."]');
@@ -122,9 +143,14 @@
     select.setAttribute('aria-label',`${label}: результат проверки`);
     checkbox.replaceWith(select);
     bindSelect(select);
-    if(typeof bogatkaEnhanceSelect==='function')bogatkaEnhanceSelect(select);
-    else setTimeout(()=>{
-      if(typeof bogatkaEnhanceSelect==='function')bogatkaEnhanceSelect(select);
+    if(typeof bogatkaEnhanceSelect==='function'){
+      bogatkaEnhanceSelect(select);
+      syncPremium(select);
+    }else setTimeout(()=>{
+      if(typeof bogatkaEnhanceSelect==='function'){
+        bogatkaEnhanceSelect(select);
+        syncPremium(select);
+      }
     },40);
     return select;
   }
@@ -172,9 +198,12 @@
         badge.className='check-group-progress-v451';
         heading.appendChild(badge);
       }
-      badge.textContent=`${answered}/${rows.length}`;
-      badge.title=`Проверено ${answered} из ${rows.length}`;
-      group.dataset.checkGroupComplete=String(rows.length>0&&answered===rows.length);
+      const text=`${answered}/${rows.length}`;
+      const title=`Проверено ${answered} из ${rows.length}`;
+      if(badge.textContent!==text)badge.textContent=text;
+      if(badge.title!==title)badge.title=title;
+      const complete=String(rows.length>0&&answered===rows.length);
+      if(group.dataset.checkGroupComplete!==complete)group.dataset.checkGroupComplete=complete;
     });
   }
 
@@ -198,11 +227,13 @@
         const node=summary.querySelector(`[data-check-summary="${key}"]`);
         if(node&&node.textContent!==String(value))node.textContent=String(value);
       });
-      summary.style.setProperty('--checklist-progress-v451',`${result.percent}%`);
+      const progress=`${result.percent}%`;
+      if(summary.style.getPropertyValue('--checklist-progress-v451')!==progress)summary.style.setProperty('--checklist-progress-v451',progress);
     }
-    details.dataset.checklistAnswered=String(result.answered);
-    details.dataset.checklistTotal=String(result.total);
-    details.dataset.checklistComplete=String(result.total>0&&result.answered===result.total);
+    if(details.dataset.checklistAnswered!==String(result.answered))details.dataset.checklistAnswered=String(result.answered);
+    if(details.dataset.checklistTotal!==String(result.total))details.dataset.checklistTotal=String(result.total);
+    const complete=String(result.total>0&&result.answered===result.total);
+    if(details.dataset.checklistComplete!==complete)details.dataset.checklistComplete=complete;
     updateGroupProgress(details);
     return result;
   }
@@ -221,29 +252,46 @@
 
   function updateHelp(){
     const item=[...document.querySelectorAll('#helpModal li')].find(node=>node.textContent.includes('Пройдите чек-лист'));
-    if(item)item.textContent='Пройдите быстрый чек-лист. Для каждого пункта выберите «Да», «Нет», «Не требуется» или оставьте «Не проверено».';
+    const text='Пройдите быстрый чек-лист. Для каждого пункта выберите «Да», «Нет», «Не требуется» или оставьте «Не проверено».';
+    if(item&&item.textContent!==text)item.textContent=text;
   }
 
   function patchHistoryValues(root=document){
     const labels={yes:'Да',no:'Нет',not_applicable:'Не требуется',unchecked:'Не проверено'};
     root.querySelectorAll?.('.history-item-v400 ins,.history-item-v400 del').forEach(node=>{
       const value=node.textContent.trim();
-      if(labels[value])node.textContent=labels[value];
+      if(labels[value]&&node.textContent!==labels[value])node.textContent=labels[value];
     });
   }
 
   function applyViewerState(root=document){
     const viewer=isViewer();
     root.querySelectorAll?.('select[data-quick-checklist-v451]').forEach(select=>{
+      let changed=false;
       if(viewer){
-        if(!select.disabled)select.dataset.quickChecklistViewerDisabledV451='1';
-        select.disabled=true;
+        if(!select.disabled){
+          select.dataset.quickChecklistViewerDisabledV451='1';
+          select.disabled=true;
+          changed=true;
+        }
       }else if(select.dataset.quickChecklistViewerDisabledV451==='1'){
         select.disabled=false;
         delete select.dataset.quickChecklistViewerDisabledV451;
+        changed=true;
       }
-      syncPremium(select);
+      if(changed||select.nextElementSibling?.dataset?.syncedValue!==select.value)syncPremium(select);
     });
+  }
+
+  function alignProfiles(root=document){
+    const api=window.BogatkaLocationGlobalV421;
+    if(!api?.alignPairedCaptions)return false;
+    const cards=root.matches?.('[data-location-card]')?[root]:[...root.querySelectorAll?.('[data-location-card]')||[]];
+    cards.forEach(card=>{
+      api.syncPairState?.(card);
+      api.alignPairedCaptions(card);
+    });
+    return true;
   }
 
   async function enhanceCard(card){
@@ -280,6 +328,7 @@
     for(const card of document.querySelectorAll('[data-location-card]'))await enhanceCard(card);
     patchHistoryValues(document);
     applyViewerState(document);
+    alignProfiles(document);
     return true;
   }
 
@@ -299,6 +348,7 @@
     }
     updateSummary(card,data);
     applyViewerState(card);
+    alignProfiles(card);
     return true;
   }
 
@@ -332,6 +382,10 @@
 
   function install(){
     const root=document.getElementById('locations')||document.body;
+    root.addEventListener('click',event=>{
+      const card=event.target.closest?.('[data-location-card]');
+      if(card&&event.target.closest?.('.panel-toggle-v419'))setTimeout(()=>alignProfiles(card),0);
+    });
     new MutationObserver(()=>schedule(100)).observe(root,{childList:true,subtree:true});
     schedule(20);
     [250,700,1500,3000].forEach(delay=>setTimeout(()=>schedule(0),delay));
@@ -349,11 +403,13 @@
     stateLabel,
     isAnswered,
     summaryFromData,
+    checklistSaveProxy,
     enhanceAll,
     enhanceCard,
     syncCard,
     updateSummary,
     applyViewerState,
+    alignProfiles,
     audit,
     get viewerTimer(){return viewerTimer},
   };
