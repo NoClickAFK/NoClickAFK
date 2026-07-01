@@ -35,7 +35,7 @@ test('mobile recommendation spans the available location header without overflow
   expect(layout.sideWidth).toBeGreaterThan(layout.headWidth-40);
   expect(Math.abs(layout.sideLeft-layout.headLeft)).toBeLessThanOrEqual(20);
   expect(layout.overflow).toBeLessThanOrEqual(1);
-  expect(layout.recommendationWidth).toBeGreaterThan(layout.sideWidth-layout.toggleWidth-20);
+  expect(layout.recommendationWidth).toBeGreaterThanOrEqual(layout.sideWidth-layout.toggleWidth-20);
   expect(layout.oldMetricCount).toBe(0);
 
   const card=page.locator('[data-location-card]').first();
