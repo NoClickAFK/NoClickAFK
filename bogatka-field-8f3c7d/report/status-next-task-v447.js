@@ -100,11 +100,9 @@
       addNextStep(article,data);
     });
 
-    const comparisonRows=[...document.querySelectorAll('#reportRoot .comparison tbody tr')];
-    comparisonRows.forEach((row,index)=>{
-      const location=locations[index];
+    document.querySelectorAll('#reportRoot .comparison tbody tr').forEach(row=>{
       const cell=row.children[6];
-      if(location&&cell)cell.textContent=normalizeStatus(location.form_data?.status||location.status)||'—';
+      if(cell)cell.textContent=normalizeStatus(cell.textContent.trim())||'—';
     });
   }
 
