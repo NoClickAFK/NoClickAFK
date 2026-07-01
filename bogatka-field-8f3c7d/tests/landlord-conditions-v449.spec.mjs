@@ -81,9 +81,12 @@ test('HTML and PDF source use the same landlord wording',async({page})=>{
     const panel=doc.querySelector('.report-location-card .landlord-card-v416');
     const wrapper=field=>panel?.querySelector(`[data-landlord-order-v419="${field}"],[data-profile-field="${field}"],[data-overview-field="${field}"],[data-panel-field="${field}"]`);
     const caption=field=>wrapper(field)?.querySelector(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446')?.textContent||'';
+    const heading=panel?.querySelector(':scope > .report-landlord-heading-v449');
     return{
       text:panel?.textContent||'',
-      copy:panel?.querySelector('.panel-copy-v419,.profile-section-head-v416 > span')?.textContent||'',
+      headingTitle:heading?.querySelector('strong')?.textContent||'',
+      headingCopy:heading?.querySelector('span')?.textContent||'',
+      stylePresent:Boolean(doc.getElementById('landlordConditionsStyleV449')),
       rentLabel:caption('rentConditions'),
       contactLabel:caption('contactNotes'),
       marked:panel?.dataset.landlordConditionsV449==='1',
@@ -99,7 +102,9 @@ test('HTML and PDF source use the same landlord wording',async({page})=>{
   expect(report.htmlAction).toBe(true);
   expect(report.pdfAction).toBe(true);
   expect(report.marked).toBe(true);
-  expect(report.copy).toBe(SECTION_COPY);
+  expect(report.headingTitle).toBe('Арендодатель и условия');
+  expect(report.headingCopy).toBe(SECTION_COPY);
+  expect(report.stylePresent).toBe(true);
   expect(report.rentLabel).toBe(RENT_LABEL);
   expect(report.contactLabel).toBe(CONTACT_LABEL);
   expect(report.text).toContain('Каникулы 30 дней');
