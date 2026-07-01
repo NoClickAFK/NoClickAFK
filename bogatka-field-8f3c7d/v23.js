@@ -161,6 +161,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./card-progress-report-v448.js'});
   loadBogatkaPatch('script',{src:'./landlord-conditions-v449.js'});
   loadBogatkaPatch('script',{src:'./technical-economics-v450.js'});
+  loadBogatkaPatch('script',{src:'./technical-economics-report-v450.js'});
   ensureWorkflowEnhancements();
 
   document.addEventListener('keydown',event=>{
