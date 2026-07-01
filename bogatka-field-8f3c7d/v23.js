@@ -113,6 +113,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-overview-v417.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-panels-v419.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-card-collapse-v422.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./status-next-task-v447.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -153,6 +154,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./report-live-fixes-v427.js'});
   loadBogatkaPatch('script',{src:'./report-polish-v428.js'});
   loadBogatkaPatch('script',{src:'./report-authority-v428.js'});
+  loadBogatkaPatch('script',{src:'./status-next-task-v447.js'});
   ensureWorkflowEnhancements();
 
   document.addEventListener('keydown',event=>{
