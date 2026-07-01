@@ -72,7 +72,10 @@
   function relabelStatus(select){
     const label=select?.closest('label.field');
     if(!label)return;
-    let caption=label.querySelector(':scope > .profile-caption-v416,:scope > .status-caption-v447');
+    const profileCaption=label.querySelector(':scope > .profile-caption-v416');
+    const statusCaption=label.querySelector(':scope > .status-caption-v447');
+    let caption=profileCaption||statusCaption;
+    if(profileCaption&&statusCaption&&profileCaption!==statusCaption)statusCaption.remove();
     if(!caption){
       [...label.childNodes].filter(node=>node.nodeType===Node.TEXT_NODE&&node.textContent.trim()).forEach(node=>node.remove());
       caption=document.createElement('span');
@@ -176,7 +179,7 @@
     if(!id||!grid)return null;
     for(const field of ['nextActionDate','nextAction']){
       const wrapper=grid.querySelector(`[data-field="${field}"]`)?.closest('label.field');
-      if(wrapper&&!wrapper.classList.contains('profile-hidden-v447')){
+      if(wrapper){
         wrapper.hidden=true;
         wrapper.classList.add('profile-hidden-v447');
         wrapper.setAttribute('aria-hidden','true');
@@ -229,6 +232,8 @@
   }
 
   async function enhanceAll(){
+    installReportWrapper();
+    installUpdateSummaryWrapper();
     for(const card of document.querySelectorAll('[data-location-card]'))await enhanceCard(card);
     await refreshSummaryStageMetrics();
   }
@@ -249,13 +254,13 @@
   function installReportWrapper(){
     reportAttempts+=1;
     if(typeof window.buildReportHtml!=='function'){
-      if(reportAttempts<100)setTimeout(installReportWrapper,200);
+      if(reportAttempts<160)setTimeout(installReportWrapper,200);
       return;
     }
-    if(window.buildReportHtml.__statusNextTaskV447)return;
-    const base=window.buildReportHtml;
+    const current=window.buildReportHtml||buildReportHtml;
+    if(current.__statusNextTaskV447)return;
     const wrapped=async function(...args){
-      const html=await base(...args);
+      const html=await current(...args);
       const documentReport=new DOMParser().parseFromString(html,'text/html');
       const sections=[...documentReport.querySelectorAll('[data-location-card],.report-location')];
       for(let index=0;index<sections.length;index++){
@@ -281,22 +286,22 @@
       return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
     };
     wrapped.__statusNextTaskV447=true;
-    wrapped.__base=base;
+    wrapped.__base=current;
     window.buildReportHtml=wrapped;
     try{buildReportHtml=wrapped}catch(_){ }
   }
 
   function installUpdateSummaryWrapper(){
-    if(window.__bogatkaUpdateSummaryStatusV447||typeof updateSummary!=='function')return;
-    window.__bogatkaUpdateSummaryStatusV447=true;
-    const base=window.updateSummary||updateSummary;
+    if(typeof window.updateSummary!=='function'&&typeof updateSummary!=='function')return;
+    const current=window.updateSummary||updateSummary;
+    if(current.__statusNextTaskV447)return;
     const wrapped=async function(...args){
-      const result=await base(...args);
+      const result=await current(...args);
       await enhanceAll();
       return result;
     };
     wrapped.__statusNextTaskV447=true;
-    wrapped.__base=base;
+    wrapped.__base=current;
     window.updateSummary=wrapped;
     try{updateSummary=wrapped}catch(_){ }
   }
@@ -313,7 +318,7 @@
     const root=document.getElementById('locations')||document.body;
     new MutationObserver(()=>schedule(80)).observe(root,{childList:true,subtree:true});
     schedule(20);
-    [150,500,1200,2500].forEach(delay=>setTimeout(()=>{
+    [150,500,1200,2500,4000,7000].forEach(delay=>setTimeout(()=>{
       installDataCompatibility();
       installUpdateSummaryWrapper();
       installReportWrapper();
