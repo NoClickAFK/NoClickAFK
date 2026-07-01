@@ -3,6 +3,7 @@
   if(window.BogatkaQuickChecklistStabilityV451?.ready)return;
 
   const VERSION='4.5.1';
+  const saveQueues=new Map();
   let attempts=0;
   let timer=null;
 
@@ -22,6 +23,40 @@
     wrapped.__base=current;
     window.bogatkaSyncPremiumSelect=wrapped;
     try{bogatkaSyncPremiumSelect=wrapped}catch(_){ }
+    return true;
+  }
+
+  function checklistSnapshot(element){
+    const location=String(element?.dataset?.location||'');
+    const field=String(element?.dataset?.field||'');
+    if(!location||!field.startsWith('check.'))return null;
+    const value=String(element.value||'unchecked');
+    return{
+      dataset:{location,field},
+      type:element.type||'select-one',
+      value,
+      checked:Boolean(element.checked),
+      closest(selector){return element.closest?.(selector)||null},
+    };
+  }
+
+  function installSerializedChecklistSave(){
+    const current=window.saveField;
+    if(typeof current!=='function')return false;
+    if(current.__quickChecklistSerializedV451)return true;
+    const wrapped=function(element){
+      const snapshot=checklistSnapshot(element);
+      if(!snapshot)return current(element);
+      const key=snapshot.dataset.location;
+      const previous=saveQueues.get(key)||Promise.resolve();
+      const task=previous.catch(()=>{}).then(()=>current(snapshot));
+      saveQueues.set(key,task.catch(()=>{}));
+      return task;
+    };
+    wrapped.__quickChecklistSerializedV451=true;
+    wrapped.__base=current;
+    window.saveField=wrapped;
+    try{saveField=wrapped}catch(_){ }
     return true;
   }
 
@@ -47,9 +82,10 @@
 
   function stabilizeAll(){
     attempts+=1;
-    installIdempotentSelectSync();
+    const selectReady=installIdempotentSelectSync();
+    const saveReady=installSerializedChecklistSave();
     document.querySelectorAll('.check-group-progress-v451').forEach(stabilizeBadge);
-    if(attempts<120&&(!window.BogatkaQuickChecklistV451?.ready||!installIdempotentSelectSync()))setTimeout(stabilizeAll,100);
+    if(attempts<120&&(!window.BogatkaQuickChecklistV451?.ready||!selectReady||!saveReady))setTimeout(stabilizeAll,100);
   }
 
   function schedule(delay=50){
@@ -72,5 +108,7 @@
     ready:true,
     stabilizeAll,
     installIdempotentSelectSync,
+    installSerializedChecklistSave,
+    saveQueues,
   };
 })();
