@@ -164,6 +164,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./technical-economics-v450.js'});
   loadBogatkaPatch('script',{src:'./technical-economics-report-v450.js'});
   loadBogatkaPatch('script',{src:'./quick-checklist-v451.js'});
+  loadBogatkaPatch('script',{src:'./quick-checklist-stability-v451.js'});
   loadBogatkaPatch('script',{src:'./quick-checklist-report-v451.js'});
   ensureWorkflowEnhancements();
 
