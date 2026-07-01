@@ -7,11 +7,13 @@ async function openApp(page){
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaCardProgressV448?.ready&&
+    window.BogatkaCardProgressReportV448?.ready&&
     window.BogatkaStatusNextTaskV447?.ready&&
     window.BogatkaLiveReport?.build?.__reportStabilityV429&&
     window.BogatkaLiveReport.build.__cardProgressV448&&
+    window.BogatkaLiveReport.build.__cardProgressReportV448&&
     window.buildReportHtml===window.BogatkaLiveReport.build&&
-    document.querySelector('[data-location-card] [data-card-progress-v448="1"]')
+    document.querySelector('[data-location-card] .decision-progress-v448')
   ),{timeout:25000});
   return page.locator('[data-location-card]').first();
 }
@@ -93,11 +95,13 @@ test('authoritative HTML and PDF report keeps the expanded evaluation block',asy
       authoritative:window.buildReportHtml===window.BogatkaLiveReport.build,
       stable:Boolean(window.BogatkaLiveReport.build.__reportStabilityV429),
       staged:Boolean(window.BogatkaLiveReport.build.__cardProgressV448),
+      reportIntegrated:Boolean(window.BogatkaLiveReport.build.__cardProgressReportV448),
     };
   });
   expect(report.authoritative).toBe(true);
   expect(report.stable).toBe(true);
   expect(report.staged).toBe(true);
+  expect(report.reportIntegrated).toBe(true);
   expect(report.text).toContain('Оценка и готовность данных');
   expect(report.text).toContain('Качество локации');
   expect(report.text).toContain('Что заполнить дальше');
@@ -107,7 +111,7 @@ test('authoritative HTML and PDF report keeps the expanded evaluation block',asy
 test('expanded block remains usable on a phone width',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const card=await openApp(page);
-  const layout=await card.locator('[data-card-progress-v448="1"]').evaluate(element=>({
+  const layout=await card.locator('.decision-progress-v448').evaluate(element=>({
     width:element.getBoundingClientRect().width,
     scrollWidth:element.scrollWidth,
     metricColumns:getComputedStyle(element.querySelector('.progress-metrics-v448')).gridTemplateColumns,
