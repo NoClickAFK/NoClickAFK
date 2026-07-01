@@ -4,16 +4,26 @@ const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=450';
 const TECH_NOTE='Здесь фиксируются параметры помещения и обязательные суммы по предложению. Прогноз выручки, расходы бизнеса и окупаемость рассчитываются в экономической модели.';
 const ECONOMY_NOTE='Площадь, аренда, коммунальные платежи, депозит, ремонт и оборудование берутся из блока выше. Здесь вводятся только прогноз выручки, маржа и остальные расходы бизнеса.';
 
+async function waitForFinalReportChain(page){
+  await page.waitForFunction(()=>Boolean(
+    window.BogatkaLiveReport?.build?.__technicalEconomicsV450&&
+    window.BogatkaLiveReport?.build?.__reportStabilityV429&&
+    window.buildReportHtml===window.BogatkaLiveReport.build&&
+    window.exportHtmlReport===window.BogatkaLiveReport.build.__htmlAction&&
+    window.openPdfReport===window.BogatkaLiveReport.build.__pdfAction
+  ),{timeout:15000});
+}
+
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaTechnicalEconomicsV450?.ready&&
-    window.BogatkaLiveReport?.build?.__technicalEconomicsV450&&
     window.BogatkaSuite?.calculateEconomy?.__technicalEconomicsV450&&
     window.BogatkaDecisionEngine?.computeAll?.__technicalEconomicsV450&&
     document.querySelector('[data-location-card] [data-technical-economics-v450]')
   ),{timeout:25000});
+  await waitForFinalReportChain(page);
   return page.locator('[data-location-card]').first();
 }
 
@@ -172,19 +182,25 @@ test('HTML and PDF source retain the same fields, sources and calculated value',
       text:location?.textContent||'',
       technicalMarkers:location?.querySelectorAll('[data-technical-economics-report-v450]').length||0,
       style:Boolean(doc.getElementById('technicalEconomicsStyleV450')),
-      authoritative:window.buildReportHtml===window.BogatkaLiveReport.build,
-      marker:Boolean(window.BogatkaLiveReport.build.__technicalEconomicsV450),
-      htmlAction:window.exportHtmlReport===window.BogatkaLiveReport.build.__htmlAction,
-      pdfAction:window.openPdfReport===window.BogatkaLiveReport.build.__pdfAction,
       storedBefore:before.tech.rentPerSqm,
       storedAfter:after.tech.rentPerSqm,
     };
   },id);
 
-  expect(report.authoritative).toBe(true);
-  expect(report.marker).toBe(true);
-  expect(report.htmlAction).toBe(true);
-  expect(report.pdfAction).toBe(true);
+  await waitForFinalReportChain(page);
+  const chain=await page.evaluate(()=>({
+    authoritative:window.buildReportHtml===window.BogatkaLiveReport.build,
+    marker:Boolean(window.BogatkaLiveReport.build.__technicalEconomicsV450),
+    stability:Boolean(window.BogatkaLiveReport.build.__reportStabilityV429),
+    htmlAction:window.exportHtmlReport===window.BogatkaLiveReport.build.__htmlAction,
+    pdfAction:window.openPdfReport===window.BogatkaLiveReport.build.__pdfAction,
+  }));
+
+  expect(chain.authoritative).toBe(true);
+  expect(chain.marker).toBe(true);
+  expect(chain.stability).toBe(true);
+  expect(chain.htmlAction).toBe(true);
+  expect(chain.pdfAction).toBe(true);
   expect(report.technicalMarkers).toBeGreaterThanOrEqual(2);
   expect(report.style).toBe(true);
   expect(report.text).toContain('Общая площадь помещения, м²');
