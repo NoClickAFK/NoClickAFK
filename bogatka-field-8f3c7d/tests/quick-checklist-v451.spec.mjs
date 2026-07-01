@@ -7,6 +7,7 @@ async function openApp(page){
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaQuickChecklistV451?.ready&&
+    window.BogatkaQuickChecklistStabilityV451?.ready&&
     window.BogatkaQuickChecklistReportV451?.ready&&
     window.BogatkaLiveReport?.build?.__quickChecklistReportV451&&
     document.querySelector('[data-location-card] [data-quick-checklist-v451]')&&
@@ -17,6 +18,13 @@ async function openApp(page){
 
 function checklist(card){
   return card.locator('[data-quick-checklist-v451]');
+}
+
+async function chooseState(control,value){
+  await control.evaluate((select,next)=>{
+    select.value=next;
+    select.dispatchEvent(new Event('change',{bubbles:true}));
+  },value);
 }
 
 test('quick checklist uses four explicit states instead of an ambiguous checkbox',async({page})=>{
@@ -60,9 +68,9 @@ test('no and not-required are saved as real answered states and survive rerender
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   const block=checklist(card);
-  await block.locator('[data-field="check.housing_dense"]').selectOption('yes');
-  await block.locator('[data-field="check.housing_occupied"]').selectOption('no');
-  await block.locator('[data-field="check.foot_traffic"]').selectOption('not_applicable');
+  await chooseState(block.locator('[data-field="check.housing_dense"]'),'yes');
+  await chooseState(block.locator('[data-field="check.housing_occupied"]'),'no');
+  await chooseState(block.locator('[data-field="check.foot_traffic"]'),'not_applicable');
   await page.waitForFunction(async locationId=>{
     const data=await getLocationData(locationId);
     return data?.check?.housing_dense==='yes'&&data?.check?.housing_occupied==='no'&&data?.check?.foot_traffic==='not_applicable';
@@ -98,9 +106,9 @@ test('no and not-required are saved as real answered states and survive rerender
 test('HTML and PDF source show readable checklist states and preserve the authoritative report chain',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
-  await checklist(card).locator('[data-field="check.housing_dense"]').selectOption('yes');
-  await checklist(card).locator('[data-field="check.housing_occupied"]').selectOption('no');
-  await checklist(card).locator('[data-field="check.foot_traffic"]').selectOption('not_applicable');
+  await chooseState(checklist(card).locator('[data-field="check.housing_dense"]'),'yes');
+  await chooseState(checklist(card).locator('[data-field="check.housing_occupied"]'),'no');
+  await chooseState(checklist(card).locator('[data-field="check.foot_traffic"]'),'not_applicable');
   await page.waitForFunction(async locationId=>(await getLocationData(locationId))?.check?.foot_traffic==='not_applicable',id);
 
   const result=await page.evaluate(async locationId=>{
@@ -141,17 +149,19 @@ test('HTML and PDF source show readable checklist states and preserve the author
 test('viewer cannot change quick checklist states',async({page})=>{
   const card=await openApp(page);
   const select=checklist(card).locator('select[data-quick-checklist-v451]').first();
+  const trigger=select.locator('xpath=following-sibling::button[1]');
   await page.evaluate(()=>{
     cloudRole='viewer';
     window.BogatkaQuickChecklistV451.applyViewerState(document);
   });
   await expect(select).toBeDisabled();
-  await expect(select.locator('xpath=following-sibling::button[contains(@class,"premium-select-trigger")]')).toBeDisabled();
+  await expect(trigger).toBeDisabled();
   await page.evaluate(()=>{
     cloudRole='editor';
     window.BogatkaQuickChecklistV451.applyViewerState(document);
   });
   await expect(select).toBeEnabled();
+  await expect(trigger).toBeEnabled();
 });
 
 test('stage 5 does not change the completed lease-check schema',async({page})=>{
