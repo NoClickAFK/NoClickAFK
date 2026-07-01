@@ -27,6 +27,14 @@ async function chooseState(control,value){
   },value);
 }
 
+async function chooseStateAndWait(page,control,locationId,field,value){
+  await chooseState(control,value);
+  await page.waitForFunction(async ({locationId,field,value})=>{
+    const data=await getLocationData(locationId);
+    return getNested(data,field)===value;
+  },{locationId,field,value});
+}
+
 test('quick checklist uses four explicit states instead of an ambiguous checkbox',async({page})=>{
   const card=await openApp(page);
   const block=checklist(card);
@@ -68,13 +76,9 @@ test('no and not-required are saved as real answered states and survive rerender
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   const block=checklist(card);
-  await chooseState(block.locator('[data-field="check.housing_dense"]'),'yes');
-  await chooseState(block.locator('[data-field="check.housing_occupied"]'),'no');
-  await chooseState(block.locator('[data-field="check.foot_traffic"]'),'not_applicable');
-  await page.waitForFunction(async locationId=>{
-    const data=await getLocationData(locationId);
-    return data?.check?.housing_dense==='yes'&&data?.check?.housing_occupied==='no'&&data?.check?.foot_traffic==='not_applicable';
-  },id);
+  await chooseStateAndWait(page,block.locator('[data-field="check.housing_dense"]'),id,'check.housing_dense','yes');
+  await chooseStateAndWait(page,block.locator('[data-field="check.housing_occupied"]'),id,'check.housing_occupied','no');
+  await chooseStateAndWait(page,block.locator('[data-field="check.foot_traffic"]'),id,'check.foot_traffic','not_applicable');
 
   await expect(block.locator('[data-check-summary="answered"]')).toHaveText(/3 из /);
   await expect(block.locator('[data-check-summary="yes"]')).toHaveText('1');
@@ -106,10 +110,10 @@ test('no and not-required are saved as real answered states and survive rerender
 test('HTML and PDF source show readable checklist states and preserve the authoritative report chain',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
-  await chooseState(checklist(card).locator('[data-field="check.housing_dense"]'),'yes');
-  await chooseState(checklist(card).locator('[data-field="check.housing_occupied"]'),'no');
-  await chooseState(checklist(card).locator('[data-field="check.foot_traffic"]'),'not_applicable');
-  await page.waitForFunction(async locationId=>(await getLocationData(locationId))?.check?.foot_traffic==='not_applicable',id);
+  const block=checklist(card);
+  await chooseStateAndWait(page,block.locator('[data-field="check.housing_dense"]'),id,'check.housing_dense','yes');
+  await chooseStateAndWait(page,block.locator('[data-field="check.housing_occupied"]'),id,'check.housing_occupied','no');
+  await chooseStateAndWait(page,block.locator('[data-field="check.foot_traffic"]'),id,'check.foot_traffic','not_applicable');
 
   const result=await page.evaluate(async locationId=>{
     const before=await getLocationData(locationId);
