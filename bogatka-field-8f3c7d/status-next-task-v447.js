@@ -25,7 +25,6 @@
   const PRIORITY_LABELS={critical:'Критический',high:'Высокий',normal:'Обычный'};
   const TASK_STATUS_LABELS={todo:'К выполнению',doing:'В работе',waiting:'Ожидает',done:'Готово'};
   let timer=null;
-  let reportAttempts=0;
 
   const plainObject=value=>value&&typeof value==='object'&&!Array.isArray(value);
   const normalizeStatus=value=>LEGACY_STATUS_MAP[String(value||'')]||String(value||'');
@@ -83,13 +82,7 @@
       label.prepend(caption);
     }
     setText(caption,'Статус работы с объектом');
-    let help=label.querySelector(':scope > .status-help-v447');
-    if(!help){
-      help=document.createElement('small');
-      help.className='status-help-v447';
-      label.append(help);
-    }
-    setText(help,'Показывает, на каком этапе сейчас находится работа с этой локацией.');
+    label.querySelector(':scope > .status-help-v447')?.remove();
   }
 
   function updateStatusSelect(select){
@@ -225,6 +218,12 @@
     for(const [id,label] of Object.entries(labels))setText(document.getElementById(id)?.closest('.metric')?.querySelector('span'),label);
   }
 
+  function markReportBuilder(){
+    const builder=window.BogatkaLiveReport?.build;
+    if(typeof builder!=='function')return;
+    builder.__statusNextTaskV447=true;
+  }
+
   async function enhanceCard(card){
     updateStatusSelect(card.querySelector('select[data-field="status"]'));
     setText(card.querySelector('.inspection-card-v416 .profile-section-head-v416 span'),'Текущий этап работы, формат, состояние помещения и следующий шаг.');
@@ -232,63 +231,10 @@
   }
 
   async function enhanceAll(){
-    installReportWrapper();
+    markReportBuilder();
     installUpdateSummaryWrapper();
     for(const card of document.querySelectorAll('[data-location-card]'))await enhanceCard(card);
     await refreshSummaryStageMetrics();
-  }
-
-  function reportCell(section,label){
-    return [...section.querySelectorAll('div')].find(cell=>cell.querySelector(':scope > b,:scope > strong')?.textContent.trim().replace(/:$/,'')===label);
-  }
-
-  function replaceReportValue(cell,value){
-    if(!cell)return;
-    const label=cell.querySelector('b,strong');
-    if(!label)return;
-    const text=` ${value||'—'}`;
-    if(cell.childNodes.length===2&&cell.childNodes[1].nodeType===Node.TEXT_NODE&&cell.childNodes[1].textContent===text)return;
-    cell.replaceChildren(label,document.createTextNode(text));
-  }
-
-  function installReportWrapper(){
-    reportAttempts+=1;
-    if(typeof window.buildReportHtml!=='function'){
-      if(reportAttempts<160)setTimeout(installReportWrapper,200);
-      return;
-    }
-    const current=window.buildReportHtml||buildReportHtml;
-    if(current.__statusNextTaskV447)return;
-    const wrapped=async function(...args){
-      const html=await current(...args);
-      const documentReport=new DOMParser().parseFromString(html,'text/html');
-      const sections=[...documentReport.querySelectorAll('[data-location-card],.report-location')];
-      for(let index=0;index<sections.length;index++){
-        const section=sections[index];
-        const id=section.dataset.locationCard||section.dataset.locationId||locations[index]?.id;
-        if(!id)continue;
-        const data=await getLocationData(id);
-        replaceReportValue(reportCell(section,'Статус'),data.status);
-        const presentation=taskPresentation(data);
-        let next=reportCell(section,'Следующий шаг');
-        if(!next){
-          const grid=section.querySelector('.report-inspection-grid-v417,.report-summary-grid');
-          if(grid){
-            next=documentReport.createElement('div');
-            const strong=documentReport.createElement('b');
-            strong.textContent='Следующий шаг:';
-            next.append(strong);
-            grid.append(next);
-          }
-        }
-        replaceReportValue(next,`${presentation.title}${presentation.kind==='task'&&presentation.meta?` — ${presentation.meta}`:''}`);
-      }
-      return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
-    };
-    wrapped.__statusNextTaskV447=true;
-    wrapped.__base=current;
-    window.buildReportHtml=wrapped;
-    try{buildReportHtml=wrapped}catch(_){ }
   }
 
   function installUpdateSummaryWrapper(){
@@ -314,14 +260,14 @@
   function install(){
     installDataCompatibility();
     installUpdateSummaryWrapper();
-    installReportWrapper();
+    markReportBuilder();
     const root=document.getElementById('locations')||document.body;
     new MutationObserver(()=>schedule(80)).observe(root,{childList:true,subtree:true});
     schedule(20);
     [150,500,1200,2500,4000,7000].forEach(delay=>setTimeout(()=>{
       installDataCompatibility();
       installUpdateSummaryWrapper();
-      installReportWrapper();
+      markReportBuilder();
       schedule(20);
     },delay));
   }
