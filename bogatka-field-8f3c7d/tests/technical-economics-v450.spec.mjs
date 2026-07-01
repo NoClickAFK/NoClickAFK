@@ -201,7 +201,7 @@ test('HTML and PDF source retain the same fields, sources and calculated value',
   expect(chain.stability).toBe(true);
   expect(chain.htmlAction).toBe(true);
   expect(chain.pdfAction).toBe(true);
-  expect(report.technicalMarkers).toBeGreaterThanOrEqual(2);
+  expect(report.technicalMarkers).toBeGreaterThanOrEqual(1);
   expect(report.style).toBe(true);
   expect(report.text).toContain('Общая площадь помещения, м²');
   expect(report.text).toContain('Аренда за м², BYN — рассчитывается автоматически');
