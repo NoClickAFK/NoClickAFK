@@ -7,6 +7,7 @@ const ECONOMY_NOTE='Площадь, аренда, коммунальные пл�
 async function waitForFinalReportChain(page){
   await page.waitForFunction(()=>Boolean(
     window.BogatkaLiveReport?.build?.__technicalEconomicsV450&&
+    window.BogatkaLiveReport?.build?.__technicalEconomicsReportV450&&
     window.BogatkaLiveReport?.build?.__reportStabilityV429&&
     window.buildReportHtml===window.BogatkaLiveReport.build&&
     window.exportHtmlReport===window.BogatkaLiveReport.build.__htmlAction&&
@@ -191,6 +192,7 @@ test('HTML and PDF source retain the same fields, sources and calculated value',
   const chain=await page.evaluate(()=>({
     authoritative:window.buildReportHtml===window.BogatkaLiveReport.build,
     marker:Boolean(window.BogatkaLiveReport.build.__technicalEconomicsV450),
+    reportMarker:Boolean(window.BogatkaLiveReport.build.__technicalEconomicsReportV450),
     stability:Boolean(window.BogatkaLiveReport.build.__reportStabilityV429),
     htmlAction:window.exportHtmlReport===window.BogatkaLiveReport.build.__htmlAction,
     pdfAction:window.openPdfReport===window.BogatkaLiveReport.build.__pdfAction,
@@ -198,6 +200,7 @@ test('HTML and PDF source retain the same fields, sources and calculated value',
 
   expect(chain.authoritative).toBe(true);
   expect(chain.marker).toBe(true);
+  expect(chain.reportMarker).toBe(true);
   expect(chain.stability).toBe(true);
   expect(chain.htmlAction).toBe(true);
   expect(chain.pdfAction).toBe(true);
