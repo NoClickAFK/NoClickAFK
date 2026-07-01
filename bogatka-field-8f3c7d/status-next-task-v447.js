@@ -27,8 +27,9 @@
   let timer=null;
   let reportAttempts=0;
 
-  const normalizeStatus=value=>LEGACY_STATUS_MAP[String(value||'')]||String(value||'');
   const plainObject=value=>value&&typeof value==='object'&&!Array.isArray(value);
+  const normalizeStatus=value=>LEGACY_STATUS_MAP[String(value||'')]||String(value||'');
+  const setText=(node,value)=>{if(node&&node.textContent!==value)node.textContent=value;};
 
   function normalizeData(source){
     if(!plainObject(source))return source||{};
@@ -47,9 +48,7 @@
     if(window.__bogatkaStatusDataCompatV447||typeof getLocationData!=='function')return;
     window.__bogatkaStatusDataCompatV447=true;
     const base=window.getLocationData||getLocationData;
-    const wrapped=async function statusCompatibleGetLocationData(id){
-      return normalizeData(await base(id));
-    };
+    const wrapped=async id=>normalizeData(await base(id));
     wrapped.__statusDataCompatV447=true;
     wrapped.__base=base;
     window.getLocationData=wrapped;
@@ -58,14 +57,16 @@
 
   function syncPremium(select){
     if(!select)return;
+    const trigger=select.nextElementSibling;
+    if(!trigger?.classList.contains('premium-select-trigger'))return;
+    const selectedText=select.selectedOptions?.[0]?.textContent||'';
+    const valueNode=trigger.querySelector('.premium-select-value');
+    if(trigger.dataset.syncedValue===select.value&&valueNode?.textContent===selectedText)return;
     if(window.BogatkaSelectSync?.syncVisibleSelect){
       window.BogatkaSelectSync.syncVisibleSelect(select);
       return;
     }
-    const trigger=select.nextElementSibling;
-    if(trigger?.classList.contains('premium-select-trigger')&&typeof bogatkaSyncPremiumSelect==='function'){
-      bogatkaSyncPremiumSelect(select,trigger);
-    }
+    if(typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
   }
 
   function relabelStatus(select){
@@ -78,14 +79,14 @@
       caption.className='status-caption-v447';
       label.prepend(caption);
     }
-    caption.textContent='Статус работы с объектом';
+    setText(caption,'Статус работы с объектом');
     let help=label.querySelector(':scope > .status-help-v447');
     if(!help){
       help=document.createElement('small');
       help.className='status-help-v447';
-      help.textContent='Показывает, на каком этапе сейчас находится работа с этой локацией.';
       label.append(help);
     }
+    setText(help,'Показывает, на каком этапе сейчас находится работа с этой локацией.');
   }
 
   function updateStatusSelect(select){
@@ -115,15 +116,10 @@
     syncPremium(select);
   }
 
-  function taskDueValue(task){
-    if(!task?.dueDate)return Number.POSITIVE_INFINITY;
-    const value=Date.parse(`${task.dueDate}T23:59:59`);
-    return Number.isFinite(value)?value:Number.POSITIVE_INFINITY;
-  }
-
-  function taskCreatedValue(task){
-    const value=Date.parse(task?.createdAt||'');
-    return Number.isFinite(value)?value:Number.POSITIVE_INFINITY;
+  function numericDate(value,suffix=''){
+    if(!value)return Number.POSITIVE_INFINITY;
+    const parsed=Date.parse(`${value}${suffix}`);
+    return Number.isFinite(parsed)?parsed:Number.POSITIVE_INFINITY;
   }
 
   function pickNextTask(data={}){
@@ -131,9 +127,9 @@
     tasks.sort((left,right)=>{
       const priority=(PRIORITY_ORDER[left.priority]??PRIORITY_ORDER.normal)-(PRIORITY_ORDER[right.priority]??PRIORITY_ORDER.normal);
       if(priority)return priority;
-      const due=taskDueValue(left)-taskDueValue(right);
+      const due=numericDate(left.dueDate,'T23:59:59')-numericDate(right.dueDate,'T23:59:59');
       if(Number.isFinite(due)&&due)return due;
-      const created=taskCreatedValue(left)-taskCreatedValue(right);
+      const created=numericDate(left.createdAt)-numericDate(right.createdAt);
       if(Number.isFinite(created)&&created)return created;
       return String(left.title||'').localeCompare(String(right.title||''),'ru');
     });
@@ -143,8 +139,7 @@
   function formatDueDate(value){
     if(!value)return '';
     const date=new Date(`${value}T12:00:00`);
-    if(Number.isNaN(date.getTime()))return String(value);
-    return date.toLocaleDateString('ru-RU');
+    return Number.isNaN(date.getTime())?String(value):date.toLocaleDateString('ru-RU');
   }
 
   function taskPresentation(data={}){
@@ -180,24 +175,22 @@
     const grid=card.querySelector('.inspection-grid-v416');
     if(!id||!grid)return null;
     for(const field of ['nextActionDate','nextAction']){
-      const control=grid.querySelector(`[data-field="${field}"]`);
-      const wrapper=control?.closest('label.field');
-      if(wrapper){
+      const wrapper=grid.querySelector(`[data-field="${field}"]`)?.closest('label.field');
+      if(wrapper&&!wrapper.classList.contains('profile-hidden-v447')){
         wrapper.hidden=true;
         wrapper.classList.add('profile-hidden-v447');
         wrapper.setAttribute('aria-hidden','true');
       }
     }
     let panel=grid.querySelector(`[data-next-task-v447="${CSS.escape(id)}"]`);
-    if(!panel){
-      panel=document.createElement('div');
-      panel.className='next-task-v447 profile-wide-v416 inspection-action-v417';
-      panel.dataset.nextTaskV447=id;
-      panel.innerHTML='<span class="profile-caption-v416">Следующий шаг по локации</span><div class="next-task-card-v447"><div><strong data-next-task-title-v447></strong><small data-next-task-meta-v447></small></div><button type="button" class="btn secondary small" data-open-tasks-v447>Открыть задачи</button></div>';
-      const undo=grid.querySelector('.inspection-note-v416');
-      grid.insertBefore(panel,undo||null);
-      panel.querySelector('[data-open-tasks-v447]')?.addEventListener('click',()=>openTasks(card));
-    }
+    if(panel)return panel;
+    panel=document.createElement('div');
+    panel.className='next-task-v447 profile-wide-v416 inspection-action-v417';
+    panel.dataset.nextTaskV447=id;
+    panel.innerHTML='<span class="profile-caption-v416">Следующий шаг по локации</span><div class="next-task-card-v447"><div><strong data-next-task-title-v447></strong><small data-next-task-meta-v447></small></div><button type="button" class="btn secondary small" data-open-tasks-v447>Открыть задачи</button></div>';
+    const undo=grid.querySelector('.inspection-note-v416');
+    grid.insertBefore(panel,undo||null);
+    panel.querySelector('[data-open-tasks-v447]')?.addEventListener('click',()=>openTasks(card));
     return panel;
   }
 
@@ -208,10 +201,8 @@
     const presentation=taskPresentation(await getLocationData(id));
     panel.dataset.nextTaskKind=presentation.kind;
     panel.dataset.nextTaskPriority=presentation.priority;
-    const title=panel.querySelector('[data-next-task-title-v447]');
-    const meta=panel.querySelector('[data-next-task-meta-v447]');
-    if(title)title.textContent=presentation.title;
-    if(meta)meta.textContent=presentation.meta;
+    setText(panel.querySelector('[data-next-task-title-v447]'),presentation.title);
+    setText(panel.querySelector('[data-next-task-meta-v447]'),presentation.meta);
   }
 
   async function refreshSummaryStageMetrics(){
@@ -226,21 +217,14 @@
       if(data.decision==='Исключить')excluded+=1;
     }
     const values={candidateCount:newObjects,negotiationCount:negotiations,keepCount:selected,excludedCount:excluded};
-    for(const [id,value] of Object.entries(values)){
-      const target=document.getElementById(id);
-      if(target)target.textContent=String(value);
-    }
+    for(const [id,value] of Object.entries(values))setText(document.getElementById(id),String(value));
     const labels={candidateCount:'новых объектов',negotiationCount:'переговоры',keepCount:'оставить',excludedCount:'исключить'};
-    for(const [id,label] of Object.entries(labels)){
-      const caption=document.getElementById(id)?.closest('.metric')?.querySelector('span');
-      if(caption)caption.textContent=label;
-    }
+    for(const [id,label] of Object.entries(labels))setText(document.getElementById(id)?.closest('.metric')?.querySelector('span'),label);
   }
 
   async function enhanceCard(card){
     updateStatusSelect(card.querySelector('select[data-field="status"]'));
-    const subtitle=card.querySelector('.inspection-card-v416 .profile-section-head-v416 span');
-    if(subtitle)subtitle.textContent='Текущий этап работы, формат, состояние помещения и следующий шаг.';
+    setText(card.querySelector('.inspection-card-v416 .profile-section-head-v416 span'),'Текущий этап работы, формат, состояние помещения и следующий шаг.');
     await renderNextTask(card);
   }
 
@@ -249,18 +233,17 @@
     await refreshSummaryStageMetrics();
   }
 
+  function reportCell(section,label){
+    return [...section.querySelectorAll('div')].find(cell=>cell.querySelector(':scope > b,:scope > strong')?.textContent.trim().replace(/:$/,'')===label);
+  }
+
   function replaceReportValue(cell,value){
     if(!cell)return;
     const label=cell.querySelector('b,strong');
     if(!label)return;
-    cell.replaceChildren(label,document.createTextNode(` ${value||'—'}`));
-  }
-
-  function reportCell(section,label){
-    return [...section.querySelectorAll('div')].find(cell=>{
-      const strong=cell.querySelector(':scope > b,:scope > strong');
-      return strong?.textContent.trim().replace(/:$/,'')===label;
-    });
+    const text=` ${value||'—'}`;
+    if(cell.childNodes.length===2&&cell.childNodes[1].nodeType===Node.TEXT_NODE&&cell.childNodes[1].textContent===text)return;
+    cell.replaceChildren(label,document.createTextNode(text));
   }
 
   function installReportWrapper(){
@@ -295,12 +278,6 @@
         }
         replaceReportValue(next,`${presentation.title}${presentation.kind==='task'&&presentation.meta?` — ${presentation.meta}`:''}`);
       }
-      if(!documentReport.querySelector('#statusNextTaskStyleV447')){
-        const style=documentReport.createElement('style');
-        style.id='statusNextTaskStyleV447';
-        style.textContent='.report-next-task-v447{grid-column:1/-1}';
-        documentReport.head.append(style);
-      }
       return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
     };
     wrapped.__statusNextTaskV447=true;
@@ -313,7 +290,7 @@
     if(window.__bogatkaUpdateSummaryStatusV447||typeof updateSummary!=='function')return;
     window.__bogatkaUpdateSummaryStatusV447=true;
     const base=window.updateSummary||updateSummary;
-    const wrapped=async function statusNextTaskUpdateSummary(...args){
+    const wrapped=async function(...args){
       const result=await base(...args);
       await enhanceAll();
       return result;
