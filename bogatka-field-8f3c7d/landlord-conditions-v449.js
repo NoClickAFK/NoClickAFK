@@ -15,12 +15,28 @@
     return control?.closest('label.field,label.profile-field-v416')?.querySelector(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446')||null;
   }
 
+  function panelCopy(panel){
+    return panel?.querySelector(':scope > .panel-toggle-v419 .panel-copy-v419,:scope > .profile-section-head-v416 > span')||null;
+  }
+
+  function reportFieldWrapper(panel,field){
+    return panel?.querySelector(
+      `[data-landlord-order-v419="${field}"],[data-profile-field="${field}"],[data-overview-field="${field}"],[data-panel-field="${field}"]`
+    )||null;
+  }
+
   function relabel(control,label,placeholder){
     if(!control)return;
     const caption=captionFor(control);
     if(caption&&caption.textContent!==label)caption.textContent=label;
     if(placeholder&&control.placeholder!==placeholder)control.placeholder=placeholder;
     control.setAttribute('aria-label',label);
+  }
+
+  function relabelReportField(panel,field,label){
+    const wrapper=reportFieldWrapper(panel,field);
+    const caption=wrapper?.querySelector(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446');
+    if(caption&&caption.textContent!==label)caption.textContent=label;
   }
 
   function patchWorkflowLabels(){
@@ -31,7 +47,7 @@
   function enhanceCard(card){
     const panel=card.querySelector('.landlord-card-v416');
     if(!panel)return;
-    const sectionCopy=panel.querySelector('.profile-section-head-v416 > span');
+    const sectionCopy=panelCopy(panel);
     if(sectionCopy&&sectionCopy.textContent!==SECTION_COPY)sectionCopy.textContent=SECTION_COPY;
     relabel(panel.querySelector('[data-field="rentConditions"]'),RENT_LABEL,RENT_PLACEHOLDER);
     relabel(panel.querySelector('[data-field="contactNotes"]'),CONTACT_LABEL,CONTACT_PLACEHOLDER);
@@ -51,7 +67,7 @@
       const panel=card.querySelector('.landlord-card-v416');
       const rent=panel?.querySelector('[data-field="rentConditions"]');
       const contact=panel?.querySelector('[data-field="contactNotes"]');
-      const copy=panel?.querySelector('.profile-section-head-v416 > span')?.textContent||'';
+      const copy=panelCopy(panel)?.textContent||'';
       if(!panel)failures.push(`${id}:panel`);
       if(captionFor(rent)?.textContent!==RENT_LABEL)failures.push(`${id}:rent-label`);
       if(rent?.placeholder!==RENT_PLACEHOLDER)failures.push(`${id}:rent-placeholder`);
@@ -73,11 +89,21 @@
 
   function transformReport(html){
     const documentReport=new DOMParser().parseFromString(html,'text/html');
+
     documentReport.querySelectorAll('.report-landlord-v416').forEach(block=>{
       replaceReportLabel(block,['Дополнительные условия','Предварительные условия аренды'],RENT_LABEL);
       replaceReportLabel(block,['Дополнительная информация','Дополнительная информация по контакту'],CONTACT_LABEL);
       block.dataset.landlordConditionsV449='1';
     });
+
+    documentReport.querySelectorAll('.report-location-card .landlord-card-v416').forEach(panel=>{
+      const copy=panelCopy(panel);
+      if(copy&&copy.textContent!==SECTION_COPY)copy.textContent=SECTION_COPY;
+      relabelReportField(panel,'rentConditions',RENT_LABEL);
+      relabelReportField(panel,'contactNotes',CONTACT_LABEL);
+      panel.dataset.landlordConditionsV449='1';
+    });
+
     documentReport.querySelectorAll('[data-field="rentConditions"]').forEach(control=>{
       const caption=captionFor(control);
       if(caption)caption.textContent=RENT_LABEL;
