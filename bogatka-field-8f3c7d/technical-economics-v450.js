@@ -54,6 +54,15 @@
     openingInvestment:'Итоговые инвестиции в открытие',
     paybackMonths:'Расчётная окупаемость',
   };
+  const PROFILE_PAIRS=[
+    ['status','objectType'],
+    ['date','time'],
+    ['floorLocation','premiseCondition'],
+    ['premiseAvailability','landlordReadiness'],
+    ['ownerName','contactRole'],
+    ['contact','contactPhone'],
+    ['contactMessenger','contactEmail'],
+  ];
   let timer=null;
   let reportAttempts=0;
   let calculationAttempts=0;
@@ -73,17 +82,21 @@
   }
 
   function formatMoney(value){
-    return value===null||value===undefined? '—' : `${formatNumber(value,2)} BYN`;
+    return value===null||value===undefined?'—':`${formatNumber(value,2)} BYN`;
   }
 
   function labelWrapper(control){
     return control?.closest('label.field')||null;
   }
 
+  function fieldCaption(control){
+    return labelWrapper(control)?.querySelector(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446,:scope > .technical-caption-v450')||null;
+  }
+
   function setLabel(control,text){
     const wrapper=labelWrapper(control);
     if(!wrapper)return;
-    const caption=wrapper.querySelector(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446,:scope > .technical-caption-v450');
+    const caption=fieldCaption(control);
     if(caption){
       if(caption.textContent!==text)caption.textContent=text;
       return;
@@ -125,7 +138,7 @@
       .technical-guide-v450{margin:0 0 12px;padding:10px 12px;border:1px solid #d8e5dd;border-radius:11px;background:#f3f8f5;color:#5f7168;font-size:11px;line-height:1.45}
       .technical-derived-v450 input{background:#eef4f1!important;color:#355247;cursor:default}
       .derived-note-v450{display:block;margin-top:4px;color:#718078;font-size:10px;line-height:1.35}
-      .economy-source-v450{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 14px}
+      .economy-source-v450{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 14px;min-width:0}
       .economy-source-v450>div{padding:9px 10px;border:1px solid #d8e5dd;border-radius:11px;background:#f8fbf9;min-width:0}
       .economy-source-v450 span{display:block;color:#718078;font-size:10px;line-height:1.3}
       .economy-source-v450 strong{display:block;margin-top:3px;color:#174f3a;font-size:12px;line-height:1.3;overflow-wrap:anywhere}
@@ -135,6 +148,19 @@
       @media print{.economy-source-v450{grid-template-columns:repeat(5,minmax(0,1fr));break-inside:avoid}.technical-guide-v450{break-inside:avoid}}
     `;
     targetDocument.head.append(style);
+  }
+
+  function alignProfilePairs(card){
+    for(const [leftField,rightField] of PROFILE_PAIRS){
+      const left=fieldCaption(card.querySelector(`[data-field="${leftField}"]`));
+      const right=fieldCaption(card.querySelector(`[data-field="${rightField}"]`));
+      if(!left||!right)continue;
+      left.style.minHeight='';
+      right.style.minHeight='';
+      const height=Math.max(16,Math.ceil(left.scrollHeight),Math.ceil(right.scrollHeight));
+      left.style.minHeight=`${height}px`;
+      right.style.minHeight=`${height}px`;
+    }
   }
 
   function ensureGuide(details,className,text){
@@ -244,6 +270,7 @@
     if(!id||typeof getLocationData!=='function')return;
     patchTechnicalFields(card);
     const economyDetails=patchEconomyFields(card);
+    alignProfilePairs(card);
     const data=await getLocationData(id);
     const sources=calculatedSources(data);
     const derived=card.querySelector('[data-field="tech.rentPerSqm"]');
@@ -285,47 +312,45 @@
     calculationAttempts+=1;
     const suite=window.BogatkaSuite;
     const engine=window.BogatkaDecisionEngine;
-    if(!suite||!engine||typeof suite.calculateEconomy!=='function'||typeof engine.computeAll!=='function'){
-      if(calculationAttempts<240)setTimeout(installCalculationWrappers,80);
-      return;
-    }
-
-    if(!suite.calculateEconomy.__technicalEconomicsV450){
-      const baseEconomy=suite.calculateEconomy.bind(suite);
-      const wrappedEconomy=function(data={}){
-        const result=baseEconomy(data);
-        const source=calculatedSources(data);
-        return{
-          ...result,
-          area:source.area||0,
-          rent:source.rent||0,
-          utilities:source.utilities||0,
-          rentPerSqm:source.rentPerSqm,
+    if(suite&&engine&&typeof suite.calculateEconomy==='function'&&typeof engine.computeAll==='function'){
+      if(!suite.calculateEconomy.__technicalEconomicsV450){
+        const baseEconomy=suite.calculateEconomy.bind(suite);
+        const wrappedEconomy=function(data={}){
+          const result=baseEconomy(data);
+          const source=calculatedSources(data);
+          return{
+            ...result,
+            area:source.area||0,
+            rent:source.rent||0,
+            utilities:source.utilities||0,
+            rentPerSqm:source.rentPerSqm,
+          };
         };
-      };
-      wrappedEconomy.__technicalEconomicsV450=true;
-      wrappedEconomy.__base=baseEconomy;
-      suite.calculateEconomy=wrappedEconomy;
-    }
+        wrappedEconomy.__technicalEconomicsV450=true;
+        wrappedEconomy.__base=baseEconomy;
+        suite.calculateEconomy=wrappedEconomy;
+      }
 
-    if(!engine.computeAll.__technicalEconomicsV450){
-      const baseCompute=engine.computeAll.bind(engine);
-      const wrappedCompute=async function(...args){
-        const metrics=await baseCompute(...args);
-        metrics.forEach(metric=>{
-          const economy=suite.calculateEconomy(metric.data||{});
-          const source=calculatedSources(metric.data||{});
-          metric.area=source.area;
-          metric.rent=source.rent;
-          metric.rentPerSqm=source.rentPerSqm;
-          metric.economy=economy;
-        });
-        return metrics;
-      };
-      wrappedCompute.__technicalEconomicsV450=true;
-      wrappedCompute.__base=baseCompute;
-      engine.computeAll=wrappedCompute;
+      if(!engine.computeAll.__technicalEconomicsV450){
+        const baseCompute=engine.computeAll.bind(engine);
+        const wrappedCompute=async function(...args){
+          const metrics=await baseCompute(...args);
+          metrics.forEach(metric=>{
+            const economy=suite.calculateEconomy(metric.data||{});
+            const source=calculatedSources(metric.data||{});
+            metric.area=source.area;
+            metric.rent=source.rent;
+            metric.rentPerSqm=source.rentPerSqm;
+            metric.economy=economy;
+          });
+          return metrics;
+        };
+        wrappedCompute.__technicalEconomicsV450=true;
+        wrappedCompute.__base=baseCompute;
+        engine.computeAll=wrappedCompute;
+      }
     }
+    if(calculationAttempts<80)setTimeout(installCalculationWrappers,250);
   }
 
   function transformReport(html){
@@ -351,52 +376,54 @@
   function installReportWrapper(){
     reportAttempts+=1;
     const current=window.BogatkaLiveReport?.build;
-    if(typeof current!=='function'||!current.__landlordConditionsV449){
-      if(reportAttempts<240)setTimeout(installReportWrapper,80);
-      return;
-    }
-    if(current.__technicalEconomicsV450){claimReport(current);return}
-
-    let wrapped=null;
-    const exportHtml=async function(){
-      if(typeof showSaving==='function')showSaving();
-      const html=await wrapped();
-      downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-premium-report-${new Date().toISOString().slice(0,10)}.html`);
-      if(typeof showSaved==='function')showSaved();
-    };
-    const openPdf=async function(){
-      const reportWindow=window.open('','_blank');
-      if(!reportWindow)return alert('Браузер заблокировал новое окно. Разрешите всплывающие окна для создания PDF.');
-      reportWindow.document.write('<p style="font-family:Arial;padding:30px">Формируется полный отчёт…</p>');
-      try{
-        const html=await wrapped();
-        reportWindow.document.open();
-        reportWindow.document.write(html);
-        reportWindow.document.close();
-        await Promise.all([...reportWindow.document.images].map(image=>image.complete?Promise.resolve():new Promise(resolve=>{
-          image.addEventListener('load',resolve,{once:true});
-          image.addEventListener('error',resolve,{once:true});
-        })));
-        if(reportWindow.document.fonts?.ready)await reportWindow.document.fonts.ready;
-        reportWindow.focus();
-        reportWindow.print();
-      }catch(error){
-        reportWindow.close();
-        throw error;
+    const compatible=Boolean(current?.__landlordConditionsV449||current?.__reportStabilityV429||current?.__technicalEconomicsV450);
+    if(typeof current==='function'&&compatible){
+      if(current.__technicalEconomicsV450){
+        claimReport(current);
+      }else{
+        let wrapped=null;
+        const exportHtml=async function(){
+          if(typeof showSaving==='function')showSaving();
+          const html=await wrapped();
+          downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-premium-report-${new Date().toISOString().slice(0,10)}.html`);
+          if(typeof showSaved==='function')showSaved();
+        };
+        const openPdf=async function(){
+          const reportWindow=window.open('','_blank');
+          if(!reportWindow)return alert('Браузер заблокировал новое окно. Разрешите всплывающие окна для создания PDF.');
+          reportWindow.document.write('<p style="font-family:Arial;padding:30px">Формируется полный отчёт…</p>');
+          try{
+            const html=await wrapped();
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.close();
+            await Promise.all([...reportWindow.document.images].map(image=>image.complete?Promise.resolve():new Promise(resolve=>{
+              image.addEventListener('load',resolve,{once:true});
+              image.addEventListener('error',resolve,{once:true});
+            })));
+            if(reportWindow.document.fonts?.ready)await reportWindow.document.fonts.ready;
+            reportWindow.focus();
+            reportWindow.print();
+          }catch(error){
+            reportWindow.close();
+            throw error;
+          }
+        };
+        wrapped=async function(...args){
+          await enhanceAll();
+          const result=transformReport(await current(...args));
+          claimReport(wrapped);
+          return result;
+        };
+        Object.assign(wrapped,current);
+        wrapped.__technicalEconomicsV450=true;
+        wrapped.__base=current;
+        wrapped.__htmlAction=exportHtml;
+        wrapped.__pdfAction=openPdf;
+        claimReport(wrapped);
       }
-    };
-    wrapped=async function(...args){
-      await enhanceAll();
-      const result=transformReport(await current(...args));
-      claimReport(wrapped);
-      return result;
-    };
-    Object.assign(wrapped,current);
-    wrapped.__technicalEconomicsV450=true;
-    wrapped.__base=current;
-    wrapped.__htmlAction=exportHtml;
-    wrapped.__pdfAction=openPdf;
-    claimReport(wrapped);
+    }
+    if(reportAttempts<80)setTimeout(installReportWrapper,250);
   }
 
   function audit(){
@@ -414,6 +441,17 @@
     return{ok:failures.length===0,cards:document.querySelectorAll('[data-location-card]').length,failures};
   }
 
+  function runtimeState(){
+    return{
+      ready:true,
+      economyWrapper:Boolean(window.BogatkaSuite?.calculateEconomy?.__technicalEconomicsV450),
+      decisionWrapper:Boolean(window.BogatkaDecisionEngine?.computeAll?.__technicalEconomicsV450),
+      reportWrapper:Boolean(window.BogatkaLiveReport?.build?.__technicalEconomicsV450),
+      reportStability:Boolean(window.BogatkaLiveReport?.build?.__reportStabilityV429),
+      audit:audit(),
+    };
+  }
+
   function schedule(delay=60){
     clearTimeout(timer);
     timer=setTimeout(()=>enhanceAll().catch(console.error),delay);
@@ -427,7 +465,8 @@
     enhanceAll().catch(console.error);
     const root=document.getElementById('locations')||document.body;
     new MutationObserver(()=>schedule(80)).observe(root,{childList:true,subtree:true});
-    [150,500,1200,2500].forEach(delay=>setTimeout(()=>enhanceAll().catch(console.error),delay));
+    window.addEventListener('resize',()=>schedule(80));
+    [150,500,1200,2500,5500,7000].forEach(delay=>setTimeout(()=>enhanceAll().catch(console.error),delay));
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
@@ -441,6 +480,7 @@
     calculatedSources,
     transformReport,
     audit,
+    runtimeState,
     labels:{technical:TECH_LABELS,economy:ECONOMY_LABELS,results:RESULT_LABELS},
     notes:{technical:TECH_NOTE,economy:ECONOMY_NOTE},
   };
