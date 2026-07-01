@@ -130,10 +130,11 @@
     root.addEventListener('click',event=>{
       if(!event.target.closest('.panel-toggle-v419'))return;
       const card=event.target.closest('[data-location-card]');
-      if(card)setTimeout(()=>{
-        syncPairState(card);
-        alignPairedCaptions(card);
-      },0);
+      if(!card)return;
+      // The button's own handler has already changed the panel state before the
+      // event bubbles here, so a synchronous layout pass is deterministic.
+      syncPairState(card);
+      alignPairedCaptions(card);
     });
     new MutationObserver(()=>schedule(100)).observe(root,{childList:true,subtree:true});
     window.addEventListener('resize',()=>schedule(80));
