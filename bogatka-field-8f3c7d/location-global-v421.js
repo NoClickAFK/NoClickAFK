@@ -3,6 +3,15 @@
 
   const VERSION='4.2.1';
   const GLOBAL_FIELDS=['premiseAvailability','landlordReadiness'];
+  const ALIGN_PAIRS=[
+    ['status','objectType'],
+    ['date','time'],
+    ['floorLocation','premiseCondition'],
+    ['premiseAvailability','landlordReadiness'],
+    ['ownerName','contactRole'],
+    ['contact','contactPhone'],
+    ['contactMessenger','contactEmail'],
+  ];
   // Report generation is native to location-overview-v421; no wrapped.__locationGlobalV421 hook is installed.
   let timer=null;
 
@@ -28,6 +37,24 @@
 
   function wrapperOf(control){
     return control?.closest('label.field,label.object-other')||null;
+  }
+
+  function captionOf(card,field){
+    return wrapperOf(controlOf(card,field))?.querySelector(':scope > .profile-caption-v416')||null;
+  }
+
+  function alignPairedCaptions(card){
+    for(const [leftField,rightField] of ALIGN_PAIRS){
+      const left=captionOf(card,leftField);
+      const right=captionOf(card,rightField);
+      if(!left||!right)continue;
+      left.style.minHeight='32px';
+      right.style.minHeight='32px';
+      const height=Math.max(32,Math.ceil(left.scrollHeight),Math.ceil(right.scrollHeight));
+      left.style.minHeight=`${height}px`;
+      right.style.minHeight=`${height}px`;
+    }
+    card.dataset.locationGlobalAlignedV421='1';
   }
 
   function prepareGlobalField(card,field){
@@ -73,6 +100,7 @@
     GLOBAL_FIELDS.forEach(field=>prepareGlobalField(card,field));
     syncOtherType(card);
     syncPairState(card);
+    alignPairedCaptions(card);
   }
 
   async function enhanceAll(options={}){
@@ -97,13 +125,18 @@
 
   function install(){
     ensureStyle();
+    enhanceAll({force:true}).catch(console.error);
     const root=document.getElementById('locations')||document.body;
     root.addEventListener('click',event=>{
       if(!event.target.closest('.panel-toggle-v419'))return;
       const card=event.target.closest('[data-location-card]');
-      if(card)setTimeout(()=>syncPairState(card),0);
+      if(card)setTimeout(()=>{
+        syncPairState(card);
+        alignPairedCaptions(card);
+      },0);
     });
     new MutationObserver(()=>schedule(100)).observe(root,{childList:true,subtree:true});
+    window.addEventListener('resize',()=>schedule(80));
     schedule(20);
     setTimeout(()=>schedule(0),500);
     setTimeout(()=>schedule(0),1500);
@@ -117,6 +150,7 @@
     ready:true,
     enhanceAll,
     syncPairState,
+    alignPairedCaptions,
     audit(){
       const failures=[];
       for(const card of document.querySelectorAll('[data-location-card]')){
@@ -126,6 +160,7 @@
           if(!control||!wrapper)failures.push(`${card.dataset.locationCard}:${field}:missing`);
           else if(wrapper.hidden||wrapper.classList.contains('panel-hidden-v419'))failures.push(`${card.dataset.locationCard}:${field}:hidden`);
         }
+        if(card.dataset.locationGlobalAlignedV421!=='1')failures.push(`${card.dataset.locationCard}:alignment:pending`);
       }
       return {ok:failures.length===0,failures};
     },
