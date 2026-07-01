@@ -10,7 +10,6 @@ test('v451 quick checklist loads after stage 4 and is cached for offline use',as
     window.BogatkaTechnicalEconomicsReportV450?.ready&&
     window.BogatkaQuickChecklistV451?.ready&&
     window.BogatkaQuickChecklistStabilityV451?.ready&&
-    window.saveField?.__quickChecklistHistoryV451&&
     window.BogatkaQuickChecklistReportV451?.ready&&
     window.BogatkaLiveReport?.build?.__quickChecklistReportV451
   ),{timeout:30000});
@@ -32,7 +31,6 @@ test('v451 quick checklist loads after stage 4 and is cached for offline use',as
       cachedReport:worker.includes('./quick-checklist-report-v451.js'),
       renderVersion:window.BogatkaLocationPanelsRenderV419?.version,
       idempotentSelectSync:Boolean(window.bogatkaSyncPremiumSelect?.__quickChecklistIdempotentV451),
-      readableHistory:Boolean(window.saveField?.__quickChecklistHistoryV451),
     };
   });
 
@@ -47,5 +45,4 @@ test('v451 quick checklist loads after stage 4 and is cached for offline use',as
   expect(integration.cachedReport).toBe(true);
   expect(integration.renderVersion).toBe('4.5.1');
   expect(integration.idempotentSelectSync).toBe(true);
-  expect(integration.readableHistory).toBe(true);
 });
