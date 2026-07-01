@@ -25,6 +25,36 @@
     return true;
   }
 
+  function checklistSaveProxy(element){
+    const field=String(element?.dataset?.field||'');
+    if(!field.startsWith('check.'))return null;
+    const label=element.closest?.('.check-row')?.querySelector(':scope > span')?.textContent?.trim()||field;
+    return{
+      dataset:element.dataset,
+      type:element.type,
+      value:element.value,
+      checked:Boolean(element.checked),
+      closest(selector){
+        if(selector==='label')return{childNodes:[{textContent:label}]};
+        return element.closest?.(selector)||null;
+      },
+    };
+  }
+
+  function installReadableChecklistHistory(){
+    const current=window.saveField;
+    if(typeof current!=='function')return false;
+    if(current.__quickChecklistHistoryV451)return true;
+    const wrapped=function(element){
+      return current(checklistSaveProxy(element)||element);
+    };
+    wrapped.__quickChecklistHistoryV451=true;
+    wrapped.__base=current;
+    window.saveField=wrapped;
+    try{saveField=wrapped}catch(_){ }
+    return true;
+  }
+
   function stabilizeBadge(badge){
     if(!badge||badge.dataset.idempotentTextV451==='1')return;
     let current=badge.textContent||'';
@@ -62,9 +92,10 @@
   function stabilizeAll(){
     attempts+=1;
     const selectReady=installIdempotentSelectSync();
+    const historyReady=installReadableChecklistHistory();
     document.querySelectorAll('.check-group-progress-v451').forEach(stabilizeBadge);
     alignProfiles(document);
-    if(attempts<120&&(!window.BogatkaQuickChecklistV451?.ready||!selectReady))setTimeout(stabilizeAll,100);
+    if(attempts<120&&(!window.BogatkaQuickChecklistV451?.ready||!selectReady||!historyReady))setTimeout(stabilizeAll,100);
   }
 
   function schedule(delay=50){
@@ -94,6 +125,8 @@
     ready:true,
     stabilizeAll,
     installIdempotentSelectSync,
+    installReadableChecklistHistory,
+    checklistSaveProxy,
     alignProfiles,
   };
 })();
