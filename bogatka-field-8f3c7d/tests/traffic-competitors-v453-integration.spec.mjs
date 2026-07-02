@@ -16,7 +16,8 @@ test('v453 assets are loaded and cached once',()=>{
   expect(occurrences(worker,'./traffic-competitors-v453.css')).toBe(1);
   expect(occurrences(worker,'./traffic-competitors-v453.js')).toBe(1);
   expect(occurrences(worker,'./report/traffic-competitors-v453.js')).toBe(1);
-  expect(publicLoader).toContain("script.src='./traffic-competitors-v453.js'");
+  expect(publicLoader).toContain("'./traffic-competitors-v453.js'");
+  expect(publicLoader).toContain('script.src=src');
 });
 
 test('v453 keeps legacy traffic and first competitor structures',()=>{
