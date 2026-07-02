@@ -8,17 +8,22 @@
     return /Полевой замер трафика|Конкуренты и окружение/.test(title);
   }
 
+  function revealAncestor(element){
+    if(!element||element.nodeType!==Node.ELEMENT_NODE)return;
+    if(element.tagName==='DETAILS')element.open=true;
+    if(element.hidden)element.hidden=false;
+    element.classList.remove('hidden','panel-closed-v419','collapsed','location-card-collapsed-v422','location-collapsed-v422');
+    if(element.dataset?.panelOpenV419!==undefined)element.dataset.panelOpenV419='1';
+    const panelToggle=element.querySelector?.(':scope > .panel-toggle-v419');
+    if(panelToggle)panelToggle.setAttribute('aria-expanded','true');
+  }
+
   function openAncestors(details){
     if(!details?.open||!isStage7Details(details))return;
-    let parent=details.parentElement?.closest('details');
-    while(parent){if(!parent.open)parent.open=true;parent=parent.parentElement?.closest('details');}
     const card=details.closest('[data-location-card]');
     if(window.BogatkaLocationCardCollapseV422?.setCollapsed)window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:true});
-    else{
-      card?.classList.remove('location-card-collapsed-v422','location-collapsed-v422','collapsed');
-      const body=card?.querySelector(':scope > .location-body');
-      if(body?.hidden)body.hidden=false;
-    }
+    for(let current=details;current&&current!==card;current=current.parentElement)revealAncestor(current);
+    revealAncestor(card?.querySelector(':scope > .location-body'));
   }
 
   function apply(root=document){
@@ -41,5 +46,5 @@
   new MutationObserver(schedule).observe(root,{childList:true,subtree:true});
   [0,100,300,700,1500,3000].forEach(delay=>setTimeout(schedule,delay));
 
-  window.BogatkaTrafficCompetitorsCompatV453={version:'4.5.3',ready:true,apply,openAncestors,isStage7Details};
+  window.BogatkaTrafficCompetitorsCompatV453={version:'4.5.3',ready:true,apply,openAncestors,isStage7Details,revealAncestor};
 })();
