@@ -19,6 +19,7 @@ test('lease checks precede collaboration and comments keep five structured notes
   await expect(comments.locator('[data-field="questions"]')).toHaveCount(0);
   await expect(comments.locator('.structured-notes-head-v414 span')).toHaveText('Здесь можно отдельно зафиксировать основные выводы по локации, чтобы они не потерялись среди обычных комментариев участников.');
 
+  await page.waitForFunction(()=>Boolean(window.BogatkaLocationDataV452?.ready&&document.querySelector('[data-location-card] .decision-reason-v452')));
   const state=await card.evaluate(element=>{
     const body=element.querySelector('.location-body');
     const children=[...body.children];
@@ -30,6 +31,7 @@ test('lease checks precede collaboration and comments keep five structured notes
       lease:index('[data-critical-deal]'),
       collaboration:index('[data-collaboration]'),
       decision:index('.decision,.decision-panel-v412'),
+      decisionReason:index('.decision-reason-v452'),
       economy:index('.economy-v400'),
       launch:index('.launch-project-v400'),
       headerOutside:header?.parentElement===comments&&notes?.previousElementSibling===header&&!notes?.querySelector('.structured-notes-head-v414'),
@@ -38,6 +40,7 @@ test('lease checks precede collaboration and comments keep five structured notes
   expect(state.headerOutside).toBe(true);
   expect(state.collaboration).toBe(state.lease+1);
   expect(state.decision).toBe(state.collaboration+1);
-  expect(state.economy).toBe(state.decision+1);
-  expect(state.launch).toBe(state.economy+1);
+  expect(state.decisionReason).toBeGreaterThan(state.decision);
+  expect(state.economy).toBeGreaterThan(state.decision);
+  expect(state.launch).toBeGreaterThan(state.economy);
 });

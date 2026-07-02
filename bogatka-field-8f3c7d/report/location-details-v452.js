@@ -86,7 +86,18 @@
     return true;
   }
 
+  function loadReportPatches(){
+    for(const src of ['./traffic-competitors-v453.js','./launch-gate-v454.js']){
+      if(document.querySelector(`script[src="${src}"]`))continue;
+      const script=document.createElement('script');
+      script.src=src;
+      script.async=false;
+      document.head.append(script);
+    }
+  }
+
   install();
+  loadReportPatches();
   setTimeout(()=>{
     install();
     try{if(typeof loadReport==='function')loadReport()}catch(_){ }

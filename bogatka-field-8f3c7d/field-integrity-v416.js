@@ -6,17 +6,21 @@
   let observer=null;
   let timer=null;
 
+  function enqueueLocation(locationId,task){
+    const key=locationId||'__global__';
+    const previous=queues.get(key)||Promise.resolve();
+    const current=previous.catch(()=>{}).then(task);
+    queues.set(key,current);
+    return current.finally(()=>{if(queues.get(key)===current)queues.delete(key)});
+  }
+
   function installSaveQueue(){
     if(typeof saveField!=='function')return false;
     if(saveField.__fieldIntegrityV416)return true;
     const base=saveField;
     const queued=async function(element){
       const locationId=element?.dataset?.location||'__global__';
-      const previous=queues.get(locationId)||Promise.resolve();
-      const current=previous.catch(()=>{}).then(()=>base(element));
-      queues.set(locationId,current);
-      try{return await current}
-      finally{if(queues.get(locationId)===current)queues.delete(locationId)}
+      return enqueueLocation(locationId,()=>base(element));
     };
     queued.__fieldIntegrityV416=true;
     queued.__base=base;
@@ -65,5 +69,5 @@
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-  window.BogatkaFieldIntegrityV416={version:VERSION,ready:true,installSaveQueue,stabilizeObjectTypeOptions,get pendingLocations(){return [...queues.keys()]},principle:'one-location-one-ordered-save-queue'};
+  window.BogatkaFieldIntegrityV416={version:VERSION,ready:true,installSaveQueue,enqueueLocation,stabilizeObjectTypeOptions,get pendingLocations(){return [...queues.keys()]},principle:'one-location-one-ordered-save-queue'};
 })();
