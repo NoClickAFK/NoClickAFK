@@ -14,10 +14,14 @@ async function openApp(page){
 
 async function openSection(card,title){
   await card.evaluate((node,text)=>{
-    node.classList.remove('location-collapsed-v422','collapsed');
-    const locationBody=node.querySelector(':scope > .location-body');
-    if(locationBody)locationBody.hidden=false;
-    const details=[...node.querySelectorAll('details')].find(item=>item.querySelector('summary')?.textContent.includes(text));
+    const collapse=window.BogatkaLocationCardCollapseV422;
+    if(collapse?.setCollapsed)collapse.setCollapsed(node,false,{persist:true});
+    else{
+      node.classList.remove('location-card-collapsed-v422','location-collapsed-v422','collapsed');
+      const locationBody=node.querySelector(':scope > .location-body');
+      if(locationBody)locationBody.hidden=false;
+    }
+    const details=[...node.querySelectorAll('details')].find(item=>item.querySelector(':scope > summary')?.textContent.includes(text));
     if(!details)return;
     for(let current=details;current&&current!==node;current=current.parentElement){
       if(current.tagName==='DETAILS')current.open=true;
@@ -27,6 +31,7 @@ async function openSection(card,title){
     }
     details.open=true;
   },title);
+  await expect(card.locator(':scope > .location-body')).toBeVisible();
 }
 
 async function waitArrayValue(page,locationId,collection,index,field,value){
@@ -62,6 +67,7 @@ test('multiple traffic measurements persist and legacy traffic stays stored',asy
   card=page.locator(`[data-location-card="${id}"]`);
   await openSection(card,'Полевой замер трафика');
   await expect(card.locator('.legacy-traffic-v453')).toContainText('77');
+  await expect(card.locator('[data-stage7-action="add-traffic"]')).toBeVisible();
 
   await card.locator('[data-stage7-action="add-traffic"]').click();
   const first=card.locator('.traffic-measurement-v453').first();
@@ -96,6 +102,7 @@ test('legacy first competitor remains and extra competitors use a separate list'
 
   const legacy=card.locator('.competitor-card-v453[data-competitor-legacy="1"]');
   await expect(legacy.locator('[data-stage7-field="name"]')).toHaveValue('Старый конкурент');
+  await expect(legacy.locator('[data-stage7-field="flow"]')).toBeVisible();
   const legacyFlow=legacy.locator('[data-stage7-field="flow"]');
   await legacyFlow.fill('8–12 покупателей в час');
   await legacyFlow.blur();
