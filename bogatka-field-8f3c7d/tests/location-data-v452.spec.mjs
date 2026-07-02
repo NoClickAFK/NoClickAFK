@@ -38,7 +38,10 @@ async function fillAndWait(page,control,locationId,field,value){
 }
 
 async function selectAndWait(page,control,locationId,field,value){
-  await control.selectOption(value);
+  await control.evaluate((select,next)=>{
+    select.value=next;
+    select.dispatchEvent(new Event('change',{bubbles:true}));
+  },value);
   await waitSaved(page,locationId,field,value);
 }
 
