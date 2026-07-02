@@ -5,14 +5,15 @@
   const VERSION='4.5.2';
   const DURABLE_FIELDS=new Set([
     'objectSource','objectSourceOther','listingUrl','inspectionPurpose','inspectionParticipants','inspectionResult',
+    'floorLocation','premiseCondition','premiseAvailability','landlordReadiness',
     'decision','decisionReason','tech.powerKw','tech.requiredPowerKw',
   ]);
   const durableTimers=new Map();
+  const durableRevisions=new Map();
   let attempts=0;
   let timer=null;
   let stablePasses=0;
   let renderAttempts=0;
-  let renderRevision=0;
 
   function pendingLocation(locationId){
     const pending=window.BogatkaFieldIntegrityV416?.pendingLocations||[];
@@ -127,6 +128,8 @@
     if(target.type==='radio'&&!target.checked)return;
     const value=target.type==='checkbox'?target.checked:target.value;
     const key=`${locationId}:${field}`;
+    const revision=Number(durableRevisions.get(key)||0)+1;
+    durableRevisions.set(key,revision);
     clearTimeout(durableTimers.get(key));
     durableTimers.set(key,setTimeout(async()=>{
       durableTimers.delete(key);
@@ -134,8 +137,15 @@
         await persistSnapshot(locationId,field,value);
         const card=target.closest?.('[data-location-card]');
         if(card)await hydrateCard(card);
+        setTimeout(async()=>{
+          if(durableRevisions.get(key)!==revision)return;
+          try{
+            await persistSnapshot(locationId,field,value);
+            if(card)await hydrateCard(card);
+          }catch(error){console.error(error)}
+        },520);
       }catch(error){console.error(error)}
-    },immediate?10:90));
+    },immediate?15:110));
   }
 
   function ensureEngine(){
@@ -178,10 +188,7 @@
   }
 
   function scheduleAfterRender(){
-    const revision=++renderRevision;
-    [60,320,800,1500,2600].forEach(delay=>setTimeout(()=>{
-      if(revision===renderRevision)schedule(0);
-    },delay));
+    [60,320,800,1500,2600,4200].forEach(delay=>setTimeout(()=>schedule(0),delay));
   }
 
   function installRenderHook(){
@@ -215,7 +222,7 @@
     [950,1550].forEach(delay=>setTimeout(async()=>{
       try{
         const ui=window.BogatkaUIStability;
-        if(ui?.pending&&!ui.isEditing?.())await ui.flush?.();
+        if(ui?.pending&&!ui.hasActiveEditor?.())await (ui.settleAfterBlur?.()||ui.flush?.());
       }catch(error){console.error(error)}
     },delay));
   }
