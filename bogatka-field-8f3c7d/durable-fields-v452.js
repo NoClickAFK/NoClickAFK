@@ -6,7 +6,6 @@
   const FIELDS=new Set([
     'objectSource','objectSourceOther','listingUrl','inspectionPurpose','inspectionParticipants','inspectionResult',
     'decision','decisionReason','tech.powerKw','tech.requiredPowerKw',
-    'inspectionBy','floorLocation','premiseCondition','premiseAvailability','landlordReadiness','availableFrom','nextActionDate','nextAction',
   ]);
   const snapshots=new Map();
   const timers=new Map();
