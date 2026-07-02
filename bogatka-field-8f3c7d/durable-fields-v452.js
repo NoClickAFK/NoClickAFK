@@ -116,5 +116,7 @@
     loadBogatkaPatch('script',{src:'./traffic-competitors-v453.js'});
     loadBogatkaPatch('link',{rel:'stylesheet',href:'./launch-gate-v454.css'});
     loadBogatkaPatch('script',{src:'./launch-gate-v454.js'});
+    loadBogatkaPatch('link',{rel:'stylesheet',href:'./opening-project-v455.css'});
+    loadBogatkaPatch('script',{src:'./opening-project-v455.js'});
   }
 })();
