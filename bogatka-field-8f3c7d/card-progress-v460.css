@@ -87,7 +87,7 @@ html .card-recommendation-v448>strong{
   padding:7px 10px!important;
   overflow:hidden!important;
   border:1px solid #e5caca!important;
-  border-radius:11px!important;
+  border-radius:10px!important;
   background:#fff5f5!important;
   color:#875050!important;
   font-size:12px!important;
@@ -114,4 +114,5 @@ html .card-recommendation-v448.weak>span,html .card-recommendation-v448.weak>sma
   html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 46px!important;width:100%!important;justify-content:stretch!important}
   html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{width:100%!important;max-width:none!important}
 }
-@media(max-width:460px){html .card-recommendation-v448>strong{max-width:calc(100vw - 92px)!important}}
+@media(max-width:650px){html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 32px!important}}
+@media(max-width:460px){html .card-recommendation-v448>strong{max-width:calc(100vw - 78px)!important}}
