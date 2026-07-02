@@ -57,7 +57,7 @@ test('global inspection dropdowns are visible, persist and appear in the report'
   expect(html).toContain('Заинтересован');
 });
 
-test('paired controls share one grid and every caption has the same gap to its control',async({page})=>{
+test('paired controls share one grid and every visible caption has the same gap to its control',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
   await setPanel(card,'.inspection-card-v416',true);
@@ -87,8 +87,10 @@ test('paired controls share one grid and every caption has the same gap to its c
       const control=element.querySelector(`[data-field="${field}"]`);
       if(!control)return null;
       const wrapper=control.closest('label.field,label.object-other,label.contact-role-other-v425');
-      const visible=wrapper?.querySelector('.premium-select-trigger')||control;
-      return {control:visible,caption:wrapper?.querySelector(':scope > .profile-caption-v416')};
+      if(!wrapper||wrapper.matches('[hidden],.hidden,.profile-hidden-v447,.panel-hidden-v419')||getComputedStyle(wrapper).display==='none')return null;
+      const visible=wrapper.querySelector('.premium-select-trigger')||control;
+      if(getComputedStyle(visible).display==='none')return null;
+      return {control:visible,caption:wrapper.querySelector(':scope > .profile-caption-v416')};
     };
     const pairs=[
       ['status','objectType'],['date','time'],['floorLocation','premiseCondition'],
