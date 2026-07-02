@@ -18,7 +18,12 @@
     return Date.now()-lastInteractionAt<700;
   }
 
-  function markInteraction(){lastInteractionAt=Date.now()}
+  function markInteraction(event){
+    const target=event?.target;
+    const active=document.activeElement;
+    const focusBoundary=event?.type==='focusin'||event?.type==='focusout';
+    if(focusBoundary||target===active)lastInteractionAt=Date.now();
+  }
   for(const name of ['pointerdown','touchstart','keydown','input','change','focusin','focusout'])document.addEventListener(name,markInteraction,true);
 
   async function runFullRefresh(){
