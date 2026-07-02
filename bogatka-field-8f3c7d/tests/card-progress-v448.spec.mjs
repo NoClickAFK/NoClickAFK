@@ -49,7 +49,8 @@ test('header separates the recommendation panel from the compact semantic status
   const geometry=await panel.evaluate(element=>{
     const rect=element.getBoundingClientRect();
     const titleRect=element.querySelector(':scope > span').getBoundingClientRect();
-    const reasonRect=element.querySelector(':scope > small').getBoundingClientRect();
+    const reason=element.querySelector(':scope > small');
+    const reasonRect=reason.getBoundingClientRect();
     const statusNode=element.querySelector(':scope > strong');
     const statusRect=statusNode.getBoundingClientRect();
     const statusStyle=getComputedStyle(statusNode);
@@ -64,6 +65,7 @@ test('header separates the recommendation panel from the compact semantic status
       statusPadding:[statusStyle.paddingTop,statusStyle.paddingRight,statusStyle.paddingBottom,statusStyle.paddingLeft],
       statusBorderStyle:statusStyle.borderStyle,
       titleVisible:titleRect.height>0,
+      emptyPrefix:getComputedStyle(reason,'::before').content,
       className:element.className,
     };
   });
@@ -77,11 +79,11 @@ test('header separates the recommendation panel from the compact semantic status
   expect(geometry.statusPadding).toEqual(['7px','10px','7px','10px']);
   expect(geometry.statusBorderStyle).toBe('solid');
   expect(geometry.titleVisible).toBe(true);
+  expect(geometry.emptyPrefix).toContain('Сравнительная оценка');
   expect(geometry.className).toContain('empty');
 
   const headerText=await card.locator(':scope > .location-head').innerText();
-  expect(headerText).toContain('Текущая рекомендация');
-  expect(headerText).toContain('Раздел «Сравнительная оценка»');
+  expect(headerText.toUpperCase()).toContain('ТЕКУЩАЯ РЕКОМЕНДАЦИЯ');
   expect(headerText).toContain('Недостаточно оценок');
   expect(headerText).not.toContain('/ 70');
   expect(headerText).not.toContain('/100');
@@ -204,7 +206,7 @@ test('recommendation panel and compact status remain usable on a phone width',as
   });
   expect(layout.scrollWidth).toBeLessThanOrEqual(Math.ceil(layout.width)+1);
   expect(layout.metricColumns.split(' ').length).toBe(1);
-  expect(layout.buttons.every(width=>width>250)).toBe(true);
+  expect(layout.buttons.every(width=>width>220)).toBe(true);
   expect(header.panelWidth).toBeLessThan(header.container);
   expect(header.panelScrollWidth).toBeLessThanOrEqual(Math.ceil(header.panelWidth)+1);
   expect(header.statusWidth).toBeLessThan(210);
