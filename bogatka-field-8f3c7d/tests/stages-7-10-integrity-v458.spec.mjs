@@ -17,6 +17,12 @@ test('opening project persistence uses the same shared location queue',()=>{
   expect(source.indexOf("if(!root||!locationId||isViewer())return;")).toBeLessThan(source.indexOf('event.stopImmediatePropagation()'));
 });
 
+test('launch gate decision, status and activation writes use the shared queue',()=>{
+  const source=fs.readFileSync(`${ROOT}/launch-gate-v454.js`,'utf8');
+  expect(source).toContain('BogatkaFieldIntegrityV416?.enqueueLocation');
+  expect(source).toContain("if(field==='decision'||field==='status')return saveWithoutLaunch(element)");
+});
+
 test('field integrity exposes one shared per-location queue',()=>{
   const source=fs.readFileSync(`${ROOT}/field-integrity-v416.js`,'utf8');
   expect(source).toContain('function enqueueLocation(locationId,task)');
