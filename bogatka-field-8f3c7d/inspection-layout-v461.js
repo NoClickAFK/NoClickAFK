@@ -26,7 +26,7 @@ const WIDE=new Set(['inspectionPurpose','inspectionResult','objectSourceOther','
 let timer=null;
 
 const fieldSelector=field=>`[data-field="${CSS.escape(field)}"]`;
-const visibleControl=(card,field)=>[...card.querySelectorAll(fieldSelector(field))].find(node=>!node.hasAttribute('data-stage6-marker-v461'))||null;
+const visibleControl=(card,field)=>card.querySelector(fieldSelector(field));
 const fieldWrapper=control=>control?.closest('label.field')||null;
 const isEditing=card=>{const active=document.activeElement;return Boolean(active&&card.contains(active)&&/^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName));};
 
@@ -41,18 +41,16 @@ function setCaption(wrapper,text){
   if(caption&&caption.textContent!==text)caption.textContent=text;
 }
 
-function ensureMarker(extra,field,value=''){
-  let marker=extra.querySelector(`${fieldSelector(field)}[data-stage6-marker-v461]`);
-  if(!marker){
-    marker=document.createElement('input');
-    marker.type='hidden';
-    marker.dataset.field=field;
-    marker.dataset.stage6MarkerV461='1';
-    marker.setAttribute('aria-hidden','true');
-    extra.append(marker);
-  }
-  marker.value=String(value??'');
-  return marker;
+function patchExtraLookup(extra,card){
+  if(extra.dataset.lookupV461==='1')return;
+  const localQuery=extra.querySelector.bind(extra);
+  extra.querySelector=function(selector){
+    const local=localQuery(selector);
+    if(local)return local;
+    if(typeof selector==='string'&&selector.indexOf('[data-field=')===0)return card.querySelector(selector);
+    return null;
+  };
+  extra.dataset.lookupV461='1';
 }
 
 function insertSequence(container,nodes,before){
@@ -162,12 +160,12 @@ function placeCard(card){
   const landlordGrid=landlord?.querySelector('.landlord-grid-v416');
   const extra=inspection?.querySelector('.inspection-extra-v452');
   if(!inspectionGrid||!landlordGrid||!extra)return false;
+  patchExtraLookup(extra,card);
 
   const controls={};
   for(const field of [...LEFT,...RIGHT]){
     controls[field]=visibleControl(card,field);
     if(!controls[field])return false;
-    ensureMarker(extra,field,controls[field].value);
   }
 
   const leftNodes=LEFT.map(field=>tuneField(card,field));
@@ -189,7 +187,6 @@ function placeCard(card){
   rewriteSource(controls.objectSource);
   bindSource(card);
   syncSource(card);
-  for(const field of [...LEFT,...RIGHT])ensureMarker(extra,field,controls[field].value);
   card.dataset.inspectionLayoutV461='1';
   return true;
 }
