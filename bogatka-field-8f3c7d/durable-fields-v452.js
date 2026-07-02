@@ -114,6 +114,7 @@
     loadBogatkaPatch('script',{src:'./suite-save-order-v452.js'});
     loadBogatkaPatch('link',{rel:'stylesheet',href:'./traffic-competitors-v453.css'});
     loadBogatkaPatch('script',{src:'./traffic-competitors-v453.js'});
+    loadBogatkaPatch('script',{src:'./traffic-competitors-compat-v453.js'});
     loadBogatkaPatch('link',{rel:'stylesheet',href:'./launch-gate-v454.css'});
     loadBogatkaPatch('script',{src:'./launch-gate-v454.js'});
     loadBogatkaPatch('link',{rel:'stylesheet',href:'./opening-project-v455.css'});
