@@ -65,6 +65,16 @@ function insertSequence(container,nodes,before){
   }
 }
 
+function ensureRightGrid(landlord,landlordGrid){
+  let grid=landlord.querySelector(':scope > .landlord-inspection-v461');
+  if(!grid){
+    grid=document.createElement('div');
+    grid.className='landlord-inspection-v461';
+    landlordGrid.insertAdjacentElement('afterend',grid);
+  }
+  return grid;
+}
+
 function rewriteSource(select){
   if(!select)return;
   const current=select.value;
@@ -166,8 +176,8 @@ function placeCard(card){
   const undo=inspectionGrid.querySelector('.inspection-note-v416');
   insertSequence(inspectionGrid,[nextTask,...leftNodes],undo||null);
 
-  const rent=fieldWrapper(visibleControl(card,'rentConditions'));
-  insertSequence(landlordGrid,rightNodes,rent||null);
+  const rightGrid=ensureRightGrid(landlord,landlordGrid);
+  insertSequence(rightGrid,rightNodes,null);
 
   extra.hidden=true;
   extra.setAttribute('aria-hidden','true');
