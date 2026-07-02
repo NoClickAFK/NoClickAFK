@@ -5,6 +5,12 @@
   const VERSION='4.5.3';
   const TRAFFIC_KEY='trafficMeasurements';
   const COMPETITORS_KEY='competitors';
+  const LEGACY_TRAFFIC_FIELDS=[
+    ['weekdayMorning','Будни 08:00–10:00, человек'],['weekdayDay','Будни 12:00–14:00, человек'],
+    ['weekdayEvening','Будни 17:00–20:00, человек'],['weekendDay','Выходной 11:00–14:00, человек'],
+    ['weekendEvening','Выходной 16:00–19:00, человек'],['parkingOccupied','Занято парковочных мест, %'],
+    ['dogWalkers','Люди с собаками за 30 минут'],['competitorVisitors','Покупатели у конкурента за 30 минут'],
+  ];
   const TRAFFIC_FIELDS=[
     ['date','Дата замера','date'],['startTime','Начало замера','time'],
     ['durationMinutes','Длительность','select',[['15','15 минут'],['30','30 минут'],['60','60 минут']]],
@@ -22,6 +28,7 @@
     ['comment','Комментарий','textarea',null,true],
   ];
   const timers=new Map();
+  const saveQueues=new Map();
   let observer=null;
   let scheduleTimer=null;
   let lastError=null;
@@ -35,6 +42,11 @@
 
   function findDetails(card,title){
     return[...card.querySelectorAll('details')].find(node=>String(node.querySelector(':scope > summary')?.textContent||'').includes(title))||null;
+  }
+
+  function locationItems(){
+    try{if(typeof locations!=='undefined'&&Array.isArray(locations))return locations;}catch(_){ }
+    return Array.isArray(window.locations)?window.locations:[];
   }
 
   function weekday(value){
@@ -53,19 +65,23 @@
   }
 
   function trafficTemplate(){
-    const now=new Date().toISOString();
-    return{id:createId(),date:'',startTime:'',durationMinutes:'30',peopleCount:'',targetCustomers:'',dogWalkers:'',competitorVisitors:'',parkingOccupiedPct:'',weather:'',comment:'',createdAt:now,updatedAt:now};
+    const timestamp=new Date().toISOString();
+    return{id:createId(),date:'',startTime:'',durationMinutes:'30',peopleCount:'',targetCustomers:'',dogWalkers:'',competitorVisitors:'',parkingOccupiedPct:'',weather:'',comment:'',createdAt:timestamp,updatedAt:timestamp};
   }
 
   function competitorTemplate(){
-    const now=new Date().toISOString();
-    return{id:createId(),name:'',type:'',distance:'',flow:'',prices:'',assortment:'',strengths:'',weaknesses:'',photoReference:'',comment:'',createdAt:now,updatedAt:now};
+    const timestamp=new Date().toISOString();
+    return{id:createId(),name:'',type:'',distance:'',flow:'',prices:'',assortment:'',strengths:'',weaknesses:'',photoReference:'',comment:'',createdAt:timestamp,updatedAt:timestamp};
   }
 
   function legacyTrafficRows(data={}){
-    const definitions=Array.isArray(window.TRAFFIC_FIELDS)?window.TRAFFIC_FIELDS:[];
     const source=data.traffic||{};
-    return definitions.filter(([key])=>filled(source[key])).map(([key,label])=>({key,label,value:source[key]}));
+    return LEGACY_TRAFFIC_FIELDS.filter(([key])=>filled(source[key])).map(([key,label])=>({key,label,value:source[key]}));
+  }
+
+  function legacyCompatibilityHtml(locationId,data={}){
+    const source=data.traffic||{};
+    return`<div class="legacy-traffic-controls-v453" hidden aria-hidden="true">${LEGACY_TRAFFIC_FIELDS.map(([key,label])=>`<label class="field">${esc(label)}<input type="number" data-location="${esc(locationId)}" data-field="traffic.${esc(key)}" value="${esc(source[key]??'')}"></label>`).join('')}</div>`;
   }
 
   function trafficArticle(item,index){
@@ -98,7 +114,7 @@
     if(body.querySelector('.traffic-stage7-v453')&&!force)return true;
     const rows=normalizeList(data[TRAFFIC_KEY]);
     const legacy=legacyTrafficRows(data);
-    body.innerHTML=`<div class="traffic-stage7-v453"><p class="section-note"><strong>Каждый замер хранится отдельно.</strong> Укажите дату, начало, длительность, погоду и комментарий.</p><div class="traffic-summary-v453"><div><span>Замеров</span><strong data-traffic-summary-v453="count">0</strong></div><div><span>Всего минут</span><strong data-traffic-summary-v453="minutes">0</strong></div><div><span>Учтено людей</span><strong data-traffic-summary-v453="people">0</strong></div></div>${legacy.length?`<details class="legacy-traffic-v453"><summary>Ранее сохранённые поля — ${legacy.length}</summary><div class="legacy-traffic-grid-v453">${legacy.map(row=>`<div><span>${esc(row.label)}</span><strong>${esc(row.value)}</strong></div>`).join('')}</div><p>Эти значения сохранены без преобразования и не удаляются.</p></details>`:''}<div class="traffic-measurements-list-v453">${rows.length?rows.map(trafficArticle).join(''):'<div class="stage7-empty-v453">Замеров пока нет.</div>'}</div><button type="button" class="btn secondary" data-stage7-action="add-traffic">+ Добавить замер</button></div>`;
+    body.innerHTML=`<div class="traffic-stage7-v453"><p class="section-note"><strong>Каждый замер хранится отдельно.</strong> Укажите дату, начало, длительность, погоду и комментарий.</p><div class="traffic-summary-v453"><div><span>Замеров</span><strong data-traffic-summary-v453="count">0</strong></div><div><span>Всего минут</span><strong data-traffic-summary-v453="minutes">0</strong></div><div><span>Учтено людей</span><strong data-traffic-summary-v453="people">0</strong></div></div>${legacy.length?`<details class="legacy-traffic-v453"><summary>Ранее сохранённые поля — ${legacy.length}</summary><div class="legacy-traffic-grid-v453">${legacy.map(row=>`<div><span>${esc(row.label)}</span><strong>${esc(row.value)}</strong></div>`).join('')}</div><p>Эти значения сохранены без преобразования и не удаляются.</p></details>`:''}${legacyCompatibilityHtml(card.dataset.locationCard,data)}<div class="traffic-measurements-list-v453">${rows.length?rows.map(trafficArticle).join(''):'<div class="stage7-empty-v453">Замеров пока нет.</div>'}</div><button type="button" class="btn secondary" data-stage7-action="add-traffic">+ Добавить замер</button></div>`;
     updateTrafficSummary(body);
     enhanceSelects(body);
     return true;
@@ -138,32 +154,44 @@
     return true;
   }
 
-  function scheduleSave(key,callback,delay=260){
+  function enqueueSave(locationId,callback){
+    const previous=saveQueues.get(locationId)||Promise.resolve();
+    const task=previous.catch(()=>{}).then(callback);
+    const tracked=task.finally(()=>{if(saveQueues.get(locationId)===tracked)saveQueues.delete(locationId);});
+    saveQueues.set(locationId,tracked);
+    return tracked;
+  }
+
+  function scheduleSave(key,locationId,callback,delay=260){
     clearTimeout(timers.get(key));
-    timers.set(key,setTimeout(()=>{timers.delete(key);callback().catch(error=>{lastError=error;window.showError?.(error)||console.error(error);});},delay));
+    timers.set(key,setTimeout(()=>{
+      timers.delete(key);
+      enqueueSave(locationId,callback).catch(error=>{lastError=error;if(typeof window.showError==='function')window.showError(error);else console.error(error);});
+    },delay));
   }
 
-  async function saveTraffic(card){
-    await saveValue(card.dataset.locationCard,TRAFFIC_KEY,collectRows(card,'.traffic-measurement-v453','data-traffic-id',TRAFFIC_FIELDS),'Замеры трафика');
-  }
-
-  async function saveCompetitors(card){
-    await saveValue(card.dataset.locationCard,COMPETITORS_KEY,collectRows(card,'.competitor-card-v453[data-competitor-legacy="0"]','data-competitor-id',COMPETITOR_FIELDS),'Дополнительные конкуренты');
-  }
+  function trafficSnapshot(card){return collectRows(card,'.traffic-measurement-v453','data-traffic-id',TRAFFIC_FIELDS);}
+  function competitorSnapshot(card){return collectRows(card,'.competitor-card-v453[data-competitor-legacy="0"]','data-competitor-id',COMPETITOR_FIELDS);}
+  function saveTrafficSnapshot(locationId,rows){return saveValue(locationId,TRAFFIC_KEY,rows,'Замеры трафика');}
+  function saveCompetitorSnapshot(locationId,rows){return saveValue(locationId,COMPETITORS_KEY,rows,'Дополнительные конкуренты');}
 
   async function addTraffic(card){
     const list=card.querySelector('.traffic-measurements-list-v453');
     list?.querySelector('.stage7-empty-v453')?.remove();
     const index=list?.querySelectorAll('.traffic-measurement-v453').length||0;
     list?.insertAdjacentHTML('beforeend',trafficArticle(trafficTemplate(),index));
-    enhanceSelects(list||card);updateTrafficSummary(card);applyViewerState(card);await saveTraffic(card);
+    enhanceSelects(list||card);updateTrafficSummary(card);applyViewerState(card);
+    const id=card.dataset.locationCard,rows=trafficSnapshot(card);
+    await enqueueSave(id,()=>saveTrafficSnapshot(id,rows));
   }
 
   async function addCompetitor(card){
     const list=card.querySelector('.competitors-list-v453');
     const index=(list?.querySelectorAll('.competitor-card-v453[data-competitor-legacy="0"]').length||0)+1;
     list?.insertAdjacentHTML('beforeend',competitorArticle(competitorTemplate(),index,false));
-    enhanceSelects(list||card);applyViewerState(card);await saveCompetitors(card);
+    enhanceSelects(list||card);applyViewerState(card);
+    const id=card.dataset.locationCard,rows=competitorSnapshot(card);
+    await enqueueSave(id,()=>saveCompetitorSnapshot(id,rows));
   }
 
   async function removeTraffic(card,article){
@@ -171,12 +199,16 @@
     article.remove();
     const list=card.querySelector('.traffic-measurements-list-v453');
     if(list&&!list.querySelector('.traffic-measurement-v453'))list.innerHTML='<div class="stage7-empty-v453">Замеров пока нет.</div>';
-    updateTrafficSummary(card);await saveTraffic(card);
+    updateTrafficSummary(card);
+    const id=card.dataset.locationCard,rows=trafficSnapshot(card);
+    await enqueueSave(id,()=>saveTrafficSnapshot(id,rows));
   }
 
   async function removeCompetitor(card,article){
     if(!article||!window.confirm('Удалить этого конкурента?'))return;
-    article.remove();await saveCompetitors(card);
+    article.remove();
+    const id=card.dataset.locationCard,rows=competitorSnapshot(card);
+    await enqueueSave(id,()=>saveCompetitorSnapshot(id,rows));
   }
 
   function applyViewerState(root=document){
@@ -217,7 +249,7 @@
 
   async function transformLiveReport(html){
     const doc=new DOMParser().parseFromString(html,'text/html');
-    const active=(window.locations||[]).filter(location=>!location.archivedAt);
+    const active=locationItems().filter(location=>!location.archivedAt);
     const cards=[...doc.querySelectorAll('.report-location-card')];
     for(let index=0;index<cards.length;index++){
       const location=active[index];
@@ -235,20 +267,26 @@
     return`<!doctype html>\n${doc.documentElement.outerHTML}`;
   }
 
+  function chainContains(fn,marker){
+    const seen=new Set();
+    while(typeof fn==='function'&&!seen.has(fn)){
+      if(fn[marker])return true;
+      seen.add(fn);fn=fn.__base;
+    }
+    return false;
+  }
+
   function installLiveReport(){
     reportAttempts+=1;
     const api=window.BogatkaLiveReport;
     const current=api?.build;
-    if(typeof current!=='function'){
-      if(reportAttempts<160)setTimeout(installLiveReport,100);
-      return false;
-    }
-    if(current.__trafficCompetitorsV453)return true;
+    const finalReady=Boolean(current?.__quickChecklistReportV451&&current?.__technicalEconomicsReportV450&&current?.__reportStabilityV429);
+    if(typeof current!=='function'||!finalReady){if(reportAttempts<180)setTimeout(installLiveReport,100);return false;}
+    if(chainContains(current,'__trafficCompetitorsV453'))return true;
     const wrapped=async function(...args){return transformLiveReport(await current(...args));};
     Object.assign(wrapped,current);wrapped.__trafficCompetitorsV453=true;wrapped.__base=current;
     api.build=wrapped;window.buildReportHtml=wrapped;
     try{buildReportHtml=wrapped}catch(_){ }
-    if(reportAttempts<160)setTimeout(installLiveReport,250);
     return true;
   }
 
@@ -258,7 +296,7 @@
       const id=card.dataset.locationCard;
       if(!card.querySelector('.traffic-stage7-v453'))failures.push(`${id}:traffic:missing`);
       if(!card.querySelector('.competitors-stage7-v453'))failures.push(`${id}:competitors:missing`);
-      if(card.querySelector('[data-field^="traffic."]'))failures.push(`${id}:legacy-traffic:visible`);
+      if(!card.querySelector('[data-field="traffic.dogWalkers"]'))failures.push(`${id}:legacy-traffic-compatibility:missing`);
       if(!card.querySelector('[data-field="competitor.name"]'))failures.push(`${id}:legacy-competitor:missing`);
     });
     return{ok:failures.length===0,failures,lastError:lastError?String(lastError):''};
@@ -278,17 +316,26 @@
     const onChange=event=>{
       const control=event.target;const card=control?.closest?.('[data-location-card]');if(!card||isViewer())return;
       const traffic=control.closest?.('.traffic-measurement-v453');const competitor=control.closest?.('.competitor-card-v453');
-      if(traffic){if(control.dataset.stage7Field==='date')traffic.querySelector('[data-weekday-v453]').textContent=weekday(control.value);updateTrafficSummary(card);scheduleSave(`${card.dataset.locationCard}:traffic`,()=>saveTraffic(card));}
-      else if(competitor?.dataset.competitorLegacy==='1'){const field=control.dataset.field;if(field)scheduleSave(`${card.dataset.locationCard}:${field}`,()=>saveValue(card.dataset.locationCard,field,controlValue(control),field));}
-      else if(competitor)scheduleSave(`${card.dataset.locationCard}:competitors`,()=>saveCompetitors(card));
+      const id=card.dataset.locationCard;
+      if(traffic){
+        if(control.dataset.stage7Field==='date')traffic.querySelector('[data-weekday-v453]').textContent=weekday(control.value);
+        updateTrafficSummary(card);
+        const rows=trafficSnapshot(card);scheduleSave(`${id}:traffic`,id,()=>saveTrafficSnapshot(id,rows));
+      }else if(competitor?.dataset.competitorLegacy==='1'){
+        const field=control.dataset.field,value=controlValue(control);
+        if(field)scheduleSave(`${id}:${field}`,id,()=>saveValue(id,field,value,field));
+      }else if(competitor){
+        const rows=competitorSnapshot(card);scheduleSave(`${id}:competitors`,id,()=>saveCompetitorSnapshot(id,rows));
+      }
     };
     root.addEventListener('input',onChange,true);root.addEventListener('change',onChange,true);
-    observer=new MutationObserver(()=>schedule(100));observer.observe(root,{childList:true,subtree:true});
+    observer=new MutationObserver(records=>{if(records.some(record=>record.target===root))schedule(100);});
+    observer.observe(root,{childList:true});
     schedule(20);[250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>schedule(0),delay));
     setInterval(()=>applyViewerState(document),1200);installLiveReport();
   }
 
-  window.BogatkaTrafficCompetitorsV453={version:VERSION,ready:true,TRAFFIC_FIELDS,COMPETITOR_FIELDS,trafficTemplate,competitorTemplate,legacyTrafficRows,renderTraffic,renderCompetitors,enhanceAll,enhanceCard,applyViewerState,audit,transformLiveReport,get lastError(){return lastError;}};
+  window.BogatkaTrafficCompetitorsV453={version:VERSION,ready:true,TRAFFIC_FIELDS,COMPETITOR_FIELDS,LEGACY_TRAFFIC_FIELDS,trafficTemplate,competitorTemplate,legacyTrafficRows,renderTraffic,renderCompetitors,enhanceAll,enhanceCard,applyViewerState,audit,transformLiveReport,get lastError(){return lastError;}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
   window.addEventListener('load',()=>schedule(20),{once:true});
 })();
