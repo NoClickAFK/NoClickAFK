@@ -14,6 +14,7 @@
   let timer=null;
   let stablePasses=0;
   let renderAttempts=0;
+  let renderRevision=0;
 
   function pendingLocation(locationId){
     const pending=window.BogatkaFieldIntegrityV416?.pendingLocations||[];
@@ -103,6 +104,10 @@
     return true;
   }
 
+  async function hydrateExistingCards(){
+    for(const card of document.querySelectorAll('[data-location-card]'))await hydrateCard(card);
+  }
+
   async function waitForBaseQueue(locationId,timeoutMs=3000){
     const started=Date.now();
     while(pendingLocation(locationId)&&Date.now()-started<timeoutMs){
@@ -173,7 +178,7 @@
     attempts+=1;
     const api=window.BogatkaLocationDataV452;
     if(api?.enhanceAll)await api.enhanceAll();
-    for(const card of document.querySelectorAll('[data-location-card]'))await hydrateCard(card);
+    await hydrateExistingCards();
     const engineReady=ensureEngine();
     const audit=api?.audit?.();
     const ready=Boolean(engineReady&&audit?.ok);
@@ -188,7 +193,11 @@
   }
 
   function scheduleAfterRender(){
-    [60,320,800,1500,2600,4200].forEach(delay=>setTimeout(()=>schedule(0),delay));
+    const revision=++renderRevision;
+    setTimeout(()=>hydrateExistingCards().catch(console.error),140);
+    [500,1400,3000].forEach(delay=>setTimeout(()=>{
+      if(revision===renderRevision)schedule(0);
+    },delay));
   }
 
   function installRenderHook(){
@@ -272,6 +281,7 @@
     stabilize,
     ensureEngine,
     hydrateCard,
+    hydrateExistingCards,
     persistSnapshot,
     renderStoredPowerBalance,
     installRenderHook,
