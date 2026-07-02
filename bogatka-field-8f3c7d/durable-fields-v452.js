@@ -110,4 +110,5 @@
     flush,
     get pendingWrites(){return queues.size+timers.size},
   };
+  if(typeof loadBogatkaPatch==='function')loadBogatkaPatch('script',{src:'./suite-save-order-v452.js'});
 })();
