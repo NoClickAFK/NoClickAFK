@@ -87,7 +87,7 @@ test('recommendation status changes semantic color without changing its compact 
     pros:'Хорошая видимость',cons:'Нужно уточнить условия',risks:'Нет подтверждённых рисков',questions:'Уточнить срок аренды',decision:'Оставить',criticalDealConditions:{},
   });
   await expect(chip).toHaveClass(/good/);
-  await expect(chip).toHaveText('Перспективно');
+  await expect(chip.locator('[data-card-recommendation-v448]')).toHaveText('Перспективно');
   const after=await chip.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
   expect(after.background).not.toBe(before.background);
   expect(after.border).not.toBe(before.border);
@@ -171,10 +171,23 @@ test('expanded block and compact status remain usable on a phone width',async({p
     metricColumns:getComputedStyle(element.querySelector('.progress-metrics-v448')).gridTemplateColumns,
     buttons:[...element.querySelectorAll('.fill-plan-item-v448 button')].map(button=>button.getBoundingClientRect().width),
   }));
-  const chip=await card.locator('.card-recommendation-v448').evaluate(element=>({width:element.getBoundingClientRect().width,height:element.getBoundingClientRect().height,container:element.closest('.location-head-side-v422').getBoundingClientRect().width}));
+  const chip=await card.locator('.card-recommendation-v448').evaluate(element=>{
+    const labelStyle=getComputedStyle(element.querySelector('strong'));
+    return{
+      width:element.getBoundingClientRect().width,
+      height:element.getBoundingClientRect().height,
+      container:element.closest('.location-head-side-v422').getBoundingClientRect().width,
+      whiteSpace:labelStyle.whiteSpace,
+      overflow:labelStyle.overflow,
+      textOverflow:labelStyle.textOverflow,
+    };
+  });
   expect(layout.scrollWidth).toBeLessThanOrEqual(Math.ceil(layout.width)+1);
   expect(layout.metricColumns.split(' ').length).toBe(1);
   expect(layout.buttons.every(width=>width>250)).toBe(true);
   expect(chip.width).toBeLessThan(chip.container);
   expect(chip.height).toBe(34);
+  expect(chip.whiteSpace).toBe('nowrap');
+  expect(chip.overflow).toBe('hidden');
+  expect(chip.textOverflow).toBe('ellipsis');
 });
