@@ -6,7 +6,7 @@ const REPORT='http://127.0.0.1:4173/bogatka-field-8f3c7d/report/index.html?token
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'networkidle'});
-  await page.waitForFunction(()=>Boolean(window.BogatkaTrafficCompetitorsV453?.ready&&document.querySelector('[data-location-card]')),{timeout:30000});
+  await page.waitForFunction(()=>Boolean(window.BogatkaTrafficCompetitorsV453?.ready&&window.BogatkaTrafficCompetitorsPersistenceV453?.ready&&window.BogatkaTrafficCompetitorsCompatV453?.ready&&document.querySelector('[data-location-card]')),{timeout:30000});
   await page.evaluate(()=>window.BogatkaTrafficCompetitorsV453.enhanceAll());
   await page.waitForFunction(()=>window.BogatkaTrafficCompetitorsV453.audit().ok,{timeout:30000});
   return page.locator('[data-location-card]').first();
@@ -14,8 +14,18 @@ async function openApp(page){
 
 async function openSection(card,title){
   await card.evaluate((node,text)=>{
+    node.classList.remove('location-collapsed-v422','collapsed');
+    const locationBody=node.querySelector(':scope > .location-body');
+    if(locationBody)locationBody.hidden=false;
     const details=[...node.querySelectorAll('details')].find(item=>item.querySelector('summary')?.textContent.includes(text));
-    if(details)details.open=true;
+    if(!details)return;
+    for(let current=details;current&&current!==node;current=current.parentElement){
+      if(current.tagName==='DETAILS')current.open=true;
+      current.hidden=false;
+      current.classList.remove('hidden','panel-closed-v419','collapsed');
+      if(current.dataset?.panelOpenV419!==undefined)current.dataset.panelOpenV419='1';
+    }
+    details.open=true;
   },title);
 }
 
@@ -24,6 +34,7 @@ async function waitArrayValue(page,locationId,collection,index,field,value){
     const data=await getLocationData(locationId);
     return String(data?.[collection]?.[index]?.[field]??'')===String(value);
   },{locationId,collection,index,field,value},{timeout:15000});
+  await page.waitForFunction(()=>window.BogatkaTrafficCompetitorsPersistenceV453.pendingWrites===0,{timeout:15000});
 }
 
 async function fillArray(page,control,locationId,collection,index,field,value){
