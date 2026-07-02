@@ -79,7 +79,7 @@ test('header separates the recommendation panel from the compact semantic status
   expect(geometry.statusPadding).toEqual(['7px','10px','7px','10px']);
   expect(geometry.statusBorderStyle).toBe('solid');
   expect(geometry.titleVisible).toBe(true);
-  expect(geometry.emptyPrefix).toContain('Сравнительная оценка');
+  expect(geometry.emptyPrefix).toBe('none');
   expect(geometry.className).toContain('empty');
 
   const headerText=await card.locator(':scope > .location-head').innerText();
