@@ -8,16 +8,18 @@ async function openApp(page){
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaStatusNextTaskV447?.ready&&
+    window.BogatkaSuiteSaveOrderV452?.ready&&
     window.BogatkaSuite&&
     window.BogatkaLiveReport?.build?.__statusNextTaskV447&&
     window.BogatkaLiveReport.build.__reportStabilityV429&&
     window.buildReportHtml===window.BogatkaLiveReport.build&&
     document.querySelector('[data-location-card] [data-next-task-v447]')
   ),{timeout:20000});
+  await page.evaluate(()=>window.BogatkaSuiteSaveOrderV452.finalizeWorkflowUi());
   return page.locator('[data-location-card]').first();
 }
 
-test('status is a work stage and decision separately starts the opening project',async({page})=>{
+test('status is a work stage and decision remains separate from opening project activation',async({page})=>{
   let card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   const status=card.locator('select[data-field="status"]');
@@ -36,7 +38,8 @@ test('status is a work stage and decision separately starts the opening project'
     await idbPut(STORE,data,`location:${locationId}`);
   },id);
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaStatusNextTaskV447?.ready&&document.querySelector('[data-next-task-v447]'));
+  await page.waitForFunction(()=>window.BogatkaSuiteSaveOrderV452?.ready&&document.querySelector('[data-next-task-v447]'));
+  await page.evaluate(()=>window.BogatkaSuiteSaveOrderV452.finalizeWorkflowUi());
   card=page.locator(`[data-location-card="${id}"]`);
   await expect(card.locator('select[data-field="status"]')).toHaveValue('Новый объект');
   expect(await page.evaluate(locationId=>idbGet(STORE,`location:${locationId}`).then(data=>data.status),id)).toBe('Кандидат');
@@ -46,10 +49,13 @@ test('status is a work stage and decision separately starts the opening project'
   expect(await page.evaluate(locationId=>idbGet(STORE,`location:${locationId}`).then(data=>Boolean(data.launchProject?.enabled)),id)).toBe(false);
 
   await card.locator('input[data-field="decision"][value="Оставить"]').check();
-  await page.waitForFunction(async locationId=>{
+  await page.waitForFunction(async locationId=>(await idbGet(STORE,`location:${locationId}`))?.decision==='Оставить',id);
+  const result=await page.evaluate(async locationId=>{
     const data=await idbGet(STORE,`location:${locationId}`);
-    return data?.decision==='Оставить'&&data?.launchProject?.enabled===true;
+    return{enabled:Boolean(data?.launchProject?.enabled),gate:window.BogatkaLaunchGateV454?.gateState(data)?.code};
   },id);
+  expect(result.enabled).toBe(false);
+  expect(result.gate).toBe('checks');
 });
 
 test('next step selects the strongest active task and preserves an old manual step',async({page})=>{
