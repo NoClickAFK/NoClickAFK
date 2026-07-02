@@ -121,7 +121,7 @@ test('header uses a premium recommendation panel with a separate compact semanti
   expect(result.statusHeight).toBe(34);
   expect(result.statusBorderWidth).toBe('1px');
   expect(result.statusBorderColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(result.statusRadius).toBe('11px');
+  expect(result.statusRadius).toBe('10px');
   expect(result.statusFontSize).toBe('12px');
   expect(result.statusGap).toBeGreaterThanOrEqual(7);
   expect(result.statusGap).toBeLessThanOrEqual(9);
