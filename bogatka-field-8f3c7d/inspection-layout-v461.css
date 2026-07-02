@@ -1,6 +1,6 @@
 /* Bogatka v461 — balanced cards and one typography scale. */
-html .location-overview-v416{grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch!important;gap:14px!important}
-html .inspection-card-v416,html .landlord-card-v416{height:100%!important;box-sizing:border-box!important}
+html .location-overview-v416{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important}
+html .inspection-card-v416,html .landlord-card-v416{box-sizing:border-box!important}
 html .inspection-grid-v416,html .landlord-grid-v416,html .landlord-inspection-v461{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important;align-items:start!important}
 html .landlord-inspection-v461{margin-top:14px!important}
 html .inspection-extra-v452{display:none!important;margin:0!important;padding:0!important;border:0!important}
