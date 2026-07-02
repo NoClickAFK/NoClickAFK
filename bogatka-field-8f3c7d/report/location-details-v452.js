@@ -86,7 +86,16 @@
     return true;
   }
 
+  function loadStage7Report(){
+    if(document.querySelector('script[src="./traffic-competitors-v453.js"]'))return;
+    const script=document.createElement('script');
+    script.src='./traffic-competitors-v453.js';
+    script.async=false;
+    document.head.append(script);
+  }
+
   install();
+  loadStage7Report();
   setTimeout(()=>{
     install();
     try{if(typeof loadReport==='function')loadReport()}catch(_){ }

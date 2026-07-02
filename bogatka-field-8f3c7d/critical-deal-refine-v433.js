@@ -66,4 +66,11 @@
   };
   deal.statusLabel=(value,keyOrDefinition)=>deal.statusOptions(keyOrDefinition).find(item=>item.value===value)?.label||'Не проверено';
   deal.VERSION='4.3.3';
+
+  if(!document.querySelector('script[src="./critical-deal-persistence-v453.js"]')){
+    const script=document.createElement('script');
+    script.src='./critical-deal-persistence-v453.js';
+    script.async=false;
+    document.head.appendChild(script);
+  }
 })();
