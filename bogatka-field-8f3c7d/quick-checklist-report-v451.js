@@ -102,6 +102,7 @@
           }
         };
         wrapped=async function(...args){
+          await new Promise(resolve=>setTimeout(resolve,160));
           await waitForPendingSaves();
           await window.BogatkaDurableFieldsV452?.flush?.();
           await waitForPendingSaves();
