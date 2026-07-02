@@ -27,6 +27,17 @@ async function makeEligible(page,id,project){
   await page.waitForFunction(()=>window.BogatkaLaunchGateV454?.audit().ok);
 }
 
+async function openLaunch(card,{firstPhase=false}={}){
+  const details=card.locator('[data-launch-details]');
+  await details.evaluate(node=>{node.open=true;});
+  await expect(details.locator('[data-launch-body]')).toBeVisible();
+  if(firstPhase){
+    const phase=card.locator('.launch-v455-phase').first();
+    await phase.evaluate(node=>{node.open=true;});
+    await expect(phase.locator('.launch-v455-phase-body')).toBeVisible();
+  }
+}
+
 test('new opening project receives all seven phases',async({page})=>{
   let card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
@@ -53,6 +64,7 @@ test('legacy project remains unchanged until explicit expansion',async({page})=>
   await makeEligible(page,id,legacy);
   card=page.locator(`[data-location-card="${id}"]`);
   await page.evaluate(async()=>{await window.BogatkaLaunchGateV454.renderAll();await window.BogatkaOpeningProjectV455.renderAll();});
+  await openLaunch(card);
   const before=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(before.launchProject.milestones).toHaveLength(1);
   const expand=card.locator('[data-launch-v455-action="expand"]');
@@ -73,6 +85,7 @@ test('phase milestone status and assignee persist',async({page})=>{
     const data=await getLocationData(locationId);window.BogatkaSuite.ensureLaunchProject(data);await idbPut(STORE,data,`location:${locationId}`);await updateSummary();await window.BogatkaOpeningProjectV455.renderAll();
   },id);
   card=page.locator(`[data-location-card="${id}"]`);
+  await openLaunch(card,{firstPhase:true});
   const first=card.locator('[data-launch-milestone-v455]').first();
   const milestoneId=await first.getAttribute('data-launch-milestone-v455');
   await first.locator('[data-launch-v455-status]').selectOption('doing');
