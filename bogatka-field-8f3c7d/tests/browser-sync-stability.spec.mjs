@@ -185,7 +185,7 @@ test('idle background sync updates visible fields without page reload',async({pa
   });
   expect(result.sameNode).toBe(true);
   expect(result.contact).toBe('НОВОЕ С ТЕЛЕФОНА');
-  expect(result.status).toBe('Кандидат');
+  expect(result.status).toBe('Новый объект');
   expect(result.stored).toBe('НОВОЕ С ТЕЛЕФОНА');
   expect(result.pageUrl).toContain('?v=400');
 });

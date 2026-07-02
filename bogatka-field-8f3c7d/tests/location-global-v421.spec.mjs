@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=425';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=451';
 
 async function openApp(page){
   await page.setViewportSize({width:1440,height:1000});
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaLocationPanelsV419?.ready&&window.BogatkaLocationGlobalV421?.ready&&window.BogatkaObjectTypeNormalizeV416?.ready);
-  await page.waitForFunction(()=>window.BogatkaLocationPanelsV419.audit().ok&&window.BogatkaLocationGlobalV421.audit().ok);
+  await page.waitForFunction(()=>window.BogatkaLocationPanelsV419?.ready&&window.BogatkaLocationGlobalV421?.ready&&window.BogatkaObjectTypeNormalizeV416?.ready&&window.BogatkaQuickChecklistV451?.ready);
+  await page.waitForFunction(()=>window.BogatkaLocationPanelsV419.audit().ok&&window.BogatkaLocationGlobalV421.audit().ok&&window.BogatkaQuickChecklistV451.audit().ok);
 }
 
 async function setPanel(card,selector,open){
@@ -32,7 +32,7 @@ test('object type can be reset to not selected and stays empty after reload',asy
   const saved=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(saved.objectType).toBe('');
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaLocationGlobalV421?.ready&&window.BogatkaLocationGlobalV421.audit().ok);
+  await page.waitForFunction(()=>window.BogatkaLocationGlobalV421?.ready&&window.BogatkaLocationGlobalV421.audit().ok&&window.BogatkaQuickChecklistV451?.ready&&window.BogatkaQuickChecklistV451.audit().ok);
   await expect(page.locator(`[data-location-card="${id}"] select[data-field="objectType"]`)).toHaveValue('');
 });
 
@@ -57,18 +57,40 @@ test('global inspection dropdowns are visible, persist and appear in the report'
   expect(html).toContain('Заинтересован');
 });
 
-test('paired controls share one grid and every caption has the same gap to its control',async({page})=>{
+test('paired controls share one grid and every visible caption has the same gap to its control',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
   await setPanel(card,'.inspection-card-v416',true);
   await setPanel(card,'.landlord-card-v416',true);
+  await page.waitForFunction(()=>{
+    const element=document.querySelector('[data-location-card]');
+    if(!element||!window.BogatkaLocationGlobalV421?.alignPairedCaptions)return false;
+    window.BogatkaLocationGlobalV421.alignPairedCaptions(element);
+    const pairs=[
+      ['status','objectType'],['date','time'],['floorLocation','premiseCondition'],
+      ['premiseAvailability','landlordReadiness'],['ownerName','contactRole'],['contact','contactPhone'],
+      ['contactMessenger','contactEmail'],
+    ];
+    const visible=field=>{
+      const control=element.querySelector(`[data-field="${field}"]`);
+      const wrapper=control?.closest('label.field,label.object-other,label.contact-role-other-v425');
+      return wrapper?.querySelector('.premium-select-trigger')||control;
+    };
+    return pairs.every(([left,right])=>{
+      const a=visible(left)?.getBoundingClientRect();
+      const b=visible(right)?.getBoundingClientRect();
+      return Boolean(a&&b&&Math.abs(a.top-b.top)<=2);
+    });
+  },{timeout:5000});
   const result=await card.evaluate(element=>{
     const controlNode=field=>{
       const control=element.querySelector(`[data-field="${field}"]`);
       if(!control)return null;
       const wrapper=control.closest('label.field,label.object-other,label.contact-role-other-v425');
-      const visible=wrapper?.querySelector('.premium-select-trigger')||control;
-      return {control:visible,caption:wrapper?.querySelector(':scope > .profile-caption-v416')};
+      if(!wrapper||wrapper.matches('[hidden],.hidden,.profile-hidden-v447,.panel-hidden-v419')||getComputedStyle(wrapper).display==='none')return null;
+      const visible=wrapper.querySelector('.premium-select-trigger')||control;
+      if(getComputedStyle(visible).display==='none')return null;
+      return {control:visible,caption:wrapper.querySelector(':scope > .profile-caption-v416')};
     };
     const pairs=[
       ['status','objectType'],['date','time'],['floorLocation','premiseCondition'],

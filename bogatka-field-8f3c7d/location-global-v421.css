@@ -28,7 +28,7 @@
 .location-panels-v419 .profile-caption-v416{
   display:flex!important;
   align-items:flex-end;
-  min-height:16px;
+  min-height:32px;
   margin:0!important;
   line-height:16px!important;
 }
@@ -42,6 +42,10 @@
 
 .location-panels-v419 .global-field-v421{
   min-width:0;
+}
+
+@media(max-width:700px){
+  .location-panels-v419 .profile-caption-v416{min-height:16px}
 }
 
 @media(min-width:1200px){
