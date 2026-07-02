@@ -44,8 +44,19 @@
     },Math.max(100,delay));
   }
 
+  async function settleAfterBlur(){
+    if(hasActiveEditor())return false;
+    pending=false;
+    clearTimeout(refreshTimer);
+    await runFullRefresh();
+    return true;
+  }
+
   document.addEventListener('focusout',()=>{
     if(pending)requestRefresh(750);
+    setTimeout(()=>{
+      if(pending)settleAfterBlur().catch(console.error);
+    },1500);
   },true);
 
   async function stableUpdateSummary(){
@@ -56,14 +67,6 @@
     pending=false;
     clearTimeout(refreshTimer);
     return runFullRefresh();
-  }
-
-  async function settleAfterBlur(){
-    if(hasActiveEditor())return false;
-    pending=false;
-    clearTimeout(refreshTimer);
-    await runFullRefresh();
-    return true;
   }
 
   window.updateSummary=stableUpdateSummary;
