@@ -67,7 +67,7 @@ test('active checklist contains only factual checks and preserves hidden legacy 
 test('source, listing and repeat-inspection basis persist without rerendering the card',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
-  const original=await card.evaluate(node=>node);
+  await card.evaluate(node=>node.dataset.identityV452='kept');
   const source=card.locator('[data-field="objectSource"]');
   await selectAndWait(page,source,id,'objectSource','Объявление');
   const listing=card.locator('[data-field="listingUrl"]');
@@ -78,8 +78,7 @@ test('source, listing and repeat-inspection basis persist without rerendering th
   await fillAndWait(page,card.locator('[data-field="inspectionResult"]'),id,'inspectionResult','Площадь подтверждена, нужен расчёт мощности');
 
   await expect(card.locator('.listing-link-v452')).toHaveAttribute('href','https://example.com/object-17');
-  const same=await card.evaluate((node,originalNode)=>node===originalNode,original).catch(()=>true);
-  expect(same).toBe(true);
+  await expect(card).toHaveAttribute('data-identity-v452','kept');
 
   await page.reload({waitUntil:'networkidle'});
   await page.waitForFunction(locationId=>window.BogatkaLocationDataV452?.audit().ok&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] [data-field="inspectionResult"]`)?.value.includes('Площадь'),id);
