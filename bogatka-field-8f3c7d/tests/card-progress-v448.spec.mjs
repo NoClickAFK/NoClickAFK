@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=448';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=459';
 
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -29,17 +29,69 @@ async function saveData(page,id,patch){
   },{locationId:id,next:patch});
 }
 
-test('header keeps only textual recommendation and removes three numeric boxes',async({page})=>{
+test('header keeps one compact right-aligned semantic status without a nested recommendation card',async({page})=>{
   const card=await openApp(page);
   await expect(card.locator(':scope > .location-head .scorebox')).toBeHidden();
   await expect(card.locator(':scope > .location-head .decision-score-v340')).toHaveCount(0);
   await expect(card.locator(':scope > .location-head .decision-complete-v340')).toHaveCount(0);
-  await expect(card.locator('[data-card-recommendation-v448]')).toBeVisible();
-  await expect(card.locator('[data-card-recommendation-reason-v448]')).not.toHaveText('');
+
+  const chip=card.locator('.card-recommendation-v448');
+  await expect(chip).toBeVisible();
+  await expect(chip.locator('[data-card-recommendation-v448]')).toHaveText('Недостаточно оценок');
+  await expect(chip.locator(':scope > span')).not.toBeVisible();
+  await expect(chip.locator(':scope > small')).not.toBeVisible();
+
+  const geometry=await chip.evaluate(element=>{
+    const style=getComputedStyle(element);
+    const rect=element.getBoundingClientRect();
+    const parent=element.closest('.location-head-side-v422').getBoundingClientRect();
+    return{
+      width:rect.width,
+      height:rect.height,
+      parentWidth:parent.width,
+      fontSize:getComputedStyle(element.querySelector('strong')).fontSize,
+      padding:[style.paddingTop,style.paddingRight,style.paddingBottom,style.paddingLeft],
+      borderStyle:style.borderStyle,
+      className:element.className,
+    };
+  });
+  expect(geometry.width).toBeLessThan(210);
+  expect(geometry.width).toBeLessThan(geometry.parentWidth);
+  expect(geometry.height).toBe(34);
+  expect(geometry.fontSize).toBe('12px');
+  expect(geometry.padding).toEqual(['7px','10px','7px','10px']);
+  expect(geometry.borderStyle).toBe('solid');
+  expect(geometry.className).toContain('empty');
+
   const headerText=await card.locator(':scope > .location-head').innerText();
+  expect(headerText).not.toContain('Текущая рекомендация');
+  expect(headerText).not.toContain('Оцените минимум 5 критериев');
   expect(headerText).not.toContain('/ 70');
   expect(headerText).not.toContain('/100');
   expect(headerText).not.toMatch(/\b\d+%\b/);
+  await expect(card.locator('.progress-recommendation-v448')).toContainText('Оцените минимум 5 критериев');
+});
+
+test('recommendation status changes semantic color without changing its compact geometry',async({page})=>{
+  const card=await openApp(page);
+  const id=await card.getAttribute('data-location-card');
+  const chip=card.locator('.card-recommendation-v448');
+  const before=await chip.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
+
+  await saveData(page,id,{
+    status:'Новый объект',objectType:'Торговый центр',date:'2026-07-02',time:'11:00',floorLocation:'1-й этаж',
+    premiseCondition:'Готово к работе',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',
+    ownerName:'ООО Арендодатель',contactRole:'Собственник',contact:'Иван',contactPhone:'+375290000000',
+    score:{housing:'5',occupied:'5',foot:'5',car:'5',parking:'5',stop:'5',anchor:'5',visibility:'5'},
+    tech:{totalArea:'100',rentPerMonth:'3000',powerKw:'40',openingHours:'09:00–21:00',utilities:'500',repairEstimate:'10000'},
+    pros:'Хорошая видимость',cons:'Нужно уточнить условия',risks:'Нет подтверждённых рисков',questions:'Уточнить срок аренды',decision:'Оставить',criticalDealConditions:{},
+  });
+  await expect(chip).toHaveClass(/good/);
+  await expect(chip.locator('[data-card-recommendation-v448]')).toHaveText('Перспективно');
+  const after=await chip.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
+  expect(after.background).not.toBe(before.background);
+  expect(after.border).not.toBe(before.border);
+  expect(after.height).toBe(34);
 });
 
 test('quality excludes blank criteria while coverage records how much was evaluated',async({page})=>{
@@ -110,7 +162,7 @@ test('authoritative HTML and PDF report keeps the expanded evaluation block',asy
   expect(report.text).toContain('Пустые критерии не занижают качество');
 });
 
-test('expanded block remains usable on a phone width',async({page})=>{
+test('expanded block and compact status remain usable on a phone width',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const card=await openApp(page);
   const layout=await card.locator('.decision-progress-v448').evaluate(element=>({
@@ -119,7 +171,23 @@ test('expanded block remains usable on a phone width',async({page})=>{
     metricColumns:getComputedStyle(element.querySelector('.progress-metrics-v448')).gridTemplateColumns,
     buttons:[...element.querySelectorAll('.fill-plan-item-v448 button')].map(button=>button.getBoundingClientRect().width),
   }));
+  const chip=await card.locator('.card-recommendation-v448').evaluate(element=>{
+    const labelStyle=getComputedStyle(element.querySelector('strong'));
+    return{
+      width:element.getBoundingClientRect().width,
+      height:element.getBoundingClientRect().height,
+      container:element.closest('.location-head-side-v422').getBoundingClientRect().width,
+      whiteSpace:labelStyle.whiteSpace,
+      overflow:labelStyle.overflow,
+      textOverflow:labelStyle.textOverflow,
+    };
+  });
   expect(layout.scrollWidth).toBeLessThanOrEqual(Math.ceil(layout.width)+1);
   expect(layout.metricColumns.split(' ').length).toBe(1);
   expect(layout.buttons.every(width=>width>250)).toBe(true);
+  expect(chip.width).toBeLessThan(chip.container);
+  expect(chip.height).toBe(34);
+  expect(chip.whiteSpace).toBe('nowrap');
+  expect(chip.overflow).toBe('hidden');
+  expect(chip.textOverflow).toBe('ellipsis');
 });

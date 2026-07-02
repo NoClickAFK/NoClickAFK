@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=448';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=459';
 
 async function openApp(page){
   await page.setViewportSize({width:1440,height:1000});
@@ -47,7 +47,7 @@ test('whole location card collapses to its header and remembers state independen
   await expect(reloaded.locator(':scope > .location-body')).toBeVisible();
 });
 
-test('header keeps one stable recommendation card instead of three numeric boxes',async({page})=>{
+test('header keeps one compact semantic status instead of numeric or nested cards',async({page})=>{
   await openApp(page);
   const result=await page.locator('[data-location-card]').first().evaluate(card=>{
     const recommendation=card.querySelector('.location-head-side-v422 .card-recommendation-v448');
@@ -58,15 +58,21 @@ test('header keeps one stable recommendation card instead of three numeric boxes
       height:Math.round(rect.height*10)/10,
       borderWidth:style.borderTopWidth,
       radius:style.borderTopLeftRadius,
+      backgroundImage:style.backgroundImage,
+      labelVisible:getComputedStyle(recommendation.querySelector(':scope > span')).display!=='none',
+      reasonVisible:getComputedStyle(recommendation.querySelector(':scope > small')).display!=='none',
       oldMetricCount:card.querySelectorAll('.location-head-side-v422 .decision-score-v340,.location-head-side-v422 .decision-complete-v340').length,
       rawVisible:getComputedStyle(card.querySelector('.location-head-side-v422 > .scorebox')).display!=='none',
     };
   });
 
-  expect(result.width).toBeGreaterThan(230);
-  expect(result.height).toBeGreaterThanOrEqual(70);
+  expect(result.width).toBeLessThan(210);
+  expect(result.height).toBe(34);
   expect(result.borderWidth).toBe('1px');
-  expect(result.radius).toBe('15px');
+  expect(result.radius).toBe('11px');
+  expect(result.backgroundImage).toBe('none');
+  expect(result.labelVisible).toBe(false);
+  expect(result.reasonVisible).toBe(false);
   expect(result.oldMetricCount).toBe(0);
   expect(result.rawVisible).toBe(false);
 });
