@@ -6,15 +6,16 @@ const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=458';
 
 test('stage 7 persistence rejects viewers before capture and uses the shared queue',()=>{
   const source=fs.readFileSync(`${ROOT}/traffic-competitors-persistence-v453.js`,'utf8');
-  expect(source).toContain("if(isViewer())return;");
-  expect(source.indexOf("if(isViewer())return;")).toBeLessThan(source.indexOf('event.stopImmediatePropagation()'));
+  const guard='if(isViewer())return;';
+  expect(source).toContain(guard);
+  expect(source.indexOf(guard)).toBeLessThan(source.indexOf('event.stopImmediatePropagation()'));
   expect(source).toContain('BogatkaFieldIntegrityV416?.enqueueLocation');
 });
 
 test('opening project persistence uses the same shared location queue',()=>{
   const source=fs.readFileSync(`${ROOT}/opening-project-persistence-v455.js`,'utf8');
   expect(source).toContain('BogatkaFieldIntegrityV416?.enqueueLocation');
-  expect(source.indexOf("if(!root||!locationId||isViewer())return;")).toBeLessThan(source.indexOf('event.stopImmediatePropagation()'));
+  expect(source.indexOf('if(!root||!locationId||isViewer())return;')).toBeLessThan(source.indexOf('event.stopImmediatePropagation()'));
 });
 
 test('launch gate decision, status and activation writes use the shared queue',()=>{
@@ -52,6 +53,6 @@ test('combined stages 7-10 boot and pass runtime audits',async({page})=>{
     window.BogatkaReleaseIntegrityV456?.ready&&
     window.BogatkaWorkflowIntegrityV457?.audit().ok
   ),{timeout:30000});
-  await page.waitForFunction(()=>window.BogatkaReleaseIntegrityV456.audit().ok,{timeout:30000});
-  expect(await page.evaluate(()=>window.BogatkaReleaseIntegrityV456.audit())).toMatchObject({ok:true});
+  const audit=await page.evaluate(()=>window.BogatkaReleaseIntegrityV456.auditAll());
+  expect(audit.ok,audit.failures.join('\n')).toBe(true);
 });
