@@ -11,6 +11,12 @@ test('stage 7 persistence rejects viewers before capture and uses the shared que
   expect(source).toContain('BogatkaFieldIntegrityV416?.enqueueLocation');
 });
 
+test('opening project persistence uses the same shared location queue',()=>{
+  const source=fs.readFileSync(`${ROOT}/opening-project-persistence-v455.js`,'utf8');
+  expect(source).toContain('BogatkaFieldIntegrityV416?.enqueueLocation');
+  expect(source.indexOf("if(!root||!locationId||isViewer())return;")).toBeLessThan(source.indexOf('event.stopImmediatePropagation()'));
+});
+
 test('field integrity exposes one shared per-location queue',()=>{
   const source=fs.readFileSync(`${ROOT}/field-integrity-v416.js`,'utf8');
   expect(source).toContain('function enqueueLocation(locationId,task)');
@@ -20,6 +26,12 @@ test('field integrity exposes one shared per-location queue',()=>{
 test('stage 8 gate is refreshed after summary updates',()=>{
   const source=fs.readFileSync(`${ROOT}/durable-fields-v452.js`,'utf8');
   expect(source).toContain('BogatkaLaunchGateV454.renderAll()');
+});
+
+test('task save integration preserves the status wrapper marker',()=>{
+  const source=fs.readFileSync(`${ROOT}/suite-save-order-v452.js`,'utf8');
+  expect(source).toContain('current.__statusNextTaskV447=true');
+  expect(source).toContain('BogatkaWorkflowIntegrityV457?.refreshNextTaskPanels');
 });
 
 test('combined stages 7-10 boot and pass runtime audits',async({page})=>{
