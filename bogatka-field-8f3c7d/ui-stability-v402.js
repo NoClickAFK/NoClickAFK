@@ -11,19 +11,18 @@
 
   const editorSelector='#app input:not([type="button"]):not([type="submit"]):not([type="file"]),#app textarea,#app select,#app [contenteditable="true"]';
 
+  function hasActiveEditor(){
+    const active=document.activeElement;
+    return Boolean(active?.matches?.(editorSelector));
+  }
+
   function isEditing(){
     if(document.hidden)return false;
-    const active=document.activeElement;
-    if(active?.matches?.(editorSelector))return true;
+    if(hasActiveEditor())return true;
     return Date.now()-lastInteractionAt<700;
   }
 
-  function markInteraction(event){
-    const target=event?.target;
-    const active=document.activeElement;
-    const focusBoundary=event?.type==='focusin'||event?.type==='focusout';
-    if(focusBoundary||target===active)lastInteractionAt=Date.now();
-  }
+  function markInteraction(){lastInteractionAt=Date.now()}
   for(const name of ['pointerdown','touchstart','keydown','input','change','focusin','focusout'])document.addEventListener(name,markInteraction,true);
 
   async function runFullRefresh(){
@@ -59,13 +58,23 @@
     return runFullRefresh();
   }
 
+  async function settleAfterBlur(){
+    if(hasActiveEditor())return false;
+    pending=false;
+    clearTimeout(refreshTimer);
+    await runFullRefresh();
+    return true;
+  }
+
   window.updateSummary=stableUpdateSummary;
   try{updateSummary=stableUpdateSummary}catch(_){}
 
   window.BogatkaUIStability={
     version:'4.0.2',
     isEditing,
+    hasActiveEditor,
     requestRefresh,
+    settleAfterBlur,
     flush:async()=>{
       if(isEditing())return false;
       pending=false;
