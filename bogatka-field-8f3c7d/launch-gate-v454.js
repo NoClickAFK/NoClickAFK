@@ -98,24 +98,28 @@
     const label=card.querySelector(`[data-launch-label="${CSS.escape(id)}"]`);
     if(!details||!body)return false;
     const state=gateState(data);
+    const previousState=details.dataset.launchGateV454||'';
     details.dataset.launchGateV454=state.code;
 
     if(state.code==='decision'){
-      if(label)label.textContent=state.label;
+      if(label&&label.textContent!==state.label)label.textContent=state.label;
       details.open=false;
-      body.replaceChildren();
+      if(previousState!=='decision'||body.childElementCount)body.replaceChildren();
       return true;
     }
 
     if(state.code==='checks'){
-      if(label)label.textContent=state.label;
+      if(label&&label.textContent!==state.label)label.textContent=state.label;
+      if(previousState==='checks'&&body.querySelector('[data-open-deal-checks-v454]'))return true;
       body.innerHTML=`<div class="launch-gate-message-v454"><strong>${state.title}</strong><p>${state.text}</p><button type="button" class="btn secondary" data-open-deal-checks-v454>Открыть проверки перед арендой</button></div>`;
       body.querySelector('[data-open-deal-checks-v454]')?.addEventListener('click',()=>openDealChecks(card));
       return true;
     }
 
     if(!data.launchProject?.enabled){
-      if(label)label.textContent=state.label;
+      if(label&&label.textContent!==state.label)label.textContent=state.label;
+      const existing=body.querySelector('[data-launch-activate-v454]');
+      if(previousState==='ready'&&existing){existing.disabled=isViewer();return true;}
       body.innerHTML=`<div class="launch-gate-message-v454"><strong>${state.title}</strong><p>${state.text}</p><button type="button" class="btn" data-launch-activate-v454="${id}"${isViewer()?' disabled':''}>Создать проект открытия</button></div>`;
       body.querySelector('[data-launch-activate-v454]')?.addEventListener('click',()=>activate(card,id).catch(error=>{lastError=error;if(typeof window.showError==='function')window.showError(error);else console.error(error);}));
     }
@@ -184,9 +188,7 @@
     }
     installSuiteGuard();
     const root=document.getElementById('locations')||document.body;
-    new MutationObserver(records=>{
-      if(records.some(record=>record.target.closest?.('[data-launch-details]')||[...record.addedNodes].some(node=>node.nodeType===1&&node.matches?.('[data-location-card], [data-launch-details]'))))schedule(100);
-    }).observe(root,{childList:true,subtree:true});
+    new MutationObserver(records=>{if(records.some(record=>record.target===root))schedule(100);}).observe(root,{childList:true});
     schedule(20);[300,800,1600,3200,6000].forEach(delay=>setTimeout(()=>schedule(0),delay));
     installReportGuard();
   }
