@@ -70,6 +70,22 @@
     return{milestones,grouped,missing,done,total:milestones.length,percent:milestones.length?Math.round(done/milestones.length*100):0};
   }
 
+  function renderSignature(project={}){
+    return JSON.stringify({
+      viewer:isViewer(),
+      enabled:Boolean(project.enabled),
+      schemaVersion:project.schemaVersion||'',
+      stage:project.stage||'',
+      targetDate:project.targetDate||'',
+      manager:project.manager||'',
+      budget:project.budget||'',
+      notes:project.notes||'',
+      milestones:(Array.isArray(project.milestones)?project.milestones:[]).map(item=>[
+        item.id||'',item.templateKey||'',item.title||'',item.phase||'',item.order??'',item.status||'',item.assignee||'',item.dueDate||'',item.note||''
+      ]),
+    });
+  }
+
   function expandProjectData(data){
     const project=data.launchProject;
     if(!project?.enabled)return{project,added:0,changed:false};
@@ -107,14 +123,19 @@
 
   async function expandStoredProject(locationId){
     if(isViewer())return;
-    const data=await getLocationData(locationId);
-    const result=expandProjectData(data);
-    if(!result.changed)return;
-    suite()?.appendActivityToData?.(data,{action:'Расширен проект открытия',label:'Проект открытия',details:`Добавлено этапов: ${result.added}`});
-    data.updatedAt=now();
-    await idbPut(STORE,data,`location:${locationId}`);
-    await updateSummary();
-    await renderAll();
+    const shared=window.BogatkaFieldIntegrityV416?.enqueueLocation;
+    const task=async()=>{
+      const data=await getLocationData(locationId);
+      const result=expandProjectData(data);
+      if(!result.changed)return false;
+      suite()?.appendActivityToData?.(data,{action:'Расширен проект открытия',label:'Проект открытия',details:`Добавлено этапов: ${result.added}`});
+      data.updatedAt=now();
+      await idbPut(STORE,data,`location:${locationId}`);
+      await updateSummary();
+      await renderAll();
+      return true;
+    };
+    return typeof shared==='function'?shared(locationId,task):task();
   }
 
   function statusLabel(status){return({todo:'Не начато',doing:'В работе',waiting:'Ожидает',done:'Готово'})[status]||'Не начато';}
@@ -131,11 +152,14 @@
     const details=card.querySelector(`[data-launch-details="${CSS.escape(id)}"]`);
     const project=data.launchProject;
     if(!body||!details||!project?.enabled||!gateApi()?.gateState(data).allowed)return false;
-    if(body.contains(document.activeElement)){schedule(500);return true;}
     const analysis=projectAnalysis(project);
     if(label)label.textContent=`${analysis.done}/${analysis.total} · ${analysis.percent}%`;
     details.dataset.openingProjectV455='1';
+    const signature=renderSignature(project);
+    if(body.dataset.openingProjectSignatureV455===signature&&body.querySelector('.launch-v455'))return true;
+    if(body.contains(document.activeElement)){schedule(500);return true;}
     body.innerHTML=`<div class="launch-v455" data-viewer="${isViewer()?'1':'0'}"><div class="launch-v455-overview"><div><span>Текущая фаза</span><strong>${esc(project.stage||'Подготовка договора')}</strong></div><div><span>Плановая дата</span><strong>${esc(project.targetDate||'не задана')}</strong></div><div><span>Ответственный</span><strong>${esc(project.manager||'не назначен')}</strong></div><div><span>Общий прогресс</span><strong>${analysis.done}/${analysis.total} · ${analysis.percent}%</strong></div></div><div class="launch-v455-progress"><span style="width:${analysis.percent}%"></span></div><div class="launch-v455-fields"><label class="field">Текущая фаза<select data-launch-v455-field="stage"><option>Подготовка договора</option><option>Планировка и согласования</option><option>Ремонт</option><option>Оборудование и системы</option><option>Поставщики и товар</option><option>Персонал</option><option>Реклама и открытие</option><option>Открыт</option></select></label><label class="field">Плановая дата<input type="date" data-launch-v455-field="targetDate" value="${esc(project.targetDate||'')}"></label><label class="field">Ответственный<input type="text" data-launch-v455-field="manager" value="${esc(project.manager||'')}"></label><label class="field">Бюджет проекта, BYN<input type="number" step="any" data-launch-v455-field="budget" value="${esc(project.budget||'')}"></label><label class="field launch-v455-notes">Примечания по запуску<textarea rows="3" data-launch-v455-field="notes">${esc(project.notes||'')}</textarea></label></div>${analysis.missing.length?`<div class="launch-v455-actions"><button type="button" class="btn secondary" data-launch-v455-action="expand">Добавить недостающие этапы (${analysis.missing.length})</button><p>Существующие этапы и их статусы не изменятся.</p></div>`:''}<div class="launch-v455-phases">${PHASES.map(phase=>phaseMarkup(phase,analysis.grouped[phase.key])).join('')}</div></div>`;
+    body.dataset.openingProjectSignatureV455=signature;
     const stage=body.querySelector('[data-launch-v455-field="stage"]');if(stage)stage.value=project.stage||'Подготовка договора';
     body.querySelectorAll('[data-launch-v455-field]').forEach(control=>{control.disabled=isViewer();control.addEventListener('change',()=>suite().saveLaunchField(id,control.dataset.launchV455Field,control.value).catch(showError));});
     body.querySelectorAll('[data-launch-v455-status]').forEach(control=>{control.disabled=isViewer();control.addEventListener('change',()=>suite().updateMilestone(id,control.dataset.launchV455Status,{status:control.value,phase:inferPhase(analysis.milestones.find(item=>item.id===control.dataset.launchV455Status))}).catch(showError));});
@@ -192,6 +216,6 @@
     schedule(20);[500,1200,2500,5000].forEach(delay=>setTimeout(()=>schedule(0),delay));installReport();
   }
 
-  window.BogatkaOpeningProjectV455={version:VERSION,ready:true,PHASES,templates,inferPhase,projectAnalysis,expandProjectData,renderProject,renderAll,reportProjectHtml,transformReport,audit,get lastError(){return lastError;}};
+  window.BogatkaOpeningProjectV455={version:VERSION,ready:true,PHASES,templates,inferPhase,projectAnalysis,renderSignature,expandProjectData,renderProject,renderAll,reportProjectHtml,transformReport,audit,get lastError(){return lastError;}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
