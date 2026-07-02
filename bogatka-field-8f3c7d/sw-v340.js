@@ -1,4 +1,4 @@
-const BUILD_TOKEN=new URL(self.location.href).searchParams.get('v')||'460';
+const BUILD_TOKEN=new URL(self.location.href).searchParams.get('v')||'432';
 const CACHE_NAME=`bogatka-location-v${BUILD_TOKEN}`;
 const CORE_ASSETS=[
   './','./index.html','./style.css','./v21.css','./v22.css','./v23.css','./cloud.css','./premium-v30.css','./auth-v31.css','./members-v32.css','./stability-v33.css','./polish-v34.css','./insights-v331.css','./compare-v332.css','./decision-v340.css','./critical-deal-v430.css','./compare-v340.css','./suite-v400.css','./visual-v411.css','./decision-panel-v412.css','./workflow-v414.css','./workflow-fixes-v415.css','./workflow-refine-v440.css','./location-profile-v416.css','./location-overview-v417.css','./location-panels-v419.css','./location-global-v421.css','./location-card-collapse-v422.css','./status-next-task-v447.css','./card-progress-v448.css','./card-progress-v460.css','./quick-checklist-v451.css','./location-data-v452.css','./traffic-competitors-v453.css','./launch-gate-v454.css','./opening-project-v455.css',
