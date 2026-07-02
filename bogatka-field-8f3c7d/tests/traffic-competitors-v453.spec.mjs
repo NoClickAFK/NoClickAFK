@@ -82,6 +82,8 @@ test('legacy first competitor is preserved and additional competitors use a sepa
 
 test('viewer cannot edit traffic measurements or competitor cards',async({page})=>{
   const card=await openApp(page);
+  await openSection(card,'Полевой замер трафика');
+  await openSection(card,'Конкуренты и окружение');
   await card.locator('[data-stage7-action="add-traffic"]').click();
   await page.evaluate(()=>{cloudRole='viewer';window.BogatkaTrafficCompetitorsV453.applyViewerState(document)});
   for(const control of await card.locator('.traffic-stage7-v453 input,.traffic-stage7-v453 select,.traffic-stage7-v453 textarea,.competitors-stage7-v453 input,.competitors-stage7-v453 select,.competitors-stage7-v453 textarea').all())await expect(control).toBeDisabled();
@@ -92,6 +94,8 @@ test('viewer cannot edit traffic measurements or competitor cards',async({page})
 test('live and public reports include structured traffic and competitors',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
+  await openSection(card,'Полевой замер трафика');
+  await openSection(card,'Конкуренты и окружение');
   await card.locator('[data-stage7-action="add-traffic"]').click();
   await fillAndWait(page,card.locator('.traffic-measurement-v453').first().locator('[data-stage7-field="peopleCount"]'),id,{collection:'trafficMeasurements',index:0,field:'peopleCount'},'55');
   await fillAndWait(page,card.locator('.competitor-card-v453[data-competitor-legacy="1"] [data-stage7-field="name"]'),id,{type:'legacy',field:'competitor.name'},'Зоомагазин для отчёта');
