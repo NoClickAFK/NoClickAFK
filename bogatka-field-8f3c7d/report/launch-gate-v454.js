@@ -30,6 +30,11 @@
     return true;
   }
 
+  function loadStage9(){
+    if(document.querySelector('script[src="./opening-project-v455.js"]'))return;
+    const script=document.createElement('script');script.src='./opening-project-v455.js';script.async=false;document.head.append(script);
+  }
+
   window.BogatkaPublicLaunchGateV454={version:VERSION,ready:true,allowed,removeLaunch,install};
-  install();
+  install();loadStage9();
 })();
