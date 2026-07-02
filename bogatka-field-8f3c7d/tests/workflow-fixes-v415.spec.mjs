@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=415';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=458';
 
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
-  await page.waitForFunction(()=>window.BogatkaWorkflowV414?.ready&&window.BogatkaWorkflowFixesV415?.ready);
+  await page.waitForFunction(()=>window.BogatkaWorkflowV414?.ready&&window.BogatkaWorkflowFixesV415?.ready&&window.BogatkaSuiteSaveOrderV452?.ready);
   await page.waitForFunction(()=>document.querySelector('[data-location-card] .comment-form-v400'));
+  await page.evaluate(()=>window.BogatkaSuiteSaveOrderV452.finalizeWorkflowUi());
+  await page.waitForFunction(()=>document.documentElement.dataset.workflowUiFinalizedV458==='1');
 }
 
 async function openPane(page,pane){
@@ -51,6 +53,7 @@ test('priority menu uses equal one-line options and the same compact font',async
   const card=page.locator('[data-location-card]').first();
   const trigger=card.locator('.task-priority-trigger-v415');
   await expect(trigger).toBeVisible();
+  await page.evaluate(()=>window.BogatkaSuiteSaveOrderV452.finalizeWorkflowUi());
   await trigger.click();
   const menu=page.locator('.premium-select-menu.open');
   await expect(menu).toBeVisible();
