@@ -118,5 +118,6 @@
     loadBogatkaPatch('script',{src:'./launch-gate-v454.js'});
     loadBogatkaPatch('link',{rel:'stylesheet',href:'./opening-project-v455.css'});
     loadBogatkaPatch('script',{src:'./opening-project-v455.js'});
+    loadBogatkaPatch('script',{src:'./release-integrity-v456.js'});
   }
 })();
