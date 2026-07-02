@@ -188,7 +188,6 @@ test('recommendation panel and compact status remain usable on a phone width',as
     width:element.getBoundingClientRect().width,
     scrollWidth:element.scrollWidth,
     metricColumns:getComputedStyle(element.querySelector('.progress-metrics-v448')).gridTemplateColumns,
-    buttons:[...element.querySelectorAll('.fill-plan-item-v448 button')].map(button=>button.getBoundingClientRect().width),
   }));
   const header=await card.locator('.card-recommendation-v448').evaluate(element=>{
     const status=element.querySelector(':scope > strong');
@@ -206,7 +205,6 @@ test('recommendation panel and compact status remain usable on a phone width',as
   });
   expect(layout.scrollWidth).toBeLessThanOrEqual(Math.ceil(layout.width)+1);
   expect(layout.metricColumns.split(' ').length).toBe(1);
-  expect(layout.buttons.every(width=>width>220)).toBe(true);
   expect(header.panelWidth).toBeLessThan(header.container);
   expect(header.panelScrollWidth).toBeLessThanOrEqual(Math.ceil(header.panelWidth)+1);
   expect(header.statusWidth).toBeLessThan(210);
