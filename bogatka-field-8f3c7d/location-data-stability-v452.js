@@ -5,7 +5,7 @@
   const VERSION='4.5.2';
   const DURABLE_FIELDS=new Set([
     'objectSource','objectSourceOther','listingUrl','inspectionPurpose','inspectionParticipants','inspectionResult',
-    'decision','decisionReason','tech.requiredPowerKw',
+    'decision','decisionReason','tech.powerKw','tech.requiredPowerKw',
   ]);
   const durableTimers=new Map();
   let attempts=0;
@@ -21,6 +21,17 @@
 
   function controlIsProtected(control,locationId){
     return !control||control===document.activeElement||control.dataset.locationDataDirtyV452==='1'||pendingLocation(locationId);
+  }
+
+  function number(value){
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value!=='string')return null;
+    const match=value.replace(/\s+/g,'').replace(',','.').match(/-?\d+(?:\.\d+)?/);
+    return match&&Number.isFinite(Number(match[0]))?Number(match[0]):null;
+  }
+
+  function formatNumber(value){
+    return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(Math.abs(Number(value)));
   }
 
   function syncPremium(select){
@@ -39,13 +50,41 @@
     }
   }
 
+  function renderStoredPowerBalance(card,data){
+    const availableControl=card.querySelector('[data-field="tech.powerKw"]');
+    const requiredControl=card.querySelector('[data-field="tech.requiredPowerKw"]');
+    const locationId=card.dataset.locationCard;
+    if(controlIsProtected(availableControl,locationId)||controlIsProtected(requiredControl,locationId)){
+      window.BogatkaLocationDataV452?.updatePowerBalance?.(card);
+      return false;
+    }
+    const available=number(data?.tech?.powerKw);
+    const required=number(data?.tech?.requiredPowerKw);
+    const box=card.querySelector('.power-balance-v452');
+    const output=box?.querySelector('[data-power-balance-v452]');
+    if(!box||!output)return false;
+    if(available===null||required===null){
+      window.BogatkaLocationDataV452?.updatePowerBalance?.(card);
+      return false;
+    }
+    const balance=available-required;
+    let text='Мощность без запаса';
+    let state='zero';
+    if(balance>0){text=`Запас ${formatNumber(balance)} кВт`;state='reserve'}
+    else if(balance<0){text=`Дефицит ${formatNumber(balance)} кВт`;state='deficit'}
+    if(output.textContent!==text)output.textContent=text;
+    box.dataset.balanceState=state;
+    return true;
+  }
+
   async function hydrateCard(card){
     const api=window.BogatkaLocationDataV452;
     const locationId=card?.dataset?.locationCard;
     if(!api||!locationId||typeof getLocationData!=='function')return false;
+    const protectedAtStart=pendingLocation(locationId);
     const data=await getLocationData(locationId);
     card.querySelectorAll('[data-location-data-v452][data-field]').forEach(control=>{
-      if(controlIsProtected(control,locationId))return;
+      if(protectedAtStart||controlIsProtected(control,locationId))return;
       const value=typeof getNested==='function'?getNested(data,control.dataset.field):undefined;
       const next=value===undefined||value===null?'':String(value);
       if(control.value!==next){
@@ -54,12 +93,12 @@
       }
     });
     const available=card.querySelector('[data-field="tech.powerKw"]');
-    if(available&&!controlIsProtected(available,locationId)){
+    if(!protectedAtStart&&available&&!controlIsProtected(available,locationId)){
       const stored=data?.tech?.powerKw;
       const next=stored===undefined||stored===null?'':String(stored);
       if(available.value!==next)available.value=next;
     }
-    api.updatePowerBalance?.(card);
+    if(!protectedAtStart)renderStoredPowerBalance(card,data);else api.updatePowerBalance?.(card);
     return true;
   }
 
@@ -167,9 +206,9 @@
   }
 
   function schedulePowerRefresh(target){
-    const card=target?.closest?.('[data-location-card]');
-    if(!card)return;
-    [320,700,1300].forEach(delay=>setTimeout(()=>hydrateCard(card).catch(console.error),delay));
+    const card=target?.closest?.('[data-location-card]')||target;
+    if(!card?.matches?.('[data-location-card]'))return;
+    [80,320,700,1300,2200,3600].forEach(delay=>setTimeout(()=>hydrateCard(card).catch(console.error),delay));
   }
 
   function scheduleUiSettlement(){
@@ -185,6 +224,18 @@
     installRenderHook();
     const root=document.getElementById('locations')||document.body;
     new MutationObserver(()=>schedule(80)).observe(root,{childList:true,subtree:true});
+    new MutationObserver(records=>{
+      const cards=new Set();
+      for(const record of records){
+        const element=record.target.nodeType===Node.ELEMENT_NODE?record.target:record.target.parentElement;
+        const output=element?.closest?.('[data-power-balance-v452]');
+        if(output?.textContent.includes('Укажите доступную и требуемую мощность')){
+          const card=output.closest('[data-location-card]');
+          if(card)cards.add(card);
+        }
+      }
+      cards.forEach(schedulePowerRefresh);
+    }).observe(root,{childList:true,characterData:true,subtree:true});
     const inputListener=event=>{
       const field=event.target?.dataset?.field;
       if(DURABLE_FIELDS.has(field))queueDurableSnapshot(event.target,event.type==='blur'||event.type==='change');
@@ -215,6 +266,7 @@
     ensureEngine,
     hydrateCard,
     persistSnapshot,
+    renderStoredPowerBalance,
     installRenderHook,
     get attempts(){return attempts},
     get stablePasses(){return stablePasses},
