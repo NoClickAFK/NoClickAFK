@@ -73,20 +73,22 @@ test('labels, source wording and controls use the established typography and dim
     const sourceTrigger=source.nextElementSibling?.classList.contains('premium-select-trigger')?source.nextElementSibling:source;
     const purpose=field('inspectionPurpose');
     const caption=purpose.closest('label.field').querySelector(':scope > .profile-caption-v416');
-    const taskTitle=node.querySelector('.next-task-card-v447 strong');
-    const taskMeta=node.querySelector('.next-task-card-v447 small');
+    const taskCaption=node.querySelector('.next-task-v447>.profile-caption-v416');
+    const taskCard=node.querySelector('.next-task-card-v447');
+    const taskTitle=taskCard.querySelector('strong');
+    const taskMeta=taskCard.querySelector('small');
     return{
       sourceHeight:Math.round(sourceTrigger.getBoundingClientRect().height),
       purposeHeight:Math.round(purpose.getBoundingClientRect().height),
       sourceFont:getComputedStyle(sourceTrigger).fontSize,
       purposeFont:getComputedStyle(purpose).fontSize,
       captionFont:getComputedStyle(caption).fontSize,
-      captionMargin:getComputedStyle(caption).marginBottom,
+      captionGap:Math.round(purpose.getBoundingClientRect().top-caption.getBoundingClientRect().bottom),
       taskTitleFont:getComputedStyle(taskTitle).fontSize,
       taskMetaFont:getComputedStyle(taskMeta).fontSize,
       taskTitleWeight:Number(getComputedStyle(taskTitle).fontWeight),
       taskMetaWeight:Number(getComputedStyle(taskMeta).fontWeight),
-      taskCaptionMargin:getComputedStyle(node.querySelector('.next-task-v447>.profile-caption-v416')).marginBottom,
+      taskGap:Math.round(taskCard.getBoundingClientRect().top-taskCaption.getBoundingClientRect().bottom),
     };
   });
   expect(styles.sourceHeight).toBe(46);
@@ -94,11 +96,11 @@ test('labels, source wording and controls use the established typography and dim
   expect(styles.sourceFont).toBe('12px');
   expect(styles.purposeFont).toBe('12px');
   expect(styles.captionFont).toBe('11px');
-  expect(styles.captionMargin).toBe('5px');
+  expect(styles.captionGap).toBe(5);
   expect(styles.taskTitleFont).toBe('12px');
   expect(styles.taskMetaFont).toBe('12px');
   expect(styles.taskTitleWeight).toBeGreaterThan(styles.taskMetaWeight);
-  expect(styles.taskCaptionMargin).toBe('5px');
+  expect(styles.taskGap).toBe(5);
 });
 
 test('moved controls keep persistence, conditional source behavior and viewer protection',async({page})=>{
