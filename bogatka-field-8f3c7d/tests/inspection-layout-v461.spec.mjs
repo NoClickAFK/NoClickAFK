@@ -30,7 +30,6 @@ test('inspection context is redistributed into two balanced cards without duplic
   const fields=['objectSource','listingUrl','objectSourceOther','inspectionPurpose','inspectionParticipants','inspectionResult'];
   for(const field of fields)await expect(card.locator(`[data-field="${field}"]:not([data-stage6-marker-v461])`)).toHaveCount(1);
 
-  await expect(visibleField(card,'inspectionPurpose')).toHaveJSProperty('parentElement',await visibleField(card,'inspectionPurpose').evaluateHandle(node=>node.parentElement));
   expect(await visibleField(card,'inspectionPurpose').evaluate(node=>node.closest('.inspection-grid-v416')!==null)).toBe(true);
   expect(await visibleField(card,'inspectionResult').evaluate(node=>node.closest('.inspection-grid-v416')!==null)).toBe(true);
   expect(await visibleField(card,'objectSource').evaluate(node=>node.closest('.landlord-inspection-v461')!==null)).toBe(true);
