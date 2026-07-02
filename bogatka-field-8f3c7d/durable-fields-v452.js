@@ -110,5 +110,9 @@
     flush,
     get pendingWrites(){return queues.size+timers.size},
   };
-  if(typeof loadBogatkaPatch==='function')loadBogatkaPatch('script',{src:'./suite-save-order-v452.js'});
+  if(typeof loadBogatkaPatch==='function'){
+    loadBogatkaPatch('script',{src:'./suite-save-order-v452.js'});
+    loadBogatkaPatch('link',{rel:'stylesheet',href:'./traffic-competitors-v453.css'});
+    loadBogatkaPatch('script',{src:'./traffic-competitors-v453.js'});
+  }
 })();
