@@ -8,9 +8,16 @@ async function openApp(page){
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaLocationDataV452?.ready&&
+    window.BogatkaLocationDataStabilityV452?.ready&&
     window.BogatkaQuickChecklistV451?.ready&&
-    window.BogatkaLocationDataV452.audit().ok&&
-    window.BogatkaDecisionEngine?.computeAll?.__locationDataV452
+    document.querySelector('[data-location-card]')
+  ),{timeout:30000});
+  await page.evaluate(()=>window.BogatkaLocationDataStabilityV452.stabilize());
+  await page.waitForFunction(()=>Boolean(
+    window.BogatkaDecisionEngine?.computeAll?.__locationDataV452&&
+    document.querySelector('[data-location-card] [data-field="objectSource"]')&&
+    document.querySelector('[data-location-card] [data-field="tech.requiredPowerKw"]')&&
+    document.querySelector('[data-location-card] [data-field="decisionReason"]')
   ),{timeout:30000});
   return page.locator('[data-location-card]').first();
 }
@@ -35,8 +42,17 @@ async function selectAndWait(page,control,locationId,field,value){
   await waitSaved(page,locationId,field,value);
 }
 
+async function openSection(card,title){
+  await card.evaluate((node,text)=>{
+    const details=[...node.querySelectorAll('details')].find(item=>item.querySelector('summary')?.textContent.includes(text));
+    if(details)details.open=true;
+  },title);
+}
+
 test('active checklist contains only factual checks and preserves hidden legacy values',async({page})=>{
   const card=await openApp(page);
+  await page.evaluate(()=>window.BogatkaLocationDataV452.enhanceAll());
+  await page.waitForFunction(()=>window.BogatkaLocationDataV452.audit().ok);
   const id=await card.getAttribute('data-location-card');
   const state=await page.evaluate(()=>({
     count:CHECKLIST.length,
@@ -56,7 +72,8 @@ test('active checklist contains only factual checks and preserves hidden legacy 
     await idbPut(STORE,data,`location:${locationId}`);
     renderLocations();
   },id);
-  await page.waitForFunction(()=>window.BogatkaLocationDataV452?.audit().ok);
+  await page.evaluate(()=>window.BogatkaLocationDataStabilityV452.stabilize());
+  await page.waitForFunction(()=>window.BogatkaLocationDataV452.audit().ok);
   const stored=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(stored.check).toMatchObject({pet_owners:true,area_ok:'no',layout_ok:'not_applicable',power_ok:true});
   for(const key of ['pet_owners','area_ok','layout_ok','power_ok']){
@@ -81,7 +98,7 @@ test('source, listing and repeat-inspection basis persist without rerendering th
   await expect(card).toHaveAttribute('data-identity-v452','kept');
 
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(locationId=>window.BogatkaLocationDataV452?.audit().ok&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] [data-field="inspectionResult"]`)?.value.includes('Площадь'),id);
+  await page.waitForFunction(locationId=>window.BogatkaLocationDataV452?.ready&&document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] [data-field="inspectionResult"]`)?.value.includes('Площадь'),id);
   const reloaded=page.locator(`[data-location-card="${id}"]`);
   await expect(reloaded.locator('[data-field="objectSource"]')).toHaveValue('Объявление');
   await expect(reloaded.locator('[data-field="listingUrl"]')).toHaveValue('example.com/object-17');
@@ -93,8 +110,10 @@ test('source, listing and repeat-inspection basis persist without rerendering th
 test('required power is saved and reserve or deficit is calculated automatically',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
+  await openSection(card,'Технические и финансовые параметры');
   const available=card.locator('[data-field="tech.powerKw"]');
   const required=card.locator('[data-field="tech.requiredPowerKw"]');
+  await expect(available).toBeVisible();
   await fillAndWait(page,available,id,'tech.powerKw','15');
   await fillAndWait(page,required,id,'tech.requiredPowerKw','20');
   await expect(card.locator('[data-power-balance-v452]')).toHaveText('Дефицит 5 кВт');
@@ -115,15 +134,22 @@ test('selected preliminary decision requires a reason and progress reflects it',
   await expect(reason).toHaveAttribute('required','');
   await expect(card.locator('.decision-reason-warning-v452')).toBeVisible();
 
+  await page.waitForFunction(async locationId=>{
+    window.BogatkaLocationDataStabilityV452.ensureEngine();
+    const metric=(await window.BogatkaDecisionEngine.computeAll()).find(item=>item.id===locationId);
+    const group=metric?.progressGroups?.find(item=>item.key==='conclusion');
+    return metric?.data?.decision==='Под вопросом'&&group?.missingLabels?.includes('причина решения');
+  },id);
   const before=await page.evaluate(async locationId=>(await window.BogatkaDecisionEngine.computeAll()).find(item=>item.id===locationId),id);
-  const conclusionBefore=before.progressGroups.find(group=>group.key==='conclusion');
-  expect(conclusionBefore.missingLabels).toContain('причина решения');
+  expect(before.progressGroups.find(group=>group.key==='conclusion').missingLabels).toContain('причина решения');
 
   await fillAndWait(page,reason,id,'decisionReason','Нужно согласовать меньшую арендную ставку');
   await expect(card.locator('.decision-reason-warning-v452')).toBeHidden();
-  const after=await page.evaluate(async locationId=>(await window.BogatkaDecisionEngine.computeAll()).find(item=>item.id===locationId),id);
-  const conclusionAfter=after.progressGroups.find(group=>group.key==='conclusion');
-  expect(conclusionAfter.missingLabels).not.toContain('причина решения');
+  await page.waitForFunction(async locationId=>{
+    const metric=(await window.BogatkaDecisionEngine.computeAll()).find(item=>item.id===locationId);
+    const group=metric?.progressGroups?.find(item=>item.key==='conclusion');
+    return metric?.data?.decisionReason&& !group?.missingLabels?.includes('причина решения');
+  },id);
 });
 
 test('viewer cannot edit v452 fields and lease checks remain unchanged',async({page})=>{
@@ -167,15 +193,19 @@ test('v452 assets are loaded and cached after stage 5',async({page})=>{
     return{
       stage5:scripts.findIndex(src=>src.includes('quick-checklist-report-v451.js')),
       stage6:scripts.findIndex(src=>src.includes('location-data-v452.js')),
+      stability:scripts.findIndex(src=>src.includes('location-data-stability-v452.js')),
       css:styles.some(href=>href.includes('location-data-v452.css')),
       cachedJs:worker.includes('./location-data-v452.js'),
+      cachedStability:worker.includes('./location-data-stability-v452.js'),
       cachedCss:worker.includes('./location-data-v452.css'),
       cachedPublic:worker.includes('./report/location-data-v452.js'),
     };
   });
   expect(integration.stage6).toBeGreaterThan(integration.stage5);
+  expect(integration.stability).toBeGreaterThan(integration.stage6);
   expect(integration.css).toBe(true);
   expect(integration.cachedJs).toBe(true);
+  expect(integration.cachedStability).toBe(true);
   expect(integration.cachedCss).toBe(true);
   expect(integration.cachedPublic).toBe(true);
 });
