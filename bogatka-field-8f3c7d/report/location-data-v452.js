@@ -31,7 +31,7 @@
     if(document.getElementById('locationDataPublicStyleV452'))return;
     const style=document.createElement('style');
     style.id='locationDataPublicStyleV452';
-    style.textContent='.checklist-public-v452 .check-group ul{display:grid;gap:6px;padding:0;margin:8px 0 0;list-style:none}.checklist-public-v452 .check-group li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 8px;border:1px solid #dce6e1;border-radius:9px;background:#fff;font-size:11px}.checklist-public-v452 .check-group li b{min-width:86px;padding:4px 7px;border-radius:7px;text-align:center;font-size:9px}.checklist-public-v452 .check-state-yes-v452 b{background:#e8f5ed;color:#246043}.checklist-public-v452 .check-state-no-v452 b{background:#fff0f0;color:#8b3434}.checklist-public-v452 .check-state-not_applicable-v452 b{background:#f1f3f2;color:#66746d}.checklist-public-v452 .check-state-unchecked-v452 b{background:#fff8e9;color:#85611c}.location-data-public-v452 a{color:#1f7354;font-weight:800}';
+    style.textContent='.checklist-public-v452 .check-group ul{display:grid;gap:6px;padding:0;margin:8px 0 0;list-style:none}.checklist-public-v452 .check-group li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 8px;border:1px solid #dce6e1;border-radius:9px;background:#fff;font-size:11px}.checklist-public-v452 .check-group li b{min-width:86px;padding:4px 7px;border-radius:7px;text-align:center;font-size:9px}.checklist-public-v452 .check-state-yes-v452 b{background:#e8f5ed;color:#246043}.checklist-public-v452 .check-state-no-v452 b{background:#fff0f0;color:#8b3434}.checklist-public-v452 .check-state-not_applicable-v452 b{background:#f1f3f2;color:#66746d}.checklist-public-v452 .check-state-unchecked-v452 b{background:#fff8e9;color:#85611c}';
     document.head.appendChild(style);
   }
 
@@ -42,5 +42,9 @@
   }
 
   install();
+  setTimeout(()=>{
+    install();
+    try{if(typeof loadReport==='function')loadReport()}catch(_){ }
+  },0);
   window.BogatkaPublicLocationDataV452={version:VERSION,ready:true,installed:true,normalizeState,renderExplicitChecklist,install};
 })();
