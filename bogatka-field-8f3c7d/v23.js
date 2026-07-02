@@ -116,6 +116,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./status-next-task-v447.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./card-progress-v448.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./quick-checklist-v451.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-data-v452.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -165,6 +166,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./technical-economics-report-v450.js'});
   loadBogatkaPatch('script',{src:'./quick-checklist-v451.js'});
   loadBogatkaPatch('script',{src:'./quick-checklist-report-v451.js'});
+  loadBogatkaPatch('script',{src:'./location-data-v452.js'});
   ensureWorkflowEnhancements();
 
   document.addEventListener('keydown',event=>{
