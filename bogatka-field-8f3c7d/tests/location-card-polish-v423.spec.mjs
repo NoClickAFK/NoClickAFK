@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=448';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=459';
 
 async function openApp(page){
   await page.setViewportSize({width:1440,height:1000});
@@ -66,7 +66,7 @@ test('collapsed location has no divider seam below the rounded header',async({pa
   expect(styles.bottomRightRadius).toBe('17px');
 });
 
-test('header recommendation has a compact bordered style and no numeric boxes',async({page})=>{
+test('header recommendation is a compact bordered semantic chip with no numeric boxes',async({page})=>{
   await openApp(page);
   const result=await page.locator('[data-location-card]').first().evaluate(card=>{
     const side=card.querySelector('.location-head-side-v422');
@@ -84,6 +84,7 @@ test('header recommendation has a compact bordered style and no numeric boxes',a
       recommendationBorderColor:recommendationStyle.borderTopColor,
       recommendationBackgroundImage:recommendationStyle.backgroundImage,
       recommendationRadius:recommendationStyle.borderTopLeftRadius,
+      recommendationFontSize:getComputedStyle(recommendation.querySelector('strong')).fontSize,
       oldMetricCount:side.querySelectorAll('.decision-score-v340,.decision-complete-v340').length,
       rawVisible:getComputedStyle(side.querySelector(':scope > .scorebox')).display!=='none',
       buttonWidth:Math.round(buttonRect.width),
@@ -91,17 +92,19 @@ test('header recommendation has a compact bordered style and no numeric boxes',a
       buttonBackground:buttonStyle.backgroundColor,
       buttonBorderWidth:buttonStyle.borderTopWidth,
       buttonRadius:buttonStyle.borderTopLeftRadius,
+      gap:Math.round(buttonRect.left-recommendationRect.right),
       arrowCenterDeltaX:Math.abs((buttonRect.left+buttonRect.width/2)-(arrowRect.left+arrowRect.width/2)),
       arrowCenterDeltaY:Math.abs((buttonRect.top+buttonRect.height/2)-(arrowRect.top+arrowRect.height/2)),
     };
   });
 
-  expect(result.recommendationWidth).toBeGreaterThan(230);
-  expect(result.recommendationHeight).toBeGreaterThanOrEqual(70);
+  expect(result.recommendationWidth).toBeLessThan(210);
+  expect(result.recommendationHeight).toBe(34);
   expect(result.recommendationBorderWidth).toBe('1px');
   expect(result.recommendationBorderColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(result.recommendationBackgroundImage).not.toBe('none');
-  expect(result.recommendationRadius).toBe('15px');
+  expect(result.recommendationBackgroundImage).toBe('none');
+  expect(result.recommendationRadius).toBe('11px');
+  expect(result.recommendationFontSize).toBe('12px');
   expect(result.oldMetricCount).toBe(0);
   expect(result.rawVisible).toBe(false);
   expect(result.buttonWidth).toBe(34);
@@ -109,6 +112,8 @@ test('header recommendation has a compact bordered style and no numeric boxes',a
   expect(result.buttonBackground).not.toBe('rgba(0, 0, 0, 0)');
   expect(result.buttonBorderWidth).toBe('1px');
   expect(result.buttonRadius).toBe('10px');
+  expect(result.gap).toBeGreaterThanOrEqual(6);
+  expect(result.gap).toBeLessThanOrEqual(8);
   expect(result.arrowCenterDeltaX).toBeLessThanOrEqual(1);
   expect(result.arrowCenterDeltaY).toBeLessThanOrEqual(1);
 });
