@@ -65,6 +65,7 @@ test('fill plan follows the real workflow and opens the required section',async(
   const id=await card.getAttribute('data-location-card');
   await saveData(page,id,{
     status:'',objectType:'',date:'',time:'',floorLocation:'',premiseCondition:'',premiseAvailability:'',landlordReadiness:'',
+    objectSource:'',inspectionPurpose:'',inspectionResult:'',
     ownerName:'',contactRole:'',contact:'',contactPhone:'',contactMessenger:'',contactEmail:'',score:{},tech:{},pros:'',cons:'',risks:'',questions:'',decision:'',
   });
   const active=card.locator('.fill-plan-item-v448.active');
@@ -77,6 +78,7 @@ test('fill plan follows the real workflow and opens the required section',async(
   await saveData(page,id,{
     status:'Новый объект',objectType:'Торговый центр',date:'2026-07-01',time:'12:00',floorLocation:'1-й этаж',
     premiseCondition:'Готово к работе',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',
+    objectSource:'Самостоятельный поиск',inspectionPurpose:'Первичный осмотр',inspectionResult:'Осмотр выполнен',
     ownerName:'ООО Арендодатель',contactRole:'Собственник',contact:'Иван',contactPhone:'+375290000000',
   });
   await expect(card.locator('.fill-plan-item-v448.active .fill-plan-copy-v448 strong')).toHaveText('Сравнительная оценка');
