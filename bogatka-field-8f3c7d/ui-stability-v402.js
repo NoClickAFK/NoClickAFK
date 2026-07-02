@@ -11,10 +11,14 @@
 
   const editorSelector='#app input:not([type="button"]):not([type="submit"]):not([type="file"]),#app textarea,#app select,#app [contenteditable="true"]';
 
+  function hasActiveEditor(){
+    const active=document.activeElement;
+    return Boolean(active?.matches?.(editorSelector));
+  }
+
   function isEditing(){
     if(document.hidden)return false;
-    const active=document.activeElement;
-    if(active?.matches?.(editorSelector))return true;
+    if(hasActiveEditor())return true;
     return Date.now()-lastInteractionAt<700;
   }
 
@@ -40,8 +44,19 @@
     },Math.max(100,delay));
   }
 
+  async function settleAfterBlur(){
+    if(hasActiveEditor())return false;
+    pending=false;
+    clearTimeout(refreshTimer);
+    await runFullRefresh();
+    return true;
+  }
+
   document.addEventListener('focusout',()=>{
     if(pending)requestRefresh(750);
+    setTimeout(()=>{
+      if(pending)settleAfterBlur().catch(console.error);
+    },1500);
   },true);
 
   async function stableUpdateSummary(){
@@ -60,7 +75,9 @@
   window.BogatkaUIStability={
     version:'4.0.2',
     isEditing,
+    hasActiveEditor,
     requestRefresh,
+    settleAfterBlur,
     flush:async()=>{
       if(isEditing())return false;
       pending=false;
