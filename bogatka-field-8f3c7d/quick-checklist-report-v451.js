@@ -5,6 +5,16 @@
   const VERSION='4.5.1';
   let attempts=0;
 
+  async function waitForPendingSaves(timeoutMs=6000){
+    const started=Date.now();
+    while(Date.now()-started<timeoutMs){
+      const pending=window.BogatkaFieldIntegrityV416?.pendingLocations||[];
+      if(!pending.length)return true;
+      await new Promise(resolve=>setTimeout(resolve,25));
+    }
+    return false;
+  }
+
   function transformReport(html){
     const api=window.BogatkaQuickChecklistV451;
     const reportDocument=new DOMParser().parseFromString(html,'text/html');
@@ -92,6 +102,7 @@
           }
         };
         wrapped=async function(...args){
+          await waitForPendingSaves();
           await window.BogatkaQuickChecklistV451.enhanceAll();
           const result=transformReport(await current(...args));
           claim(wrapped);
@@ -116,6 +127,7 @@
     version:VERSION,
     ready:true,
     install,
+    waitForPendingSaves,
     transformReport,
   };
 })();
