@@ -2,21 +2,21 @@
   'use strict';
   if(window.BogatkaOpeningProjectPersistenceV455?.ready)return;
 
-  const VERSION='4.5.5';
-  const queues=new Map();
+  const VERSION='4.5.8';
+  const activeWrites=new Set();
   let lastError=null;
   const isViewer=()=>{try{return window.cloudRole==='viewer'||cloudRole==='viewer'}catch(_){return false}};
   const now=()=>new Date().toISOString();
 
   function enqueue(locationId,task){
-    const previous=queues.get(locationId)||Promise.resolve();
-    const current=previous.catch(()=>{}).then(task);
-    queues.set(locationId,current);
-    return current.finally(()=>{if(queues.get(locationId)===current)queues.delete(locationId);});
+    const shared=window.BogatkaFieldIntegrityV416?.enqueueLocation;
+    const promise=typeof shared==='function'?shared(locationId,task):Promise.resolve().then(task);
+    activeWrites.add(promise);
+    return promise.finally(()=>activeWrites.delete(promise));
   }
 
-  function finish(locationId){
-    Promise.resolve(queues.get(locationId)).finally(()=>{if(!queues.has(locationId))window.showSaved?.();});
+  function finish(result){
+    Promise.resolve(result).finally(()=>{if(activeWrites.size===0)window.showSaved?.();});
   }
 
   async function updateProject(locationId,mutator){
@@ -37,7 +37,7 @@
       return true;
     });
     result.catch(error=>{lastError=error;window.showError?.(error)||console.error(error);});
-    finish(locationId);
+    finish(result);
     return result;
   }
 
@@ -90,5 +90,5 @@
 
   document.addEventListener('change',handleChange,true);
 
-  window.BogatkaOpeningProjectPersistenceV455={version:VERSION,ready:true,updateField,updateMilestone,updateProject,get pendingWrites(){return queues.size},get lastError(){return lastError;}};
+  window.BogatkaOpeningProjectPersistenceV455={version:VERSION,ready:true,updateField,updateMilestone,updateProject,enqueue,get pendingWrites(){return activeWrites.size},get lastError(){return lastError;}};
 })();
