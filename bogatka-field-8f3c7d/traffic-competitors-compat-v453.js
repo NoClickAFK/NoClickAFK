@@ -13,9 +13,12 @@
     let parent=details.parentElement?.closest('details');
     while(parent){if(!parent.open)parent.open=true;parent=parent.parentElement?.closest('details');}
     const card=details.closest('[data-location-card]');
-    card?.classList.remove('location-card-collapsed-v422','location-collapsed-v422','collapsed');
-    const body=card?.querySelector(':scope > .location-body');
-    if(body?.hidden)body.hidden=false;
+    if(window.BogatkaLocationCardCollapseV422?.setCollapsed)window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:true});
+    else{
+      card?.classList.remove('location-card-collapsed-v422','location-collapsed-v422','collapsed');
+      const body=card?.querySelector(':scope > .location-body');
+      if(body?.hidden)body.hidden=false;
+    }
   }
 
   function apply(root=document){
