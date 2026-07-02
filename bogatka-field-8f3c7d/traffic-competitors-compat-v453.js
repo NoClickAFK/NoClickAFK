@@ -6,18 +6,19 @@
   function openAncestors(details){
     if(!details?.open)return;
     let parent=details.parentElement?.closest('details');
-    while(parent){parent.open=true;parent=parent.parentElement?.closest('details');}
+    while(parent){if(!parent.open)parent.open=true;parent=parent.parentElement?.closest('details');}
     const card=details.closest('[data-location-card]');
     card?.classList.remove('location-collapsed-v422','collapsed');
     const body=card?.querySelector(':scope > .location-body');
-    if(body)body.hidden=false;
+    if(body?.hidden)body.hidden=false;
   }
 
   function apply(root=document){
     root.querySelectorAll?.('.competitor-card-v453[data-competitor-legacy="1"] [data-stage7-field="name"]').forEach(input=>{
-      const label=input.closest('label');
-      const caption=label?.querySelector(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446');
-      if(caption){caption.classList.add('evaluation-caption-v446');caption.textContent='Ближайший прямой конкурент';}
+      const caption=input.closest('label')?.querySelector(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446');
+      if(!caption)return;
+      if(!caption.classList.contains('evaluation-caption-v446'))caption.classList.add('evaluation-caption-v446');
+      if(caption.textContent!=='Ближайший прямой конкурент')caption.textContent='Ближайший прямой конкурент';
     });
     root.querySelectorAll?.('[data-location-card] details').forEach(details=>{
       const title=details.querySelector(':scope > summary')?.textContent||'';
