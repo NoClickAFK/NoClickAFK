@@ -3,6 +3,11 @@
   if(window.BogatkaLocationDataStabilityV452?.ready)return;
 
   const VERSION='4.5.2';
+  const DURABLE_FIELDS=new Set([
+    'objectSource','objectSourceOther','listingUrl','inspectionPurpose','inspectionParticipants','inspectionResult',
+    'decision','decisionReason','tech.requiredPowerKw',
+  ]);
+  const durableTimers=new Map();
   let attempts=0;
   let timer=null;
   let stablePasses=0;
@@ -20,10 +25,17 @@
 
   function syncPremium(select){
     if(!select||select.tagName!=='SELECT')return;
+    const trigger=select.nextElementSibling?.classList.contains('premium-select-trigger')?select.nextElementSibling:null;
+    const selectedText=select.selectedOptions?.[0]?.textContent||'';
+    const valueNode=trigger?.querySelector('.premium-select-value');
+    if(trigger&&trigger.dataset.syncedValue===select.value&&valueNode?.textContent===selectedText&&trigger.disabled===select.disabled)return;
     if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-    else{
-      const trigger=select.nextElementSibling?.classList.contains('premium-select-trigger')?select.nextElementSibling:null;
-      if(trigger&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+    else if(trigger&&typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+    const current=select.nextElementSibling?.classList.contains('premium-select-trigger')?select.nextElementSibling:null;
+    if(current){
+      current.dataset.syncedValue=select.value;
+      current.disabled=select.disabled;
+      current.setAttribute('aria-disabled',String(select.disabled));
     }
   }
 
@@ -49,6 +61,42 @@
     }
     api.updatePowerBalance?.(card);
     return true;
+  }
+
+  async function waitForBaseQueue(locationId,timeoutMs=3000){
+    const started=Date.now();
+    while(pendingLocation(locationId)&&Date.now()-started<timeoutMs){
+      await new Promise(resolve=>setTimeout(resolve,25));
+    }
+  }
+
+  async function persistSnapshot(locationId,field,value){
+    if(!locationId||!field||typeof getLocationData!=='function'||typeof idbPut!=='function'||typeof setNested!=='function')return false;
+    await waitForBaseQueue(locationId);
+    const data=await getLocationData(locationId);
+    if(String(getNested(data,field)??'')===String(value??''))return true;
+    setNested(data,field,value);
+    data.updatedAt=new Date().toISOString();
+    await idbPut(STORE,data,`location:${locationId}`);
+    return true;
+  }
+
+  function queueDurableSnapshot(target,immediate=false){
+    const locationId=target?.dataset?.location;
+    const field=target?.dataset?.field;
+    if(!locationId||!DURABLE_FIELDS.has(field))return;
+    if(target.type==='radio'&&!target.checked)return;
+    const value=target.type==='checkbox'?target.checked:target.value;
+    const key=`${locationId}:${field}`;
+    clearTimeout(durableTimers.get(key));
+    durableTimers.set(key,setTimeout(async()=>{
+      durableTimers.delete(key);
+      try{
+        await persistSnapshot(locationId,field,value);
+        const card=target.closest?.('[data-location-card]');
+        if(card)await hydrateCard(card);
+      }catch(error){console.error(error)}
+    },immediate?10:90));
   }
 
   function ensureEngine(){
@@ -124,17 +172,28 @@
     [320,700,1300].forEach(delay=>setTimeout(()=>hydrateCard(card).catch(console.error),delay));
   }
 
+  function scheduleUiSettlement(){
+    [950,1550].forEach(delay=>setTimeout(async()=>{
+      try{
+        const ui=window.BogatkaUIStability;
+        if(ui?.pending&&!ui.isEditing?.())await ui.flush?.();
+      }catch(error){console.error(error)}
+    },delay));
+  }
+
   function install(){
     installRenderHook();
     const root=document.getElementById('locations')||document.body;
     new MutationObserver(()=>schedule(80)).observe(root,{childList:true,subtree:true});
-    const powerListener=event=>{
+    const inputListener=event=>{
       const field=event.target?.dataset?.field;
+      if(DURABLE_FIELDS.has(field))queueDurableSnapshot(event.target,event.type==='blur'||event.type==='change');
       if(field==='tech.powerKw'||field==='tech.requiredPowerKw')schedulePowerRefresh(event.target);
+      if(event.type==='blur')scheduleUiSettlement();
     };
-    root.addEventListener('input',powerListener,true);
-    root.addEventListener('change',powerListener,true);
-    root.addEventListener('blur',powerListener,true);
+    root.addEventListener('input',inputListener,true);
+    root.addEventListener('change',inputListener,true);
+    root.addEventListener('blur',inputListener,true);
     schedule(20);
     [300,900,1800,3500,6500,10000].forEach(delay=>setTimeout(()=>{
       installRenderHook();
@@ -155,6 +214,7 @@
     stabilize,
     ensureEngine,
     hydrateCard,
+    persistSnapshot,
     installRenderHook,
     get attempts(){return attempts},
     get stablePasses(){return stablePasses},
