@@ -1,7 +1,7 @@
 /* Bogatka v460 — recommendation copy and status are separate elements. */
 html .location-head-side-v422{
   display:grid!important;
-  grid-template-columns:minmax(250px,330px) 50px!important;
+  grid-template-columns:minmax(250px,330px) 34px!important;
   grid-template-rows:auto!important;
   align-items:start!important;
   justify-content:end!important;
@@ -68,11 +68,6 @@ html .card-recommendation-v448>small{
   font-size:11px!important;
   line-height:1.4!important;
 }
-html .card-recommendation-v448.empty>small::before{
-  content:'Раздел «Сравнительная оценка». ';
-  font-weight:700;
-  color:#405e50;
-}
 html .card-recommendation-v448>strong{
   display:inline-flex!important;
   grid-row:3!important;
@@ -111,7 +106,7 @@ html .card-recommendation-v448.priority>span,html .card-recommendation-v448.prio
 html .card-recommendation-v448.medium>span,html .card-recommendation-v448.medium>small{border-color:#d4daeb!important;background:#f8f9fe!important}
 html .card-recommendation-v448.weak>span,html .card-recommendation-v448.weak>small{border-color:#dfcccc!important;background:#fcf7f7!important}
 @media(max-width:900px){
-  html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 46px!important;width:100%!important;justify-content:stretch!important}
+  html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 34px!important;width:100%!important;justify-content:stretch!important}
   html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{width:100%!important;max-width:none!important}
 }
 @media(max-width:650px){html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 32px!important}}
