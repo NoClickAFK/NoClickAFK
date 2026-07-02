@@ -81,7 +81,7 @@ test('header keeps recommendation copy and compact status as separate visual ele
   expect(result.statusWidth).toBeLessThan(210);
   expect(result.statusHeight).toBe(34);
   expect(result.statusBorderWidth).toBe('1px');
-  expect(result.statusRadius).toBe('11px');
+  expect(result.statusRadius).toBe('10px');
   expect(result.statusFontSize).toBe('12px');
   expect(result.oldMetricCount).toBe(0);
   expect(result.rawVisible).toBe(false);
