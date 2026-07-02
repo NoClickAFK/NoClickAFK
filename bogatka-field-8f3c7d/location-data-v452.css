@@ -1,9 +1,12 @@
 /* Bogatka 4.5.2 — source, repeat-inspection basis, power balance and decision reason */
 .inspection-extra-v452{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px;margin-top:14px;padding-top:14px;border-top:1px solid #dbe6e0}
+.inspection-card-v416.panel-closed-v419>.inspection-extra-v452{display:none!important}
 .inspection-extra-v452 .stage6-wide-v452{grid-column:1/-1}
 .inspection-extra-v452 label.field{display:flex!important;flex-direction:column;gap:6px!important;min-width:0;margin:0!important}
 .inspection-extra-v452 .profile-caption-v416{display:flex;align-items:flex-end;min-height:32px;margin:0!important;color:#174f3a;font-size:11px;font-weight:800;line-height:16px}
 .inspection-extra-v452 input,.inspection-extra-v452 textarea,.inspection-extra-v452 select,.inspection-extra-v452 .premium-select-trigger{margin-top:0!important}
+.location-panels-v419 .inspection-grid-v416>label.field:not([hidden]):not(.panel-hidden-v419),.location-panels-v419 .landlord-grid-v416>label.field:not([hidden]):not(.panel-hidden-v419){display:flex!important;flex-direction:column!important;gap:6px!important;margin:0!important}
+.location-panels-v419 .inspection-grid-v416>label.field>.profile-caption-v416,.location-panels-v419 .landlord-grid-v416>label.field>.profile-caption-v416{margin:0!important}
 .listing-link-v452{display:inline-flex;align-items:center;min-height:18px;margin-top:4px;font-size:10px;font-weight:700;color:#2e7254;text-decoration:none}
 .listing-link-v452[hidden]{display:none!important}
 .listing-link-v452.invalid{color:#9a5a28}
