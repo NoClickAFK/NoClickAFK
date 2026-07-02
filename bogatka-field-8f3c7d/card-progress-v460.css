@@ -1,0 +1,113 @@
+/* Bogatka v460 — recommendation copy and status are separate elements. */
+html .location-head-side-v422{
+  display:grid!important;
+  grid-template-columns:minmax(250px,330px) 34px!important;
+  grid-template-rows:auto!important;
+  align-items:start!important;
+  justify-content:end!important;
+  gap:7px!important;
+  width:auto!important;
+  min-width:0!important;
+}
+html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{
+  display:block!important;
+  grid-column:1!important;
+  grid-row:1!important;
+  width:330px!important;
+  max-width:34vw!important;
+}
+html .location-head-side-v422>.scorebox{display:none!important}
+html .location-head-side-v422>.location-collapse-toggle-v422{
+  grid-column:2!important;
+  grid-row:1!important;
+  align-self:start!important;
+  justify-self:end!important;
+}
+html .card-recommendation-v448{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-rows:auto auto auto!important;
+  width:100%!important;
+  min-height:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  box-shadow:none!important;
+  color:inherit!important;
+  text-align:left!important;
+  white-space:normal!important;
+  overflow:visible!important;
+}
+html .card-recommendation-v448>span{
+  display:block!important;
+  grid-row:1!important;
+  padding:12px 14px 3px!important;
+  border:1px solid #d3e1d8!important;
+  border-bottom:0!important;
+  border-radius:15px 15px 0 0!important;
+  background:#f4f8f5!important;
+  color:#66766e!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  line-height:1.25!important;
+  letter-spacing:.05em!important;
+  text-transform:uppercase!important;
+}
+html .card-recommendation-v448>small{
+  display:block!important;
+  grid-row:2!important;
+  min-height:44px!important;
+  margin:0!important;
+  padding:0 14px 12px!important;
+  border:1px solid #d3e1d8!important;
+  border-top:0!important;
+  border-radius:0 0 15px 15px!important;
+  background:#f4f8f5!important;
+  color:#607168!important;
+  font-size:11px!important;
+  line-height:1.4!important;
+}
+html .card-recommendation-v448>strong{
+  display:inline-flex!important;
+  grid-row:3!important;
+  justify-self:end!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:max-content!important;
+  max-width:100%!important;
+  height:34px!important;
+  min-height:34px!important;
+  margin:8px 0 0!important;
+  padding:7px 10px!important;
+  overflow:hidden!important;
+  border:1px solid #e5caca!important;
+  border-radius:10px!important;
+  background:#fff5f5!important;
+  color:#875050!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  line-height:1.2!important;
+  text-align:center!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  box-sizing:border-box!important;
+}
+html .card-recommendation-v448.empty>strong{border-color:#e7cccc!important;background:#fff6f6!important;color:#875252!important}
+html .card-recommendation-v448.stop>strong{border-color:#dfaaaa!important;background:#fff0f0!important;color:#963838!important}
+html .card-recommendation-v448.risk>strong{border-color:#e3c58c!important;background:#fff8e9!important;color:#805610!important}
+html .card-recommendation-v448.priority>strong{border-color:#a7d4b8!important;background:#edf8f1!important;color:#0d6138!important}
+html .card-recommendation-v448.good>strong{border-color:#bbd9c7!important;background:#f1f8f4!important;color:#236646!important}
+html .card-recommendation-v448.medium>strong{border-color:#c8d1ea!important;background:#f4f6fd!important;color:#4c5f91!important}
+html .card-recommendation-v448.weak>strong{border-color:#dbc3c3!important;background:#faf3f3!important;color:#7f5050!important}
+html .card-recommendation-v448.stop>span,html .card-recommendation-v448.stop>small{border-color:#e4bcbc!important;background:#fff7f7!important}
+html .card-recommendation-v448.risk>span,html .card-recommendation-v448.risk>small{border-color:#ead5aa!important;background:#fffaf0!important}
+html .card-recommendation-v448.priority>span,html .card-recommendation-v448.priority>small,html .card-recommendation-v448.good>span,html .card-recommendation-v448.good>small{border-color:#c6dfd0!important;background:#f5faf7!important}
+html .card-recommendation-v448.medium>span,html .card-recommendation-v448.medium>small{border-color:#d4daeb!important;background:#f8f9fe!important}
+html .card-recommendation-v448.weak>span,html .card-recommendation-v448.weak>small{border-color:#dfcccc!important;background:#fcf7f7!important}
+@media(max-width:900px){
+  html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 34px!important;width:100%!important;justify-content:stretch!important}
+  html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{width:100%!important;max-width:none!important}
+}
+@media(max-width:650px){html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 32px!important}}
+@media(max-width:460px){html .card-recommendation-v448>strong{max-width:calc(100vw - 78px)!important}}

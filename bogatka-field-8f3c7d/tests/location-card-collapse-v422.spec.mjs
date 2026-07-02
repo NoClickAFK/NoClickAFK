@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=459';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=460';
 
 async function openApp(page){
   await page.setViewportSize({width:1440,height:1000});
@@ -34,6 +34,7 @@ test('whole location card collapses to its header and remembers state independen
   await expect(first.locator('.decision-score-v340')).toHaveCount(0);
   await expect(first.locator('.decision-complete-v340')).toHaveCount(0);
   await expect(first.locator('.card-recommendation-v448')).toBeVisible();
+  await expect(first.locator('.card-recommendation-v448 > strong')).toBeVisible();
   await expect(second.locator(':scope > .location-body')).toBeVisible();
 
   await page.reload({waitUntil:'networkidle'});
@@ -47,32 +48,41 @@ test('whole location card collapses to its header and remembers state independen
   await expect(reloaded.locator(':scope > .location-body')).toBeVisible();
 });
 
-test('header keeps one compact semantic status instead of numeric or nested cards',async({page})=>{
+test('header keeps recommendation copy and compact status as separate visual elements',async({page})=>{
   await openApp(page);
   const result=await page.locator('[data-location-card]').first().evaluate(card=>{
     const recommendation=card.querySelector('.location-head-side-v422 .card-recommendation-v448');
     const rect=recommendation.getBoundingClientRect();
-    const style=getComputedStyle(recommendation);
+    const title=recommendation.querySelector(':scope > span');
+    const reason=recommendation.querySelector(':scope > small');
+    const status=recommendation.querySelector(':scope > strong');
+    const statusRect=status.getBoundingClientRect();
+    const statusStyle=getComputedStyle(status);
     return {
       width:Math.round(rect.width*10)/10,
       height:Math.round(rect.height*10)/10,
-      borderWidth:style.borderTopWidth,
-      radius:style.borderTopLeftRadius,
-      backgroundImage:style.backgroundImage,
-      labelVisible:getComputedStyle(recommendation.querySelector(':scope > span')).display!=='none',
-      reasonVisible:getComputedStyle(recommendation.querySelector(':scope > small')).display!=='none',
+      titleVisible:getComputedStyle(title).display!=='none',
+      reasonVisible:getComputedStyle(reason).display!=='none',
+      statusWidth:Math.round(statusRect.width*10)/10,
+      statusHeight:Math.round(statusRect.height*10)/10,
+      statusBorderWidth:statusStyle.borderTopWidth,
+      statusRadius:statusStyle.borderTopLeftRadius,
+      statusFontSize:statusStyle.fontSize,
       oldMetricCount:card.querySelectorAll('.location-head-side-v422 .decision-score-v340,.location-head-side-v422 .decision-complete-v340').length,
       rawVisible:getComputedStyle(card.querySelector('.location-head-side-v422 > .scorebox')).display!=='none',
     };
   });
 
-  expect(result.width).toBeLessThan(210);
-  expect(result.height).toBe(34);
-  expect(result.borderWidth).toBe('1px');
-  expect(result.radius).toBe('11px');
-  expect(result.backgroundImage).toBe('none');
-  expect(result.labelVisible).toBe(false);
-  expect(result.reasonVisible).toBe(false);
+  expect(result.width).toBeGreaterThan(250);
+  expect(result.width).toBeLessThanOrEqual(330);
+  expect(result.height).toBeGreaterThan(80);
+  expect(result.titleVisible).toBe(true);
+  expect(result.reasonVisible).toBe(true);
+  expect(result.statusWidth).toBeLessThan(210);
+  expect(result.statusHeight).toBe(34);
+  expect(result.statusBorderWidth).toBe('1px');
+  expect(result.statusRadius).toBe('10px');
+  expect(result.statusFontSize).toBe('12px');
   expect(result.oldMetricCount).toBe(0);
   expect(result.rawVisible).toBe(false);
 });

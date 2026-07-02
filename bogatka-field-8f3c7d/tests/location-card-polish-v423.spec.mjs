@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=459';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=460';
 
 async function openApp(page){
   await page.setViewportSize({width:1440,height:1000});
@@ -66,13 +66,19 @@ test('collapsed location has no divider seam below the rounded header',async({pa
   expect(styles.bottomRightRadius).toBe('17px');
 });
 
-test('header recommendation is a compact bordered semantic chip with no numeric boxes',async({page})=>{
+test('header uses a premium recommendation panel with a separate compact semantic status',async({page})=>{
   await openApp(page);
   const result=await page.locator('[data-location-card]').first().evaluate(card=>{
     const side=card.querySelector('.location-head-side-v422');
     const recommendation=side.querySelector('.card-recommendation-v448');
     const recommendationRect=recommendation.getBoundingClientRect();
-    const recommendationStyle=getComputedStyle(recommendation);
+    const title=recommendation.querySelector(':scope > span');
+    const reason=recommendation.querySelector(':scope > small');
+    const status=recommendation.querySelector(':scope > strong');
+    const titleStyle=getComputedStyle(title);
+    const reasonStyle=getComputedStyle(reason);
+    const statusRect=status.getBoundingClientRect();
+    const statusStyle=getComputedStyle(status);
     const button=side.querySelector('.location-collapse-toggle-v422');
     const buttonRect=button.getBoundingClientRect();
     const buttonStyle=getComputedStyle(button);
@@ -80,11 +86,17 @@ test('header recommendation is a compact bordered semantic chip with no numeric 
     return {
       recommendationWidth:Math.round(recommendationRect.width),
       recommendationHeight:Math.round(recommendationRect.height),
-      recommendationBorderWidth:recommendationStyle.borderTopWidth,
-      recommendationBorderColor:recommendationStyle.borderTopColor,
-      recommendationBackgroundImage:recommendationStyle.backgroundImage,
-      recommendationRadius:recommendationStyle.borderTopLeftRadius,
-      recommendationFontSize:getComputedStyle(recommendation.querySelector('strong')).fontSize,
+      titleBorderWidth:titleStyle.borderTopWidth,
+      titleRadius:titleStyle.borderTopLeftRadius,
+      reasonBorderWidth:reasonStyle.borderBottomWidth,
+      reasonRadius:reasonStyle.borderBottomLeftRadius,
+      statusWidth:Math.round(statusRect.width),
+      statusHeight:Math.round(statusRect.height),
+      statusBorderWidth:statusStyle.borderTopWidth,
+      statusBorderColor:statusStyle.borderTopColor,
+      statusRadius:statusStyle.borderTopLeftRadius,
+      statusFontSize:statusStyle.fontSize,
+      statusGap:Math.round(statusRect.top-reason.getBoundingClientRect().bottom),
       oldMetricCount:side.querySelectorAll('.decision-score-v340,.decision-complete-v340').length,
       rawVisible:getComputedStyle(side.querySelector(':scope > .scorebox')).display!=='none',
       buttonWidth:Math.round(buttonRect.width),
@@ -98,13 +110,21 @@ test('header recommendation is a compact bordered semantic chip with no numeric 
     };
   });
 
-  expect(result.recommendationWidth).toBeLessThan(210);
-  expect(result.recommendationHeight).toBe(34);
-  expect(result.recommendationBorderWidth).toBe('1px');
-  expect(result.recommendationBorderColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(result.recommendationBackgroundImage).toBe('none');
-  expect(result.recommendationRadius).toBe('11px');
-  expect(result.recommendationFontSize).toBe('12px');
+  expect(result.recommendationWidth).toBeGreaterThan(250);
+  expect(result.recommendationWidth).toBeLessThanOrEqual(330);
+  expect(result.recommendationHeight).toBeGreaterThan(80);
+  expect(result.titleBorderWidth).toBe('1px');
+  expect(result.titleRadius).toBe('15px');
+  expect(result.reasonBorderWidth).toBe('1px');
+  expect(result.reasonRadius).toBe('15px');
+  expect(result.statusWidth).toBeLessThan(210);
+  expect(result.statusHeight).toBe(34);
+  expect(result.statusBorderWidth).toBe('1px');
+  expect(result.statusBorderColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(result.statusRadius).toBe('10px');
+  expect(result.statusFontSize).toBe('12px');
+  expect(result.statusGap).toBeGreaterThanOrEqual(7);
+  expect(result.statusGap).toBeLessThanOrEqual(9);
   expect(result.oldMetricCount).toBe(0);
   expect(result.rawVisible).toBe(false);
   expect(result.buttonWidth).toBe(34);

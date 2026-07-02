@@ -56,6 +56,20 @@ test('legacy competitor remains and extra competitors persist separately',async(
 
 test('viewer cannot edit stage 7 controls',async({page})=>{const card=await openApp(page);await openSection(page,card,'Полевой замер трафика');await card.locator('[data-stage7-action="add-traffic"]').click();await page.evaluate(()=>{cloudRole='viewer';window.cloudRole='viewer';window.BogatkaTrafficCompetitorsV453.applyViewerState(document);});for(const control of await card.locator('.traffic-stage7-v453 input,.traffic-stage7-v453 select,.traffic-stage7-v453 textarea').all())await expect(control).toBeDisabled();await expect(card.locator('[data-stage7-action="add-traffic"]')).toBeHidden();});
 
-test('live and public reports contain structured stage 7 data',async({page})=>{const card=await openApp(page);const id=await card.getAttribute('data-location-card');await openSection(page,card,'Полевой замер трафика');await card.locator('[data-stage7-action="add-traffic"]').click();await fill(page,card.locator('.traffic-measurement-v453').first().locator('[data-stage7-field="peopleCount"]'),id,'trafficMeasurements',0,'peopleCount','55');expect(await page.evaluate(()=>window.BogatkaLiveReport.build())).toContain('55');await page.route('**/bogatka-public-report?*',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({name:'Тест',snapshot:{locations:[],photos:[]}})}));await page.goto(REPORT,{waitUntil:'networkidle'});await page.waitForFunction(()=>window.BogatkaPublicTrafficCompetitorsV453?.ready,{timeout:30000});expect(await page.evaluate(()=>window.BogatkaPublicTrafficCompetitorsV453.trafficHtml({trafficMeasurements:[{peopleCount:'55'}]}))).toContain('55');});
+test('live and public reports contain structured stage 7 data',async({page,context})=>{
+  const card=await openApp(page);
+  const id=await card.getAttribute('data-location-card');
+  await openSection(page,card,'Полевой замер трафика');
+  await card.locator('[data-stage7-action="add-traffic"]').click();
+  await fill(page,card.locator('.traffic-measurement-v453').first().locator('[data-stage7-field="peopleCount"]'),id,'trafficMeasurements',0,'peopleCount','55');
+  expect(await page.evaluate(()=>window.BogatkaLiveReport.build())).toContain('55');
+
+  const reportPage=await context.newPage();
+  await reportPage.route('**/bogatka-public-report?*',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({name:'Тест',snapshot:{locations:[],photos:[]}})}));
+  await reportPage.goto(REPORT,{waitUntil:'domcontentloaded'});
+  await reportPage.waitForFunction(()=>window.BogatkaPublicTrafficCompetitorsV453?.ready,{timeout:30000});
+  expect(await reportPage.evaluate(()=>window.BogatkaPublicTrafficCompetitorsV453.trafficHtml({trafficMeasurements:[{peopleCount:'55'}]}))).toContain('55');
+  await reportPage.close();
+});
 
 test('stage 7 assets load and are cached',async({page})=>{await openApp(page);const worker=await page.evaluate(()=>fetch('./sw-v340.js').then(response=>response.text()));expect(worker).toContain('./traffic-competitors-v453.js');expect(worker).toContain('./report/traffic-competitors-v453.js');});
