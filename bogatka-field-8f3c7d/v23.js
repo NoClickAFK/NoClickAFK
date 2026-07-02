@@ -114,7 +114,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-panels-v419.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-card-collapse-v422.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./status-next-task-v447.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./card-progress-v448.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./card-progress-v448.css?v=460'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./quick-checklist-v451.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-data-v452.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
