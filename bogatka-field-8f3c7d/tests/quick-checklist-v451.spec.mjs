@@ -29,6 +29,8 @@ async function chooseState(control,value){
 async function chooseStateAndWait(page,control,locationId,field,value){
   await chooseState(control,value);
   await page.waitForFunction(async ({locationId,field,value})=>{
+    const pending=window.BogatkaFieldIntegrityV416?.pendingLocations||[];
+    if(pending.includes(locationId))return false;
     const data=await getLocationData(locationId);
     return getNested(data,field)===value;
   },{locationId,field,value});
@@ -115,6 +117,7 @@ test('HTML and PDF source show readable checklist states and preserve the author
   await chooseStateAndWait(page,block.locator('[data-field="check.foot_traffic"]'),id,'check.foot_traffic','not_applicable');
 
   const result=await page.evaluate(async locationId=>{
+    await window.BogatkaQuickChecklistReportV451.waitForPendingSaves();
     const before=await getLocationData(locationId);
     const html=await window.BogatkaLiveReport.build();
     const after=await getLocationData(locationId);
