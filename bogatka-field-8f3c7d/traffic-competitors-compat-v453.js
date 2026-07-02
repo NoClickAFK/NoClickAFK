@@ -29,6 +29,10 @@
       if(caption.textContent!=='Ближайший прямой конкурент')caption.textContent='Ближайший прямой конкурент';
     });
     root.querySelectorAll?.('[data-location-card] details').forEach(openAncestors);
+    root.querySelectorAll?.('[data-location-card]').forEach(card=>{
+      const hydration=window.BogatkaLocationDataStabilityV452?.hydrateCard?.(card);
+      hydration?.catch?.(console.error);
+    });
   }
 
   document.addEventListener('toggle',event=>openAncestors(event.target),true);
