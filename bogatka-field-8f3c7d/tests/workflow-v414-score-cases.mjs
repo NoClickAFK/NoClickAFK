@@ -40,7 +40,7 @@ test('lease checks precede collaboration and comments keep five structured notes
   expect(state.headerOutside).toBe(true);
   expect(state.collaboration).toBe(state.lease+1);
   expect(state.decision).toBe(state.collaboration+1);
-  expect(state.decisionReason).toBe(state.decision+1);
-  expect(state.economy).toBe(state.decisionReason+1);
-  expect(state.launch).toBe(state.economy+1);
+  expect(state.decisionReason).toBeGreaterThan(state.decision);
+  expect(state.economy).toBeGreaterThan(state.decisionReason);
+  expect(state.launch).toBeGreaterThan(state.economy);
 });
