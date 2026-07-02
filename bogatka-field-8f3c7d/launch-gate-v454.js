@@ -2,7 +2,7 @@
   'use strict';
   if(window.BogatkaLaunchGateV454?.ready)return;
 
-  const VERSION='4.5.4';
+  const VERSION='4.5.8';
   const saveQueues=new Map();
   let installAttempts=0;
   let reportAttempts=0;
@@ -28,8 +28,10 @@
   }
 
   function enqueue(locationId,task){
-    const previous=saveQueues.get(locationId)||Promise.resolve();
-    const current=previous.catch(()=>{}).then(task);
+    const shared=window.BogatkaFieldIntegrityV416?.enqueueLocation;
+    const current=typeof shared==='function'
+      ?shared(locationId,task)
+      :(saveQueues.get(locationId)||Promise.resolve()).catch(()=>{}).then(task);
     saveQueues.set(locationId,current);
     return current.finally(()=>{if(saveQueues.get(locationId)===current)saveQueues.delete(locationId);});
   }
