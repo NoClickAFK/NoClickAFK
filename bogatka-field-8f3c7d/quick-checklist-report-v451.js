@@ -103,6 +103,8 @@
         };
         wrapped=async function(...args){
           await waitForPendingSaves();
+          await window.BogatkaDurableFieldsV452?.flush?.();
+          await waitForPendingSaves();
           await window.BogatkaQuickChecklistV451.enhanceAll();
           const result=transformReport(await current(...args));
           claim(wrapped);
