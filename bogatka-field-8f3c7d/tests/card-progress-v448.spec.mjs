@@ -49,7 +49,6 @@ test('header keeps one compact right-aligned semantic status without a nested re
       width:rect.width,
       height:rect.height,
       parentWidth:parent.width,
-      rightGap:Math.abs(parent.right-rect.right-41),
       fontSize:getComputedStyle(element.querySelector('strong')).fontSize,
       padding:[style.paddingTop,style.paddingRight,style.paddingBottom,style.paddingLeft],
       borderStyle:style.borderStyle,
@@ -58,7 +57,7 @@ test('header keeps one compact right-aligned semantic status without a nested re
   });
   expect(geometry.width).toBeLessThan(210);
   expect(geometry.width).toBeLessThan(geometry.parentWidth);
-  expect(geometry.height).toBeLessThanOrEqual(38);
+  expect(geometry.height).toBe(34);
   expect(geometry.fontSize).toBe('12px');
   expect(geometry.padding).toEqual(['7px','10px','7px','10px']);
   expect(geometry.borderStyle).toBe('solid');
@@ -79,13 +78,20 @@ test('recommendation status changes semantic color without changing its compact 
   const chip=card.locator('.card-recommendation-v448');
   const before=await chip.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
 
-  await saveData(page,id,{score:{housing:'5',occupied:'5',foot:'5',car:'5',parking:'5',stop:'5',anchor:'5',visibility:'5'}});
+  await saveData(page,id,{
+    status:'Новый объект',objectType:'Торговый центр',date:'2026-07-02',time:'11:00',floorLocation:'1-й этаж',
+    premiseCondition:'Готово к работе',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',
+    ownerName:'ООО Арендодатель',contactRole:'Собственник',contact:'Иван',contactPhone:'+375290000000',
+    score:{housing:'5',occupied:'5',foot:'5',car:'5',parking:'5',stop:'5',anchor:'5',visibility:'5'},
+    tech:{totalArea:'100',rentPerMonth:'3000',powerKw:'40',openingHours:'09:00–21:00',utilities:'500',repairEstimate:'10000'},
+    pros:'Хорошая видимость',cons:'Нужно уточнить условия',risks:'Нет подтверждённых рисков',questions:'Уточнить срок аренды',decision:'Оставить',criticalDealConditions:{},
+  });
   await expect(chip).toHaveClass(/good/);
   await expect(chip).toHaveText('Перспективно');
   const after=await chip.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
   expect(after.background).not.toBe(before.background);
   expect(after.border).not.toBe(before.border);
-  expect(after.height).toBeLessThanOrEqual(38);
+  expect(after.height).toBe(34);
 });
 
 test('quality excludes blank criteria while coverage records how much was evaluated',async({page})=>{
@@ -165,9 +171,10 @@ test('expanded block and compact status remain usable on a phone width',async({p
     metricColumns:getComputedStyle(element.querySelector('.progress-metrics-v448')).gridTemplateColumns,
     buttons:[...element.querySelectorAll('.fill-plan-item-v448 button')].map(button=>button.getBoundingClientRect().width),
   }));
-  const chip=await card.locator('.card-recommendation-v448').evaluate(element=>({width:element.getBoundingClientRect().width,container:element.closest('.location-head-side-v422').getBoundingClientRect().width}));
+  const chip=await card.locator('.card-recommendation-v448').evaluate(element=>({width:element.getBoundingClientRect().width,height:element.getBoundingClientRect().height,container:element.closest('.location-head-side-v422').getBoundingClientRect().width}));
   expect(layout.scrollWidth).toBeLessThanOrEqual(Math.ceil(layout.width)+1);
   expect(layout.metricColumns.split(' ').length).toBe(1);
   expect(layout.buttons.every(width=>width>250)).toBe(true);
   expect(chip.width).toBeLessThan(chip.container);
+  expect(chip.height).toBe(34);
 });
