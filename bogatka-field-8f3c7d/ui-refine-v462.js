@@ -8,14 +8,13 @@ let timer=null;
 function storageGet(key){try{return localStorage.getItem(key)}catch(_){return null}}
 function storageSet(key,value){try{localStorage.setItem(key,value)}catch(_){}}
 
-function ensureLateStyle(){
-  const existing=document.querySelector('link[data-ui-refine-late-v462]');
-  if(existing)return existing;
-  const link=document.createElement('link');
-  link.rel='stylesheet';
-  link.href='./ui-refine-v462-fix.css?v=462-late';
-  link.dataset.uiRefineLateV462='1';
-  document.head.append(link);
+function ensureCanonicalStyleLast(){
+  const link=[...document.querySelectorAll('link[rel="stylesheet"]')].find(node=>{
+    const href=node.getAttribute('href')||'';
+    return href.includes('ui-refine-v462.css');
+  });
+  if(!link)return null;
+  if(link!==document.head.lastElementChild)document.head.append(link);
   return link;
 }
 
@@ -57,7 +56,7 @@ function applyLayoutGuards(card){
   }
   const metrics=card.querySelector('.decision-progress-v448.progress-card-v462 .progress-metrics-v448');
   if(metrics){
-    if(matchMedia('(max-width:460px)').matches)metrics.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+    if(matchMedia('(max-width:700px)').matches)metrics.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
     else metrics.style.removeProperty('grid-template-columns');
   }
 }
@@ -211,13 +210,13 @@ function schedule(delay=70){
 }
 
 function install(){
-  ensureLateStyle();
+  ensureCanonicalStyleLast();
   installStatusEnhanceWrapper();
   const root=document.getElementById('locations')||document.body;
   new MutationObserver(()=>schedule(90)).observe(root,{childList:true,subtree:true,characterData:true});
   schedule(20);
   [250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>{
-    ensureLateStyle();
+    ensureCanonicalStyleLast();
     installStatusEnhanceWrapper();
     schedule(0);
   },delay));
@@ -225,6 +224,6 @@ function install(){
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-window.addEventListener('load',()=>{ensureLateStyle();installStatusEnhanceWrapper();schedule(30)},{once:true});
-window.BogatkaUIRefineV462={version:VERSION,ready:true,enhanceAll,ensureProgressAccordion,splitRecommendationReason,ensureLateStyle,installStatusEnhanceWrapper,applyLayoutGuards};
+window.addEventListener('load',()=>{ensureCanonicalStyleLast();installStatusEnhanceWrapper();schedule(30)},{once:true});
+window.BogatkaUIRefineV462={version:VERSION,ready:true,enhanceAll,ensureProgressAccordion,splitRecommendationReason,ensureCanonicalStyleLast,installStatusEnhanceWrapper,applyLayoutGuards};
 })();
