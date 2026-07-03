@@ -150,16 +150,16 @@ test('accordion state survives reload and mobile layout stays overflow free',asy
   expect(overflow.scroll).toBeLessThanOrEqual(overflow.width+1);
 });
 
-test('v462 assets and restored base stylesheet are cached',async({page})=>{
+test('consolidated progress assets are cached once and patch assets are absent',async({page})=>{
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'domcontentloaded'});
   const worker=await page.evaluate(()=>fetch('./sw-v340.js').then(response=>response.text()));
-  const v462Styles=await page.evaluate(()=>[...document.querySelectorAll('link[rel="stylesheet"]')]
+  const progressStyles=await page.evaluate(()=>[...document.querySelectorAll('link[rel="stylesheet"]')]
     .map(link=>link.getAttribute('href')||'')
-    .filter(href=>href.includes('ui-refine-v462')));
+    .filter(href=>href.includes('card-progress-v448.css')));
   expect(worker).toContain('./card-progress-v448.css');
-  expect(worker).toContain('./ui-refine-v462.css');
-  expect(worker).not.toContain('./ui-refine-v462-fix.css');
-  expect(worker).toContain('./ui-refine-v462.js');
-  expect(v462Styles).toEqual(['./ui-refine-v462.css']);
+  expect(worker).not.toContain('./card-progress-v460.css');
+  expect(worker).not.toContain('./ui-refine-v462.css');
+  expect(worker).not.toContain('./ui-refine-v462.js');
+  expect(progressStyles).toEqual(['./card-progress-v448.css']);
 });
