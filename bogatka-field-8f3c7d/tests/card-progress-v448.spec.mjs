@@ -29,6 +29,13 @@ async function saveData(page,id,patch){
   },{locationId:id,next:patch});
 }
 
+async function openProgressPlan(card){
+  const outer=card.locator('.progress-card-toggle-v462');
+  if(await outer.count()&&await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+  const inner=card.locator('.fill-plan-toggle-v462');
+  if(await inner.count()&&await inner.getAttribute('aria-expanded')!=='true')await inner.click();
+}
+
 test('header separates the recommendation panel from the compact semantic status',async({page})=>{
   const card=await openApp(page);
   await expect(card.locator(':scope > .location-head .scorebox')).toBeHidden();
@@ -139,6 +146,7 @@ test('fill plan follows the real workflow and opens the required section',async(
     objectSource:'',inspectionPurpose:'',inspectionResult:'',
     ownerName:'',contactRole:'',contact:'',contactPhone:'',contactMessenger:'',contactEmail:'',score:{},tech:{},pros:'',cons:'',risks:'',questions:'',decision:'',
   });
+  await openProgressPlan(card);
   const active=card.locator('.fill-plan-item-v448.active');
   await expect(active.locator('.fill-plan-copy-v448 strong')).toHaveText('Осмотр и статус');
   await expect(active.locator('.fill-plan-copy-v448 small')).toContainText('статус работы');
