@@ -9,13 +9,12 @@ function storageGet(key){try{return localStorage.getItem(key)}catch(_){return nu
 function storageSet(key,value){try{localStorage.setItem(key,value)}catch(_){}}
 
 function ensureLateStyle(){
-  let link=document.querySelector('link[data-ui-refine-late-v462]');
-  if(!link){
-    link=document.createElement('link');
-    link.rel='stylesheet';
-    link.href='./ui-refine-v462-fix.css?v=462-late';
-    link.dataset.uiRefineLateV462='1';
-  }
+  const existing=document.querySelector('link[data-ui-refine-late-v462]');
+  if(existing)return existing;
+  const link=document.createElement('link');
+  link.rel='stylesheet';
+  link.href='./ui-refine-v462-fix.css?v=462-late';
+  link.dataset.uiRefineLateV462='1';
   document.head.append(link);
   return link;
 }
@@ -51,6 +50,18 @@ function syncProgressSummary(overview){
   splitRecommendationReason(overview.querySelector('[data-progress-recommendation-reason-v448]'));
 }
 
+function applyLayoutGuards(card){
+  for(const grid of card.querySelectorAll('.inspection-grid-v416,.landlord-grid-v416')){
+    grid.style.setProperty('row-gap','12px','important');
+    grid.style.setProperty('column-gap','14px','important');
+  }
+  const metrics=card.querySelector('.decision-progress-v448.progress-card-v462 .progress-metrics-v448');
+  if(metrics){
+    if(matchMedia('(max-width:460px)').matches)metrics.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+    else metrics.style.removeProperty('grid-template-columns');
+  }
+}
+
 async function syncLegacyStatus(card){
   const select=card.querySelector('select[data-field="status"]');
   const id=card.dataset.locationCard;
@@ -76,8 +87,16 @@ function installStatusEnhanceWrapper(){
   if(!api||typeof original!=='function')return false;
   if(original.__uiRefineV462)return true;
   const wrapped=async function(...args){
+    const focused=document.activeElement;
+    const restoreFocus=focused instanceof HTMLInputElement||focused instanceof HTMLTextAreaElement||focused instanceof HTMLSelectElement;
+    const start=restoreFocus&&typeof focused.selectionStart==='number'?focused.selectionStart:null;
+    const end=restoreFocus&&typeof focused.selectionEnd==='number'?focused.selectionEnd:null;
     const result=await original.apply(api,args);
     for(const card of document.querySelectorAll('[data-location-card]'))await syncLegacyStatus(card);
+    if(restoreFocus&&focused.isConnected&&(document.activeElement===document.body||document.activeElement===null)){
+      focused.focus({preventScroll:true});
+      if(start!==null&&typeof focused.setSelectionRange==='function')focused.setSelectionRange(start,end??start);
+    }
     return result;
   };
   wrapped.__uiRefineV462=true;
@@ -176,6 +195,7 @@ function enhanceCard(card){
   if(!card?.dataset?.locationCard)return false;
   splitRecommendationReason(card.querySelector('[data-card-recommendation-reason-v448]'));
   ensureProgressAccordion(card);
+  applyLayoutGuards(card);
   return true;
 }
 
@@ -201,9 +221,10 @@ function install(){
     installStatusEnhanceWrapper();
     schedule(0);
   },delay));
+  addEventListener('resize',()=>schedule(40),{passive:true});
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 window.addEventListener('load',()=>{ensureLateStyle();installStatusEnhanceWrapper();schedule(30)},{once:true});
-window.BogatkaUIRefineV462={version:VERSION,ready:true,enhanceAll,ensureProgressAccordion,splitRecommendationReason,ensureLateStyle,installStatusEnhanceWrapper};
+window.BogatkaUIRefineV462={version:VERSION,ready:true,enhanceAll,ensureProgressAccordion,splitRecommendationReason,ensureLateStyle,installStatusEnhanceWrapper,applyLayoutGuards};
 })();
