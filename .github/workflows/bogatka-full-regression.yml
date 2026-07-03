@@ -46,7 +46,6 @@ jobs:
             curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
             sleep 1
           done
-          npx playwright test bogatka-field-8f3c7d/tests/critical-deal-bootstrap-v430.spec.mjs --workers=1 --reporter=line
           npx playwright test bogatka-field-8f3c7d/tests --workers=1 --reporter=json > test-results/playwright-results.json
       - name: Print regression summary
         if: always()
