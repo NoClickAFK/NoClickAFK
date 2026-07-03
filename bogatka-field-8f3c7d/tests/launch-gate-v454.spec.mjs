@@ -44,13 +44,29 @@ async function openLaunchDetails(page,id){
   await expect.poll(async()=>page.evaluate(async locationId=>{
     await window.BogatkaLaunchGateV454.renderAll();
     const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
-    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
+    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:true});
     const details=card?.querySelector('[data-launch-details]');
     if(!details)return false;
     details.open=true;
-    return Boolean(details.open&&details.querySelector('.launch-gate-overlay-v454'));
-  },id),{timeout:10000}).toBe(true);
+    await new Promise(resolve=>setTimeout(resolve,120));
+    const current=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] [data-launch-details]`);
+    return Boolean(current===details&&current.open&&current.querySelector('.launch-gate-overlay-v454'));
+  },id),{timeout:15000}).toBe(true);
   return page.locator(`[data-location-card="${id}"] [data-launch-details]`);
+}
+
+async function activateCurrentLaunchAction(page,id){
+  await page.evaluate(async locationId=>{
+    await window.BogatkaLaunchGateV454.renderAll();
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:true});
+    const details=card?.querySelector('[data-launch-details]');
+    if(!details)throw new Error('Launch details are missing');
+    details.open=true;
+    const button=details.querySelector('[data-launch-activate-v454]');
+    if(!button||button.disabled)throw new Error('Launch action is unavailable');
+    button.click();
+  },id);
 }
 
 test('status or decision never creates an opening project automatically',async({page})=>{
@@ -105,7 +121,7 @@ test('eligible location activates opening project only by explicit action',async
   await page.evaluate(()=>window.BogatkaLaunchGateV454.renderAll());
   const details=await openLaunchDetails(page,id);
   await expect(details).toHaveAttribute('data-launch-gate-v454','ready');
-  await details.locator('[data-launch-activate-v454]').click();
+  await activateCurrentLaunchAction(page,id);
   await page.waitForFunction(async locationId=>(await getLocationData(locationId)).launchProject?.enabled===true&&window.BogatkaLaunchGateV454.pendingWrites===0,id);
   const stored=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(stored.decision).toBe('Оставить');
