@@ -64,9 +64,13 @@ test('inspection and landlord cards use one native grid rhythm without overflow'
     const landlord=node.querySelector('.landlord-grid-v416');
     const leftCard=node.querySelector('.inspection-card-v416').getBoundingClientRect();
     const rightCard=node.querySelector('.landlord-card-v416').getBoundingClientRect();
-    const fields=['objectSource','listingUrl','inspectionParticipants'].map(name=>node.querySelector(`[data-field="${name}"]`).getBoundingClientRect());
+    const visibleControl=name=>{
+      const control=node.querySelector(`[data-field="${name}"]`);
+      return control?.nextElementSibling?.classList.contains('premium-select-trigger')?control.nextElementSibling:control;
+    };
+    const fields=['objectSource','listingUrl','inspectionParticipants'].map(name=>visibleControl(name).getBoundingClientRect());
     const landlordRect=landlord.getBoundingClientRect();
-    const sample=node.querySelector('.landlord-grid-v416>label.field');
+    const sample=node.querySelector('.landlord-grid-v416>label.field:not([hidden])');
     const caption=sample.querySelector(':scope > .profile-caption-v416');
     return{
       inspectionRowGap:getComputedStyle(inspection).rowGap,
@@ -131,10 +135,14 @@ test('accordion state survives reload and mobile layout stays overflow free',asy
   await card.locator('.fill-plan-toggle-v462').click();
   const id=await card.getAttribute('data-location-card');
   await page.reload({waitUntil:'domcontentloaded'});
-  await page.waitForFunction(locationId=>Boolean(
-    window.BogatkaUIRefineV462?.ready&&
-    document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .progress-card-toggle-v462`)
-  ),id,{timeout:30000});
+  await page.waitForFunction(async locationId=>{
+    if(!window.BogatkaUIRefineV462?.ready||!window.BogatkaCardProgressV448?.ready)return false;
+    if(!document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .progress-card-toggle-v462`)){
+      await window.BogatkaCardProgressV448.renderAll();
+      window.BogatkaUIRefineV462.enhanceAll();
+    }
+    return Boolean(document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .progress-card-toggle-v462`));
+  },id,{timeout:30000});
   const reloaded=page.locator(`[data-location-card="${id}"]`);
   await expect(reloaded.locator('.progress-card-toggle-v462')).toHaveAttribute('aria-expanded','true');
   await expect(reloaded.locator('.fill-plan-toggle-v462')).toHaveAttribute('aria-expanded','true');
