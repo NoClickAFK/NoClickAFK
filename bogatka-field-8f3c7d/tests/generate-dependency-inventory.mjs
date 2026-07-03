@@ -64,7 +64,10 @@ const queue = [...entrypoints];
 while (queue.length) {
   const current = queue.shift();
   for (const target of loads.get(current) || []) {
-    if (!reachable.has(target)) { reachable.add(target); queue.push(target); }
+    if (!reachable.has(target)) {
+      reachable.add(target);
+      queue.push(target);
+    }
   }
 }
 
@@ -119,10 +122,15 @@ const inventory = files.map(absolute => {
   const text = texts.get(file);
   const globals = globalsFor(text);
   const tokens = [path.basename(file), path.basename(file, path.extname(file)), ...globals].filter(Boolean);
-  const tests = testTexts.filter(([testFile, testText]) => testFile !== file && tokens.some(token => testText.includes(token))).map(([testFile]) => testFile).sort();
+  const tests = testTexts
+    .filter(([testFile, testText]) => testFile !== file && tokens.some(token => testText.includes(token)))
+    .map(([testFile]) => testFile)
+    .sort();
   const loadedBy = [...(references.get(file) || [])].sort();
   const savedData = dataKeys.filter(key => new RegExp(`(?<![\\w])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`).test(text));
-  const legacy = compatibilityRules.filter(([, markers]) => markers.some(marker => text.toLowerCase().includes(marker.toLowerCase()))).map(([name]) => name);
+  const legacy = compatibilityRules
+    .filter(([, markers]) => markers.some(marker => text.toLowerCase().includes(marker.toLowerCase())))
+    .map(([name]) => name);
   let classification;
   if (file.startsWith('tests/') || file.endsWith('.mjs')) classification = 'TEST_ONLY';
   else if (file.startsWith('report/')) classification = 'REPORT_ONLY';
@@ -161,33 +169,50 @@ const runtimeCss = inventory.filter(item => item.type === 'css' && item.observed
 const result = {
   generated_at: new Date().toISOString(),
   source: 'static graph + complete browser-suite request evidence',
-  summary: {file_count: inventory.length, classification_totals: totals, observed_main_runtime_js_count: runtimeJs, observed_main_runtime_css_count: runtimeCss, service_worker_asset_count: swAssets.size},
+  summary: {
+    file_count: inventory.length,
+    classification_totals: totals,
+    observed_main_runtime_js_count: runtimeJs,
+    observed_main_runtime_css_count: runtimeCss,
+    service_worker_asset_count: swAssets.size,
+  },
   files: inventory,
 };
 const json = `${JSON.stringify(result, null, 2)}\n`;
-const escape = value => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
+const exceptional = name => inventory.filter(item => item.classification === name).map(item => item.path);
+const exceptionalSection = (title, items) => items.length
+  ? ['', `## ${title}`, '', ...items.map(item => `- \`${item}\``)]
+  : [];
 const md = [
-  '# Bogatka dependency and loader inventory', '',
-  `Files inventoried: **${inventory.length}**.`, '',
+  '# Bogatka dependency inventory summary',
+  '',
+  'This tracked file is intentionally compact. The complete per-file JSON inventory is generated in CI and uploaded as the `bogatka-dependency-inventory` GitHub Actions artifact.',
+  '',
+  `Files inventoried: **${inventory.length}**.`,
+  '',
   `Observed main-runtime JavaScript requests: **${runtimeJs}**.`,
   `Observed main-runtime CSS requests: **${runtimeCss}**.`,
-  `Service Worker asset entries: **${swAssets.size}**.`, '',
-  '## Classification totals', '',
-  ...classifications.map(name => `- \`${name}\`: ${totals[name]}`), '',
-  '## Rules', '',
+  `Service Worker asset entries: **${swAssets.size}**.`,
+  '',
+  '## Classification totals',
+  '',
+  ...classifications.map(name => `- \`${name}\`: ${totals[name]}`),
+  '',
+  '## Working-context entry point',
+  '',
+  '- Read `ACTIVE_WORKING_SET.md` first and open only the relevant functional block.',
+  '- Keep `runtime-request-evidence.json` as the checked-in runtime request evidence source.',
+  '- Use the CI JSON artifact only for a full dependency audit.',
+  '',
+  '## Safety rules',
+  '',
   '- `UNKNOWN_BLOCKED` is never eligible for deletion.',
-  '- A confirmed orphan has no loader, dynamic reference, Service Worker entry, observed request, report/reset consumer, test dependency, saved-data responsibility, or unique compatibility responsibility.',
-  '- Version-like filenames are not deletion evidence.', '',
-  '## Complete file inventory', '',
-  '| Path | Bytes | Loaded by / runtime evidence | SW | Globals / wrappers | Data / compatibility | Tests | Classification |',
-  '|---|---:|---|:---:|---|---|---|---|',
-  ...inventory.map(item => {
-    const evidence = [...item.loaded_by.slice(0, 4), ...(item.observed_requested_in_full_suite ? ['requested'] : [])].join(', ') || 'none';
-    const globals = [...item.globals_exported.slice(0, 3), ...item.wrappers_installed.slice(0, 2)].join('; ') || 'none';
-    const data = [...item.saved_data_dependencies.slice(0, 5), ...item.legacy_compatibility_responsibility.slice(0, 2)].join('; ') || 'none';
-    const tests = `${item.tests_covering.slice(0, 3).join(', ')}${item.tests_covering.length > 3 ? '…' : ''}` || 'none';
-    return `| \`${escape(item.path)}\` | ${item.size_bytes} | ${escape(evidence)} | ${item.service_worker_cached ? 'yes' : 'no'} | ${escape(globals)} | ${escape(data)} | ${escape(tests)} | \`${item.classification}\` |`;
-  }), '',
+  '- A confirmed orphan has no loader, dynamic reference, Service Worker entry, observed request, report/reset consumer, behavioral test dependency, saved-data responsibility, or unique compatibility responsibility.',
+  '- Filename age or a version-like name is not deletion evidence.',
+  ...exceptionalSection('UNKNOWN_BLOCKED files', exceptional('UNKNOWN_BLOCKED')),
+  ...exceptionalSection('ORPHAN_CONFIRMED files', exceptional('ORPHAN_CONFIRMED')),
+  ...exceptionalSection('ACCIDENTAL files', exceptional('ACCIDENTAL')),
+  '',
 ].join('\n');
 
 fs.mkdirSync(path.dirname(outputJson), {recursive: true});
