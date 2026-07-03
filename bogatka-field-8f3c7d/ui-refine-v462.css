@@ -90,11 +90,17 @@ html .location-panels-v419 .landlord-grid-v416{
   box-sizing:border-box!important;
 }
 html .landlord-inspection-v461{display:none!important}
-html .location-panels-v419 .inspection-grid-v416>label.field,
-html .location-panels-v419 .landlord-grid-v416>label.field,
+html .location-panels-v419 .inspection-grid-v416>label.field:not([hidden]):not(.hidden):not(.panel-hidden-v419),
+html .location-panels-v419 .landlord-grid-v416>label.field:not([hidden]):not(.hidden):not(.panel-hidden-v419){
+  display:flex!important;
+  flex-direction:column!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  gap:5px!important;
+  box-sizing:border-box!important;
+}
 html .location-panels-v419 .inspection-grid-v416>.next-task-v447{
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr)!important;
   min-width:0!important;
   max-width:100%!important;
   margin:0!important;
@@ -266,7 +272,7 @@ html .fill-plan-toggle-copy-v462 span{color:#6d7b73!important;font-size:11px!imp
   html .progress-card-summary-v462{grid-column:1!important;grid-row:2!important;justify-self:start!important;max-width:100%!important}
   html .progress-card-chevron-v462{grid-column:2!important;grid-row:1/3!important}
   html .progress-card-content-v462>.progress-heading-v448{grid-template-columns:minmax(0,1fr)!important}
-  html .decision-progress-v448.progress-card-v462 .progress-metrics-v448{grid-template-columns:minmax(0,1fr)!important}
+  html .decision-progress-v448 .progress-metrics-v448{grid-template-columns:minmax(0,1fr)!important}
   html .fill-plan-toggle-v462{grid-template-columns:minmax(0,1fr) 30px!important}
   html .fill-plan-toggle-v462>.fill-plan-toggle-copy-v462{grid-column:1!important}
   html .fill-plan-toggle-v462>.fill-plan-chevron-v462{grid-column:2!important}
