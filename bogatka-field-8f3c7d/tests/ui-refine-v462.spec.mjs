@@ -143,9 +143,11 @@ test('accordion state survives reload and mobile layout stays overflow free',asy
 });
 
 test('v462 assets and restored base stylesheet are cached',async({page})=>{
-  await openApp(page);
+  await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
+  await page.goto(APP,{waitUntil:'domcontentloaded'});
   const worker=await page.evaluate(()=>fetch('./sw-v340.js').then(response=>response.text()));
   expect(worker).toContain('./card-progress-v448.css');
   expect(worker).toContain('./ui-refine-v462.css');
+  expect(worker).toContain('./ui-refine-v462-fix.css');
   expect(worker).toContain('./ui-refine-v462.js');
 });
