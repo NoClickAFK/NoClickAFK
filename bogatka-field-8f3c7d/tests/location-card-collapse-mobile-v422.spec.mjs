@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=460';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=462';
 
 test('mobile recommendation panel and compact status stay overflow free',async({page})=>{
   await page.setViewportSize({width:390,height:844});
@@ -47,8 +47,8 @@ test('mobile recommendation panel and compact status stay overflow free',async({
   expect(layout.recommendationOverflow).toBeLessThanOrEqual(1);
   expect(layout.statusWidth).toBeLessThan(210);
   expect(layout.statusHeight).toBe(34);
-  expect(layout.gapToToggle).toBeGreaterThanOrEqual(6);
-  expect(layout.gapToToggle).toBeLessThanOrEqual(8);
+  expect(layout.gapToToggle).toBeGreaterThanOrEqual(9);
+  expect(layout.gapToToggle).toBeLessThanOrEqual(12);
   expect(layout.oldMetricCount).toBe(0);
 
   const card=page.locator('[data-location-card]').first();
