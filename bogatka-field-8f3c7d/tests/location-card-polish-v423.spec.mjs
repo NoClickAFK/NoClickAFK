@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=460';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=462';
 
 async function openApp(page){
   await page.setViewportSize({width:1440,height:1000});
@@ -83,6 +83,7 @@ test('header uses a premium recommendation panel with a separate compact semanti
     const buttonRect=button.getBoundingClientRect();
     const buttonStyle=getComputedStyle(button);
     const arrowRect=button.querySelector('.location-collapse-chevron-v422').getBoundingClientRect();
+    const actions=card.querySelector('.location-actions').getBoundingClientRect();
     return {
       recommendationWidth:Math.round(recommendationRect.width),
       recommendationHeight:Math.round(recommendationRect.height),
@@ -97,6 +98,7 @@ test('header uses a premium recommendation panel with a separate compact semanti
       statusRadius:statusStyle.borderTopLeftRadius,
       statusFontSize:statusStyle.fontSize,
       statusGap:Math.round(statusRect.top-reason.getBoundingClientRect().bottom),
+      actionCenterDelta:Math.abs((actions.top+actions.bottom)/2-(statusRect.top+statusRect.bottom)/2),
       oldMetricCount:side.querySelectorAll('.decision-score-v340,.decision-complete-v340').length,
       rawVisible:getComputedStyle(side.querySelector(':scope > .scorebox')).display!=='none',
       buttonWidth:Math.round(buttonRect.width),
@@ -123,8 +125,9 @@ test('header uses a premium recommendation panel with a separate compact semanti
   expect(result.statusBorderColor).not.toBe('rgba(0, 0, 0, 0)');
   expect(result.statusRadius).toBe('10px');
   expect(result.statusFontSize).toBe('12px');
-  expect(result.statusGap).toBeGreaterThanOrEqual(7);
-  expect(result.statusGap).toBeLessThanOrEqual(9);
+  expect(result.statusGap).toBeGreaterThanOrEqual(30);
+  expect(result.statusGap).toBeLessThanOrEqual(70);
+  expect(result.actionCenterDelta).toBeLessThanOrEqual(3);
   expect(result.oldMetricCount).toBe(0);
   expect(result.rawVisible).toBe(false);
   expect(result.buttonWidth).toBe(34);
@@ -132,8 +135,8 @@ test('header uses a premium recommendation panel with a separate compact semanti
   expect(result.buttonBackground).not.toBe('rgba(0, 0, 0, 0)');
   expect(result.buttonBorderWidth).toBe('1px');
   expect(result.buttonRadius).toBe('10px');
-  expect(result.gap).toBeGreaterThanOrEqual(6);
-  expect(result.gap).toBeLessThanOrEqual(8);
+  expect(result.gap).toBeGreaterThanOrEqual(9);
+  expect(result.gap).toBeLessThanOrEqual(14);
   expect(result.arrowCenterDeltaX).toBeLessThanOrEqual(1);
   expect(result.arrowCenterDeltaY).toBeLessThanOrEqual(1);
 });

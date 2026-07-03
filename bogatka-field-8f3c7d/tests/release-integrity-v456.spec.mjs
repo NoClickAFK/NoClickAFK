@@ -83,9 +83,15 @@ test('mobile layout has no horizontal overflow with stage 7-9 sections',async({p
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await writeCompleteSample(page,id);
-  await page.evaluate(async()=>{renderLocations();await new Promise(resolve=>setTimeout(resolve,1200));await window.BogatkaTrafficCompetitorsV453.enhanceAll();await window.BogatkaLaunchGateV454.renderAll();await window.BogatkaOpeningProjectV455.renderAll();});
-  const dimensions=await page.evaluate(()=>({innerWidth:window.innerWidth,scrollWidth:document.documentElement.scrollWidth}));
-  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.innerWidth+1);
+  await page.evaluate(async()=>{
+    renderLocations();
+    await new Promise(resolve=>setTimeout(resolve,1200));
+    await window.BogatkaTrafficCompetitorsV453.enhanceAll();
+    await window.BogatkaLaunchGateV454.renderAll();
+    await window.BogatkaOpeningProjectV455.renderAll();
+    await window.BogatkaUIRefineV462?.completeRuntime?.();
+  });
+  await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),{timeout:5000}).toBeLessThanOrEqual(1);
 });
 
 test('all release assets are present in the Service Worker cache manifest',async({page})=>{
