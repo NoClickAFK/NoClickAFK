@@ -1,6 +1,6 @@
 /* Bogatka v462 late cascade hardening. */
-html .location-panels-v419 .inspection-grid-v416>label.field.stage6-field-v452:not([hidden]):not(.panel-hidden-v419),
-html .location-panels-v419 .landlord-grid-v416>label.field.stage6-field-v452:not([hidden]):not(.panel-hidden-v419),
+html .location-panels-v419 .inspection-grid-v416>label.field:not([hidden]):not(.panel-hidden-v419),
+html .location-panels-v419 .landlord-grid-v416>label.field:not([hidden]):not(.panel-hidden-v419),
 html .location-panels-v419 .inspection-grid-v416>.next-task-v447{
   min-width:0!important;
   max-width:100%!important;
