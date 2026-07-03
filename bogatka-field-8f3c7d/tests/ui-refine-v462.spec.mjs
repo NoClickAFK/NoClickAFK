@@ -146,8 +146,12 @@ test('v462 assets and restored base stylesheet are cached',async({page})=>{
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'domcontentloaded'});
   const worker=await page.evaluate(()=>fetch('./sw-v340.js').then(response=>response.text()));
+  const v462Styles=await page.evaluate(()=>[...document.querySelectorAll('link[rel="stylesheet"]')]
+    .map(link=>link.getAttribute('href')||'')
+    .filter(href=>href.includes('ui-refine-v462')));
   expect(worker).toContain('./card-progress-v448.css');
   expect(worker).toContain('./ui-refine-v462.css');
-  expect(worker).toContain('./ui-refine-v462-fix.css');
+  expect(worker).not.toContain('./ui-refine-v462-fix.css');
   expect(worker).toContain('./ui-refine-v462.js');
+  expect(v462Styles).toEqual(['./ui-refine-v462.css']);
 });
