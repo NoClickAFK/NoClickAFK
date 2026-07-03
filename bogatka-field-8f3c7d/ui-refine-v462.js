@@ -60,8 +60,29 @@ async function syncLegacyStatus(card){
   if(!normalized||select.value===normalized)return false;
   if(![...select.options].some(option=>option.value===normalized))return false;
   select.value=normalized;
-  if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-  else if(typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,select.nextElementSibling);
+  const trigger=select.nextElementSibling;
+  if(trigger?.classList?.contains('premium-select-trigger')){
+    const valueNode=trigger.querySelector('.premium-select-value');
+    if(valueNode)valueNode.textContent=select.selectedOptions?.[0]?.textContent||normalized;
+    trigger.dataset.syncedValue=select.value;
+    trigger.disabled=select.disabled;
+  }
+  return true;
+}
+
+function installStatusEnhanceWrapper(){
+  const api=window.BogatkaStatusNextTaskV447;
+  const original=api?.enhanceAll;
+  if(!api||typeof original!=='function')return false;
+  if(original.__uiRefineV462)return true;
+  const wrapped=async function(...args){
+    const result=await original.apply(api,args);
+    for(const card of document.querySelectorAll('[data-location-card]'))await syncLegacyStatus(card);
+    return result;
+  };
+  wrapped.__uiRefineV462=true;
+  wrapped.__base=original;
+  api.enhanceAll=wrapped;
   return true;
 }
 
@@ -155,7 +176,6 @@ function enhanceCard(card){
   if(!card?.dataset?.locationCard)return false;
   splitRecommendationReason(card.querySelector('[data-card-recommendation-reason-v448]'));
   ensureProgressAccordion(card);
-  syncLegacyStatus(card).catch(console.error);
   return true;
 }
 
@@ -172,13 +192,18 @@ function schedule(delay=70){
 
 function install(){
   ensureLateStyle();
+  installStatusEnhanceWrapper();
   const root=document.getElementById('locations')||document.body;
   new MutationObserver(()=>schedule(90)).observe(root,{childList:true,subtree:true,characterData:true});
   schedule(20);
-  [250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>{ensureLateStyle();schedule(0)},delay));
+  [250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>{
+    ensureLateStyle();
+    installStatusEnhanceWrapper();
+    schedule(0);
+  },delay));
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-window.addEventListener('load',()=>{ensureLateStyle();schedule(30)},{once:true});
-window.BogatkaUIRefineV462={version:VERSION,ready:true,enhanceAll,ensureProgressAccordion,splitRecommendationReason,ensureLateStyle};
+window.addEventListener('load',()=>{ensureLateStyle();installStatusEnhanceWrapper();schedule(30)},{once:true});
+window.BogatkaUIRefineV462={version:VERSION,ready:true,enhanceAll,ensureProgressAccordion,splitRecommendationReason,ensureLateStyle,installStatusEnhanceWrapper};
 })();
