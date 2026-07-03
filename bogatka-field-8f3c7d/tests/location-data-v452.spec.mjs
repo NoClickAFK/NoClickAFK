@@ -179,7 +179,7 @@ test('live HTML report contains v452 data and explicit checklist states',async({
   await selectAndWait(page,card.locator('[data-field="check.housing_occupied"]'),id,'check.housing_occupied','not_applicable');
 
   const html=await page.evaluate(()=>window.BogatkaLiveReport.build());
-  expect(html).toContain('Источник объекта');
+  expect(html).toContain('Как нашли объект');
   expect(html).toContain('Рекомендация');
   expect(html).toContain('Проверка перед переговорами');
   expect(html).toContain('Можно продолжать работу');
