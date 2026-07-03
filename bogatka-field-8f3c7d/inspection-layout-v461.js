@@ -2,7 +2,7 @@
 'use strict';
 if(window.BogatkaInspectionLayoutV461?.ready)return;
 
-const VERSION='4.6.1';
+const VERSION='4.6.2';
 const SOURCE_LABELS={
   '':'Не выбрано',
   'Собственник':'Напрямую от собственника',
@@ -61,16 +61,6 @@ function insertSequence(container,nodes,before){
     if(node.parentElement!==container||node.nextElementSibling!==cursor)container.insertBefore(node,cursor);
     cursor=node;
   }
-}
-
-function ensureRightGrid(landlord,landlordGrid){
-  let grid=landlord.querySelector(':scope > .landlord-inspection-v461');
-  if(!grid){
-    grid=document.createElement('div');
-    grid.className='landlord-inspection-v461';
-    landlordGrid.insertAdjacentElement('afterend',grid);
-  }
-  return grid;
 }
 
 function rewriteSource(select){
@@ -173,10 +163,9 @@ function placeCard(card){
   const nextTask=inspectionGrid.querySelector('.next-task-v447');
   const undo=inspectionGrid.querySelector('.inspection-note-v416');
   insertSequence(inspectionGrid,[nextTask,...leftNodes],undo||null);
+  insertSequence(landlordGrid,rightNodes,null);
 
-  const rightGrid=ensureRightGrid(landlord,landlordGrid);
-  insertSequence(rightGrid,rightNodes,null);
-
+  landlord.querySelector(':scope > .landlord-inspection-v461')?.remove();
   extra.hidden=true;
   extra.setAttribute('aria-hidden','true');
   const inspectionCopy=inspection.querySelector('.profile-section-head-v416 span');
@@ -188,6 +177,7 @@ function placeCard(card){
   bindSource(card);
   syncSource(card);
   card.dataset.inspectionLayoutV461='1';
+  card.dataset.inspectionLayoutV462='1';
   return true;
 }
 

@@ -29,6 +29,49 @@ async function writeCompleteSample(page,id){
   },id);
 }
 
+async function measureHorizontalOverflow(page){
+  return page.evaluate(()=>{
+    const viewport=document.documentElement.clientWidth;
+    const selector=node=>{
+      const parts=[];
+      for(let current=node;current&&current.nodeType===1&&parts.length<7;current=current.parentElement){
+        let part=current.tagName.toLowerCase();
+        if(current.id)part+=`#${current.id}`;
+        else if(current.classList.length)part+=`.${[...current.classList].slice(0,3).join('.')}`;
+        parts.unshift(part);
+      }
+      return parts.join(' > ');
+    };
+    const nodes=[...document.querySelectorAll('body *')].map(node=>{
+      const rect=node.getBoundingClientRect();
+      const style=getComputedStyle(node);
+      return{
+        selector:selector(node),
+        left:Math.round(rect.left*10)/10,
+        right:Math.round(rect.right*10)/10,
+        width:Math.round(rect.width*10)/10,
+        clientWidth:node.clientWidth,
+        scrollWidth:node.scrollWidth,
+        display:style.display,
+        minWidth:style.minWidth,
+        maxWidth:style.maxWidth,
+        overflowX:style.overflowX,
+        whiteSpace:style.whiteSpace,
+        gridTemplateColumns:style.gridTemplateColumns,
+      };
+    }).filter(item=>item.right>viewport+1||item.left<-1||item.scrollWidth>item.clientWidth+1)
+      .sort((a,b)=>Math.max(b.right-viewport,b.scrollWidth-b.clientWidth)-Math.max(a.right-viewport,a.scrollWidth-a.clientWidth))
+      .slice(0,30);
+    return{
+      innerWidth:window.innerWidth,
+      clientWidth:viewport,
+      scrollWidth:document.documentElement.scrollWidth,
+      delta:document.documentElement.scrollWidth-window.innerWidth,
+      nodes,
+    };
+  });
+}
+
 test('read-only audit accepts mixed legacy and new data without modifying it',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
@@ -83,9 +126,24 @@ test('mobile layout has no horizontal overflow with stage 7-9 sections',async({p
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await writeCompleteSample(page,id);
-  await page.evaluate(async()=>{renderLocations();await new Promise(resolve=>setTimeout(resolve,1200));await window.BogatkaTrafficCompetitorsV453.enhanceAll();await window.BogatkaLaunchGateV454.renderAll();await window.BogatkaOpeningProjectV455.renderAll();});
-  const dimensions=await page.evaluate(()=>({innerWidth:window.innerWidth,scrollWidth:document.documentElement.scrollWidth}));
-  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.innerWidth+1);
+  await page.evaluate(async()=>{
+    renderLocations();
+    await new Promise(resolve=>setTimeout(resolve,1200));
+    await window.BogatkaTrafficCompetitorsV453.enhanceAll();
+    await window.BogatkaLaunchGateV454.renderAll();
+    await window.BogatkaOpeningProjectV455.renderAll();
+    await window.BogatkaUIRefineV462?.completeRuntime?.();
+  });
+  let latest=null;
+  try{
+    await expect.poll(async()=>{
+      latest=await measureHorizontalOverflow(page);
+      return latest.delta;
+    },{timeout:5000}).toBeLessThanOrEqual(1);
+  }catch(error){
+    console.log(`RELEASE_OVERFLOW_DIAGNOSTIC ${JSON.stringify(latest)}`);
+    throw error;
+  }
 });
 
 test('all release assets are present in the Service Worker cache manifest',async({page})=>{
