@@ -3,6 +3,7 @@
 if(window.BogatkaUIRefineV462?.ready)return;
 const VERSION='4.6.2';
 let timer=null;
+let running=false;
 const read=key=>{try{return localStorage.getItem(key)}catch(_){return null}};
 const write=(key,value)=>{try{localStorage.setItem(key,value)}catch(_){}};
 
@@ -177,21 +178,37 @@ function enhanceAll(){
   return count;
 }
 
+async function completeRuntime(){
+  if(running)return;
+  running=true;
+  try{
+    wrapStatusEnhancer();
+    if(!document.querySelector('.decision-progress-v448')&&window.BogatkaCardProgressV448?.ready){
+      await window.BogatkaCardProgressV448.renderAll();
+    }
+    if(window.BogatkaInspectionLayoutV461?.ready){
+      await window.BogatkaInspectionLayoutV461.enhanceAll();
+    }
+    enhanceAll();
+  }catch(error){console.error(error)}
+  finally{running=false}
+}
+
 function schedule(delay=70){
   clearTimeout(timer);
-  timer=setTimeout(()=>{try{enhanceAll()}catch(error){console.error(error)}},delay);
+  timer=setTimeout(()=>completeRuntime(),delay);
 }
 
 function install(){
   wrapStatusEnhancer();
   const root=document.getElementById('locations')||document.body;
   new MutationObserver(()=>schedule(90)).observe(root,{childList:true,subtree:true});
-  schedule(20);
-  [250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>{wrapStatusEnhancer();schedule(0)},delay));
-  addEventListener('resize',()=>schedule(40),{passive:true});
+  schedule(10);
+  [50,120,250,500,900,1500,3000,6000,10000,16000].forEach(delay=>setTimeout(()=>schedule(0),delay));
+  addEventListener('resize',()=>schedule(20),{passive:true});
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-window.addEventListener('load',()=>{wrapStatusEnhancer();schedule(30)},{once:true});
-window.BogatkaUIRefineV462={version:VERSION,ready:true,enhanceAll,ensureProgressAccordion:ensureProgress,splitRecommendationReason:splitReason,installStatusEnhanceWrapper:wrapStatusEnhancer,applyLayoutGuards};
+window.addEventListener('load',()=>schedule(10),{once:true});
+window.BogatkaUIRefineV462={version:VERSION,ready:true,enhanceAll,ensureProgressAccordion:ensureProgress,splitRecommendationReason:splitReason,installStatusEnhanceWrapper:wrapStatusEnhancer,applyLayoutGuards,completeRuntime};
 })();
