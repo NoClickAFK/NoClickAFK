@@ -1,0 +1,71 @@
+name: Bogatka full regression
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+  pull_request:
+    branches: [main]
+    types: [ready_for_review, reopened, labeled, synchronize]
+    paths:
+      - 'bogatka-field-8f3c7d/**'
+      - '.github/workflows/bogatka-full-regression.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bogatka-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  complete-browser-suite:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.event.action == 'ready_for_review' ||
+      contains(github.event.pull_request.labels.*.name, 'full-regression')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium
+        run: |
+          npm install --no-save --silent @playwright/test@1.52.0
+          npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
+      - name: Run complete browser regression with one worker
+        run: |
+          mkdir -p test-results
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
+            sleep 1
+          done
+          npx playwright test bogatka-field-8f3c7d/tests/critical-deal-bootstrap-v430.spec.mjs --workers=1 --reporter=line
+          npx playwright test bogatka-field-8f3c7d/tests --workers=1 --reporter=json > test-results/playwright-results.json
+      - name: Print regression summary
+        if: always()
+        run: |
+          if [ -f test-results/playwright-results.json ]; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const report=JSON.parse(fs.readFileSync('test-results/playwright-results.json','utf8'));
+          console.log(JSON.stringify(report.stats));
+          NODE
+          fi
+      - name: Upload full-regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bogatka-full-regression-diagnostics
+          path: |
+            test-results/playwright-results.json
+            /tmp/bogatka-http.log
+            /tmp/playwright-install.log
+          if-no-files-found: warn
+          retention-days: 7
