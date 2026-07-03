@@ -1,4 +1,4 @@
-/* Bogatka v462 — header alignment, field rhythm and restored progress accordions. */
+/* Bogatka v462 — header alignment, native field rhythm and progress accordions. */
 html .location-head{align-items:stretch!important}
 html .location-head-side-v422{
   display:grid!important;
@@ -12,6 +12,7 @@ html .location-head-side-v422{
   width:auto!important;
   min-width:0!important;
   max-width:100%!important;
+  box-sizing:border-box!important;
 }
 html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{
   display:block!important;
@@ -20,7 +21,9 @@ html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{
   width:300px!important;
   max-width:32vw!important;
   height:100%!important;
+  min-width:0!important;
   min-height:0!important;
+  box-sizing:border-box!important;
 }
 html .location-head-side-v422>.location-collapse-toggle-v422{
   grid-column:2!important;
@@ -34,7 +37,9 @@ html .card-recommendation-v448{
   grid-template-columns:minmax(0,1fr)!important;
   grid-template-rows:auto auto 1fr auto!important;
   width:100%!important;
+  max-width:100%!important;
   height:100%!important;
+  min-width:0!important;
   min-height:0!important;
   padding:0!important;
   border:0!important;
@@ -45,20 +50,25 @@ html .card-recommendation-v448{
   text-align:left!important;
   white-space:normal!important;
   overflow:visible!important;
+  box-sizing:border-box!important;
 }
 html .card-recommendation-v448>span{
   grid-row:1!important;
+  min-width:0!important;
   padding:10px 13px 2px!important;
   border-radius:15px 15px 0 0!important;
+  overflow-wrap:anywhere!important;
 }
 html .card-recommendation-v448>small{
   grid-row:2!important;
+  min-width:0!important;
   min-height:38px!important;
   padding:0 13px 10px!important;
   border-radius:0 0 15px 15px!important;
   font-size:11px!important;
   line-height:1.35!important;
   white-space:pre-line!important;
+  overflow-wrap:anywhere!important;
 }
 html .card-recommendation-v448>small .recommendation-line-v462{display:block!important}
 html .card-recommendation-v448>strong{
@@ -75,15 +85,21 @@ html .location-panels-v419 .landlord-grid-v416{
   column-gap:14px!important;
   row-gap:12px!important;
   padding:13px 14px 15px!important;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
 }
 html .landlord-inspection-v461{display:none!important}
 html .location-panels-v419 .inspection-grid-v416>label.field,
 html .location-panels-v419 .landlord-grid-v416>label.field,
 html .location-panels-v419 .inspection-grid-v416>.next-task-v447{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
   min-width:0!important;
   max-width:100%!important;
   margin:0!important;
   gap:5px!important;
+  box-sizing:border-box!important;
 }
 html .location-panels-v419 .inspection-grid-v416>label.field>.profile-caption-v416,
 html .location-panels-v419 .landlord-grid-v416>label.field>.profile-caption-v416,
@@ -107,15 +123,27 @@ html .location-panels-v419 .landlord-grid-v416 .premium-select-trigger{
   max-width:100%!important;
   box-sizing:border-box!important;
 }
-html .next-task-card-v447{margin:0!important}
+html .next-task-card-v447{margin:0!important;min-width:0!important;max-width:100%!important}
 
 html .decision-progress-v448.progress-card-v462{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
   padding:0!important;
   overflow:hidden!important;
+  box-sizing:border-box!important;
 }
+html .decision-progress-v448.progress-card-v462 .progress-card-content-v462,
+html .decision-progress-v448.progress-card-v462 .fill-plan-v448{
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+}
+html .decision-progress-v448.progress-card-v462 *{min-width:0}
 html .progress-card-toggle-v462{
   width:100%!important;
   max-width:100%!important;
+  min-width:0!important;
   min-height:76px!important;
   display:grid!important;
   grid-template-columns:minmax(0,1fr) auto 34px!important;
@@ -136,8 +164,8 @@ html .progress-card-toggle-v462[aria-expanded="true"]{
   border-radius:17px 17px 0 0!important;
 }
 html .progress-card-toggle-copy-v462{display:grid!important;gap:3px!important;min-width:0!important}
-html .progress-card-toggle-copy-v462 strong{font-size:17px!important;line-height:1.25!important}
-html .progress-card-toggle-copy-v462 span{color:#6d7b73!important;font-size:12px!important;line-height:1.4!important}
+html .progress-card-toggle-copy-v462 strong{font-size:17px!important;line-height:1.25!important;overflow-wrap:anywhere!important}
+html .progress-card-toggle-copy-v462 span{color:#6d7b73!important;font-size:12px!important;line-height:1.4!important;overflow-wrap:anywhere!important}
 html .progress-card-summary-v462{
   display:inline-flex!important;
   align-items:center!important;
@@ -153,6 +181,7 @@ html .progress-card-summary-v462{
   font-weight:700!important;
   line-height:1.2!important;
   text-align:center!important;
+  overflow-wrap:anywhere!important;
   box-sizing:border-box!important;
 }
 html .progress-card-chevron-v462,
@@ -168,7 +197,7 @@ html .fill-plan-chevron-v462{
 }
 html [aria-expanded="true"]>.progress-card-chevron-v462,
 html [aria-expanded="true"] .fill-plan-chevron-v462{transform:rotate(225deg)!important}
-html .progress-card-content-v462{min-width:0!important;padding:16px!important;box-sizing:border-box!important}
+html .progress-card-content-v462{min-width:0!important;max-width:100%!important;padding:16px!important;box-sizing:border-box!important}
 html .progress-card-content-v462[hidden],
 html .fill-plan-list-v448[hidden]{display:none!important}
 html .progress-card-content-v462>.progress-heading-v448{
@@ -180,6 +209,7 @@ html .fill-plan-v448{min-width:0!important;margin-top:14px!important;padding-top
 html .fill-plan-toggle-v462{
   width:100%!important;
   max-width:100%!important;
+  min-width:0!important;
   display:grid!important;
   grid-template-columns:minmax(0,1fr) auto 30px!important;
   align-items:center!important;
@@ -195,28 +225,53 @@ html .fill-plan-toggle-v462{
   box-sizing:border-box!important;
 }
 html .fill-plan-toggle-copy-v462{display:grid!important;gap:2px!important;min-width:0!important}
-html .fill-plan-toggle-copy-v462 strong{font-size:14px!important;line-height:1.3!important}
+html .fill-plan-toggle-copy-v462 strong{font-size:14px!important;line-height:1.3!important;overflow-wrap:anywhere!important}
 html .fill-plan-toggle-copy-v462 span{color:#6d7b73!important;font-size:11px!important;line-height:1.35!important;overflow-wrap:anywhere!important}
 
+@media(min-width:1200px){
+  html .location-panels-v419:has(>.inspection-card-v416:not(.panel-closed-v419)):has(>.landlord-card-v416:not(.panel-closed-v419)){align-items:stretch!important}
+  html .location-panels-v419:has(>.inspection-card-v416:not(.panel-closed-v419)):has(>.landlord-card-v416:not(.panel-closed-v419))>.inspection-card-v416,
+  html .location-panels-v419:has(>.inspection-card-v416:not(.panel-closed-v419)):has(>.landlord-card-v416:not(.panel-closed-v419))>.landlord-card-v416{
+    align-self:stretch!important;
+    height:100%!important;
+    min-height:100%!important;
+  }
+}
 @media(max-width:900px){
   html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 34px!important;width:100%!important;max-width:100%!important;justify-content:stretch!important}
-  html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{width:100%!important;max-width:none!important}
+  html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{width:100%!important;max-width:100%!important}
 }
 @media(max-width:700px){
+  html #app,
+  html .app,
+  html #locations,
+  html [data-location-card],
+  html [data-location-card]>.location-head,
+  html [data-location-card]>.location-body,
+  html .location-panels-v419,
+  html .inspection-card-v416,
+  html .landlord-card-v416{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
   html .location-head{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px!important}
   html .location-head>.location-title-wrap,
-  html .location-head>.location-head-side-v422{width:100%!important;max-width:100%!important;min-width:0!important}
+  html .location-head>.location-head-side-v422{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
+  html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 32px!important;column-gap:9px!important}
+  html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448,
+  html .card-recommendation-v448{width:100%!important;max-width:100%!important;min-width:0!important}
   html .progress-card-toggle-v462{grid-template-columns:minmax(0,1fr) 32px!important}
   html .progress-card-summary-v462{grid-column:1!important;grid-row:2!important;justify-self:start!important;max-width:100%!important}
   html .progress-card-chevron-v462{grid-column:2!important;grid-row:1/3!important}
   html .progress-card-content-v462>.progress-heading-v448{grid-template-columns:minmax(0,1fr)!important}
-  html .progress-metrics-v448{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+  html .decision-progress-v448.progress-card-v462 .progress-metrics-v448{grid-template-columns:minmax(0,1fr)!important}
   html .fill-plan-toggle-v462{grid-template-columns:minmax(0,1fr) 30px!important}
   html .fill-plan-toggle-v462>.fill-plan-toggle-copy-v462{grid-column:1!important}
   html .fill-plan-toggle-v462>.fill-plan-chevron-v462{grid-column:2!important}
+  html .decision-progress-v448.progress-card-v462 .fill-plan-item-v448{grid-template-columns:minmax(0,1fr)!important;max-width:100%!important}
 }
 @media(max-width:460px){
-  html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 32px!important;column-gap:9px!important}
   html .progress-card-content-v462{padding:13px!important}
-  html .progress-metrics-v448{grid-template-columns:minmax(0,1fr)!important}
 }
