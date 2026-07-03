@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=461';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=462';
 
 async function openApp(page,width=1440,height=1200){
   await page.setViewportSize({width,height});
@@ -10,7 +10,7 @@ async function openApp(page,width=1440,height=1200){
     window.BogatkaInspectionLayoutV461?.ready&&
     window.BogatkaLocationDataV452?.ready&&
     window.BogatkaStatusNextTaskV447?.ready&&
-    document.querySelector('[data-location-card][data-inspection-layout-v461="1"]')
+    document.querySelector('[data-location-card][data-inspection-layout-v462="1"]')
   ),{timeout:30000});
   return page.locator('[data-location-card]').first();
 }
@@ -32,9 +32,10 @@ test('inspection context is redistributed into two balanced cards without duplic
 
   expect(await visibleField(card,'inspectionPurpose').evaluate(node=>node.closest('.inspection-grid-v416')!==null)).toBe(true);
   expect(await visibleField(card,'inspectionResult').evaluate(node=>node.closest('.inspection-grid-v416')!==null)).toBe(true);
-  expect(await visibleField(card,'objectSource').evaluate(node=>node.closest('.landlord-inspection-v461')!==null)).toBe(true);
-  expect(await visibleField(card,'listingUrl').evaluate(node=>node.closest('.landlord-inspection-v461')!==null)).toBe(true);
-  expect(await visibleField(card,'inspectionParticipants').evaluate(node=>node.closest('.landlord-inspection-v461')!==null)).toBe(true);
+  expect(await visibleField(card,'objectSource').evaluate(node=>node.closest('.landlord-grid-v416')!==null)).toBe(true);
+  expect(await visibleField(card,'listingUrl').evaluate(node=>node.closest('.landlord-grid-v416')!==null)).toBe(true);
+  expect(await visibleField(card,'inspectionParticipants').evaluate(node=>node.closest('.landlord-grid-v416')!==null)).toBe(true);
+  await expect(card.locator('.landlord-inspection-v461')).toHaveCount(0);
   await expect(card.locator('.inspection-extra-v452')).toBeHidden();
 
   const geometry=await card.evaluate(node=>{
@@ -136,6 +137,7 @@ test('mobile layout stays single-column and overflow free',async({page})=>{
     const left=node.querySelector('.inspection-card-v416');
     const right=node.querySelector('.landlord-card-v416');
     const task=node.querySelector('.next-task-card-v447');
+    const landlordGrid=node.querySelector('.landlord-grid-v416');
     return{
       overviewWidth:overview.getBoundingClientRect().width,
       overviewScroll:overview.scrollWidth,
@@ -143,7 +145,8 @@ test('mobile layout stays single-column and overflow free',async({page})=>{
       rightWidth:right.getBoundingClientRect().width,
       taskWidth:task.getBoundingClientRect().width,
       columns:getComputedStyle(overview).gridTemplateColumns,
-      rightColumns:getComputedStyle(node.querySelector('.landlord-inspection-v461')).gridTemplateColumns,
+      rightColumns:getComputedStyle(landlordGrid).gridTemplateColumns,
+      landlordOverflow:landlordGrid.scrollWidth-landlordGrid.clientWidth,
     };
   });
   expect(result.overviewScroll).toBeLessThanOrEqual(Math.ceil(result.overviewWidth)+1);
@@ -152,6 +155,7 @@ test('mobile layout stays single-column and overflow free',async({page})=>{
   expect(result.taskWidth).toBeLessThanOrEqual(result.leftWidth);
   expect(result.columns.split(' ').length).toBe(1);
   expect(result.rightColumns.split(' ').length).toBe(1);
+  expect(result.landlordOverflow).toBeLessThanOrEqual(1);
 });
 
 test('v461 assets are present in the offline cache manifest',async({page})=>{
