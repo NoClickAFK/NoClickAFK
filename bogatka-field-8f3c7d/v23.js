@@ -114,7 +114,10 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-panels-v419.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-card-collapse-v422.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./status-next-task-v447.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./card-progress-v448.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./card-progress-v460.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./inspection-layout-v461.css'});
+  loadBogatkaPatch('link',{rel:'stylesheet',href:'./ui-refine-v462.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./quick-checklist-v451.css'});
   loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-data-v452.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
@@ -161,6 +164,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./card-progress-init-v448.js'});
   loadBogatkaPatch('script',{src:'./card-progress-v448.js'});
   loadBogatkaPatch('script',{src:'./card-progress-report-v448.js'});
+  loadBogatkaPatch('script',{src:'./ui-refine-v462.js'});
   loadBogatkaPatch('script',{src:'./landlord-conditions-v449.js'});
   loadBogatkaPatch('script',{src:'./technical-economics-v450.js'});
   loadBogatkaPatch('script',{src:'./technical-economics-report-v450.js'});
