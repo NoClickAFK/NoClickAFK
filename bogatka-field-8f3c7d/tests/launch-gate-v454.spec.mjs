@@ -40,6 +40,19 @@ async function setConfirmedChecks(page,id,{keepProject=true}={}){
   await page.waitForFunction(()=>window.BogatkaLaunchGateV454?.audit().ok);
 }
 
+async function openLaunchDetails(page,id){
+  await expect.poll(async()=>page.evaluate(async locationId=>{
+    await window.BogatkaLaunchGateV454.renderAll();
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
+    const details=card?.querySelector('[data-launch-details]');
+    if(!details)return false;
+    details.open=true;
+    return Boolean(details.open&&details.querySelector('.launch-gate-overlay-v454'));
+  },id),{timeout:10000}).toBe(true);
+  return page.locator(`[data-location-card="${id}"] [data-launch-details]`);
+}
+
 test('status or decision never creates an opening project automatically',async({page})=>{
   let card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
@@ -75,27 +88,23 @@ test('ineligible existing project is hidden without losing its DOM or data',asyn
 });
 
 test('keep decision still requires every pre-lease check',async({page})=>{
-  let card=await openApp(page);
+  const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await resetLocation(page,id,{decision:'Оставить',criticalDealConditions:{},launchProject:null});
-  card=page.locator(`[data-location-card="${id}"]`);
   await page.evaluate(()=>window.BogatkaLaunchGateV454.renderAll());
-  const details=card.locator('[data-launch-details]');
+  const details=await openLaunchDetails(page,id);
   await expect(details).toHaveAttribute('data-launch-gate-v454','checks');
-  await details.evaluate(node=>node.open=true);
   await expect(details.locator('[data-open-deal-checks-v454]')).toBeVisible();
   await expect(details.locator('[data-launch-activate-v454]')).toHaveCount(0);
 });
 
 test('eligible location activates opening project only by explicit action',async({page})=>{
-  let card=await openApp(page);
+  const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await setConfirmedChecks(page,id,{keepProject:false});
-  card=page.locator(`[data-location-card="${id}"]`);
   await page.evaluate(()=>window.BogatkaLaunchGateV454.renderAll());
-  const details=card.locator('[data-launch-details]');
+  const details=await openLaunchDetails(page,id);
   await expect(details).toHaveAttribute('data-launch-gate-v454','ready');
-  await details.evaluate(node=>node.open=true);
   await details.locator('[data-launch-activate-v454]').click();
   await page.waitForFunction(async locationId=>(await getLocationData(locationId)).launchProject?.enabled===true&&window.BogatkaLaunchGateV454.pendingWrites===0,id);
   const stored=await page.evaluate(locationId=>getLocationData(locationId),id);
@@ -104,13 +113,11 @@ test('eligible location activates opening project only by explicit action',async
 });
 
 test('viewer cannot activate an eligible opening project',async({page})=>{
-  let card=await openApp(page);
+  const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await setConfirmedChecks(page,id,{keepProject:false});
   await page.evaluate(async()=>{cloudRole='viewer';window.cloudRole='viewer';await window.BogatkaLaunchGateV454.renderAll();});
-  card=page.locator(`[data-location-card="${id}"]`);
-  const details=card.locator('[data-launch-details]');
-  await details.evaluate(node=>node.open=true);
+  const details=await openLaunchDetails(page,id);
   await expect(details.locator('[data-launch-activate-v454]')).toBeDisabled();
   const stored=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(stored.launchProject?.enabled).not.toBe(true);
