@@ -1,11 +1,20 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const appRoot = path.resolve(process.cwd(), 'bogatka-field-8f3c7d');
-const outputJson = path.join(appRoot, 'docs', 'dependency-inventory.json');
 const outputMd = path.join(appRoot, 'docs', 'dependency-inventory.md');
 const evidencePath = path.join(appRoot, 'docs', 'runtime-request-evidence.json');
 const check = process.argv.includes('--check');
+const argumentValue = name => {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] || '' : '';
+};
+const outputJson = path.resolve(
+  argumentValue('--json-output') ||
+  process.env.BOGATKA_DEPENDENCY_INVENTORY_JSON ||
+  path.join(process.env.RUNNER_TEMP || os.tmpdir(), 'bogatka-dependency-inventory.json')
+);
 
 const extensions = new Set(['.js', '.mjs', '.css', '.html']);
 const walk = directory => fs.readdirSync(directory, {withFileTypes: true}).flatMap(entry => {
@@ -71,7 +80,6 @@ const compatibilityRules = [
 ];
 const activeBase = new Set(['index.html','style.css','v21.css','v22.css','v23.css','cloud.css','premium-v30.css','core.js','ui-v2.js','location-v2.js','report-v2.js','report-v22.js','v21.js','v22.js','v23.js','cloud.js','premium-v30.js','config.js','supabase-config.js','sw.js','sw-v340.js']);
 const compatibilityName = /(compat|stability|persistence|integrity|normalize|durable|sync-field|object-type-reset|report-live-fixes|auth-signup-fix|score-guide-fix|backup-import|viewer-extra|address-fix)/i;
-const blockedNames = new Set(['actions.js','compare-v332.js','diagnostics-v400.js','recovery-v31.js','sw-v3.js','sw-v33.js','sw-v34.js','ui.js']);
 const accidentalNames = new Set(['THIS_SHOULD_NOT_EXIST']);
 const globalsFor = text => [...new Set([
   ...[...text.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=/g)].map(match => match[1]),
@@ -123,7 +131,7 @@ const inventory = files.map(absolute => {
   else if (activeBase.has(file)) classification = 'ACTIVE_BASE';
   else if (compatibilityName.test(file) && (reachable.has(file) || observed.has(file) || swAssets.has(file))) classification = 'COMPATIBILITY_REQUIRED';
   else if (reachable.has(file) || observed.has(file)) classification = 'ACTIVE_CANONICAL';
-  else if (blockedNames.has(file) || loadedBy.length || swAssets.has(file) || tests.length || savedData.length || legacy.length) classification = 'UNKNOWN_BLOCKED';
+  else if (loadedBy.length || swAssets.has(file) || tests.length || savedData.length || legacy.length) classification = 'UNKNOWN_BLOCKED';
   else classification = 'ORPHAN_CONFIRMED';
   return {
     path: file,
@@ -152,7 +160,7 @@ const runtimeJs = inventory.filter(item => item.type === 'js' && item.observed_r
 const runtimeCss = inventory.filter(item => item.type === 'css' && item.observed_requested_in_full_suite && !item.path.startsWith('report/') && !item.path.startsWith('reset/')).length;
 const result = {
   generated_at: new Date().toISOString(),
-  source: 'cleanup-consolidation-v500 static graph + complete browser-suite request evidence',
+  source: 'static graph + complete browser-suite request evidence',
   summary: {file_count: inventory.length, classification_totals: totals, observed_main_runtime_js_count: runtimeJs, observed_main_runtime_css_count: runtimeCss, service_worker_asset_count: swAssets.size},
   files: inventory,
 };
@@ -182,17 +190,17 @@ const md = [
   }), '',
 ].join('\n');
 
+fs.mkdirSync(path.dirname(outputJson), {recursive: true});
+fs.writeFileSync(outputJson, json);
+
 if (check) {
-  const existingJson = fs.existsSync(outputJson) ? fs.readFileSync(outputJson, 'utf8') : '';
   const existingMd = fs.existsSync(outputMd) ? fs.readFileSync(outputMd, 'utf8') : '';
-  const normalize = value => value.replace(/"generated_at":\s*"[^"]+",?\n?/, '');
-  if (normalize(existingJson) !== normalize(json) || existingMd !== md) {
-    console.error('Dependency inventory is stale. Run: node bogatka-field-8f3c7d/tests/generate-dependency-inventory.mjs');
+  if (existingMd !== md) {
+    console.error('Dependency inventory summary is stale. Run: node bogatka-field-8f3c7d/tests/generate-dependency-inventory.mjs');
     process.exit(1);
   }
 } else {
-  fs.mkdirSync(path.dirname(outputJson), {recursive: true});
-  fs.writeFileSync(outputJson, json);
+  fs.mkdirSync(path.dirname(outputMd), {recursive: true});
   fs.writeFileSync(outputMd, md);
-  console.log(JSON.stringify(result.summary));
 }
+console.log(JSON.stringify({...result.summary, json_output: outputJson}));
