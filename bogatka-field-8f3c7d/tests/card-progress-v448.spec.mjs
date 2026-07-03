@@ -192,6 +192,8 @@ test('authoritative HTML and PDF report keeps the expanded evaluation block',asy
 test('recommendation panel and compact status remain usable on a phone width',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const card=await openApp(page);
+  const outer=card.locator('.progress-card-toggle-v462');
+  if(await outer.count()&&await outer.getAttribute('aria-expanded')!=='true')await outer.click();
   const layout=await card.locator('.decision-progress-v448').evaluate(element=>({
     width:element.getBoundingClientRect().width,
     scrollWidth:element.scrollWidth,
