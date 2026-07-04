@@ -1,0 +1,750 @@
+name: Apply Bogatka recommendation UI refinement
+
+on:
+  push:
+    branches:
+      - ui-recommendation-progress-refine
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-and-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-recommendation-progress-refine
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply bounded source and test changes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          ROOT=Path('bogatka-field-8f3c7d')
+
+          def read(rel):
+              return (ROOT/rel).read_text(encoding='utf-8')
+
+          def write(rel,text):
+              (ROOT/rel).write_text(text,encoding='utf-8')
+
+          def replace_once(text,old,new,label):
+              count=text.count(old)
+              if count!=1:
+                  raise SystemExit(f'{label}: expected 1 exact match, found {count}')
+              return text.replace(old,new,1)
+
+          def sub_once(text,pattern,repl,label,flags=re.S):
+              updated,count=re.subn(pattern,repl,text,count=1,flags=flags)
+              if count!=1:
+                  raise SystemExit(f'{label}: expected 1 regex match, found {count}')
+              return updated
+
+          # Canonical recommendation/progress implementation.
+          rel='card-progress-v448.js'
+          text=read(rel)
+          text=sub_once(text,
+              r"  function ensureHeader\(card\)\{.*?\n  \}\n\n  function ensureOverview\(card\)\{",
+              """  function ensureHeader(card){
+            const scorebox=card.querySelector(':scope > .location-head .scorebox');
+            if(scorebox){
+              scorebox.hidden=true;
+              scorebox.setAttribute('aria-hidden','true');
+              scorebox.classList.add('card-metric-hidden-v448');
+            }
+            const head=card.querySelector(':scope > .location-head .decision-head-v340');
+            if(!head)return null;
+            if(head.dataset.cardProgressV448!=='1'){
+              head.dataset.cardProgressV448='1';
+              head.classList.add('card-recommendation-head-v448');
+              head.innerHTML='<strong class=\"recommendation-status-v448 empty\" data-card-recommendation-v448>Недостаточно данных</strong>';
+            }
+            return head;
+          }
+
+          function ensureOverview(card){""",
+              'replace ensureHeader')
+
+          text=sub_once(text,
+              r"  function ensureOverview\(card\)\{.*?\n  \}\n\n  function findDetails\(card,needle\)\{",
+              """  function ensureOverview(card){
+            const overview=card.querySelector(':scope .decision-overview-v340');
+            if(!overview)return null;
+            if(overview.dataset.cardProgressV448==='1')return overview;
+            overview.dataset.cardProgressV448='1';
+            overview.classList.add('decision-progress-v448');
+            overview.innerHTML=`
+              <div class=\"progress-heading-v448\">
+                <div><strong>Общая оценка и готовность данных</strong><span>Здесь видно, насколько подходит локация и сколько данных уже собрано.</span></div>
+              </div>
+              <div class=\"progress-metrics-v448\">
+                <article class=\"progress-metric-v448\"><span>Качество локации</span><strong data-progress-quality-v448>Нет оценки</strong><small data-progress-quality-meta-v448>Оценено 0 из 14 критериев</small></article>
+                <article class=\"progress-metric-v448\"><span>Надёжность оценки</span><strong data-progress-coverage-v448>0%</strong><small data-progress-coverage-meta-v448>Оценено 0 из 14 критериев</small></article>
+                <article class=\"progress-metric-v448\"><span>Готовность карточки</span><strong data-progress-completion-v448>0%</strong><small data-progress-completion-meta-v448>Заполнено 0 из 7 разделов</small></article>
+                <article class=\"progress-metric-v448\"><span>Проверки перед арендой</span><strong data-progress-checks-v448>0 из 10</strong><small data-progress-checks-meta-v448>Проверок завершено</small><small class=\"progress-metric-note-v448\" data-progress-checks-note-v448 hidden></small></article>
+              </div>
+              <div class=\"quality-scale-v448\" data-quality-scale-v448>
+                <div class=\"quality-scale-track-v448\"><span></span><i data-quality-marker-v448></i></div>
+                <div class=\"quality-scale-labels-v448\"><span>0–39<br>слабая</span><span>40–59<br>доработать</span><span>60–74<br>перспективная</span><span>75–100<br>сильная</span></div>
+              </div>
+              <div class=\"score-explanation-v448\"><strong>Как считается качество:</strong> 1 балл = 0, 2 = 25, 3 = 50, 4 = 75, 5 = 100. Вес критериев учитывается. Пустые критерии не занижают качество — они уменьшают надёжность оценки.</div>
+              <div class=\"completion-track-v448\"><span data-progress-completion-bar-v448></span></div>
+              <div class=\"fill-plan-v448\">
+                <div class=\"fill-plan-heading-v448\"><strong>Что заполнить дальше</strong><span data-fill-plan-summary-v448></span></div>
+                <div class=\"fill-plan-list-v448\" data-fill-plan-list-v448></div>
+              </div>`;
+            overview.addEventListener('click',event=>{
+              const button=event.target.closest('[data-progress-target-v448]');
+              if(button)openTarget(card,button.dataset.progressTargetV448);
+            });
+            return overview;
+          }
+
+          function findDetails(card,needle){""",
+              'replace ensureOverview')
+
+          quality_old="""  function qualityBand(score){
+            if(score===null||score===undefined)return{label:'Нет оценки',className:'empty'};
+            return SCORE_BANDS.find(band=>score<=band.max)||SCORE_BANDS.at(-1);
+          }
+"""
+          quality_new=quality_old+"""
+          function setRecommendationStatus(node,recommendation={}){
+            if(!node)return;
+            const className=recommendation.className||'empty';
+            const progressClass=node.classList.contains('progress-card-summary-v462')?' progress-card-summary-v462':'';
+            node.className=`recommendation-status-v448 ${className}${progressClass}`;
+            node.dataset.recommendationClass=className;
+            text(node,recommendation.label||'Недостаточно данных');
+          }
+"""
+          text=replace_once(text,quality_old,quality_new,'insert status helper')
+
+          text=sub_once(text,
+              r"  function renderMetric\(card,metric\)\{.*?\n  \}\n\n  function patchSortLabel\(\)\{",
+              """  function renderMetric(card,metric){
+            const header=ensureHeader(card);
+            const overview=ensureOverview(card);
+            if(!header||!overview)return;
+            const recommendation=metric.recommendation||{label:'Недостаточно данных',className:'empty'};
+            setRecommendationStatus(header.querySelector('[data-card-recommendation-v448]'),recommendation);
+            setRecommendationStatus(overview.querySelector('[data-progress-card-summary-v462]'),recommendation);
+
+            const quality=metric.qualityScore;
+            const band=qualityBand(quality);
+            const answered=metric.answeredScores||0;
+            text(overview.querySelector('[data-progress-quality-v448]'),quality===null||quality===undefined?'Нет оценки':`${Number.isInteger(quality)?quality:quality.toFixed(1)}/100`);
+            text(overview.querySelector('[data-progress-quality-meta-v448]'),`Оценено ${answered} из 14 критериев`);
+            text(overview.querySelector('[data-progress-coverage-v448]'),`${Math.round(metric.scoreCoveragePct||0)}%`);
+            text(overview.querySelector('[data-progress-coverage-meta-v448]'),`Оценено ${answered} из 14 критериев`);
+            text(overview.querySelector('[data-progress-completion-v448]'),`${metric.completion||0}%`);
+            text(overview.querySelector('[data-progress-completion-meta-v448]'),`Заполнено ${metric.completedProgressGroups||0} из ${metric.totalProgressGroups||7} разделов`);
+
+            const checksGroup=metric.progressGroups?.find(group=>group.key==='checks');
+            const checksDone=checksGroup?.done??Number(metric.stopAnswered||0);
+            const checksTotal=checksGroup?.total??10;
+            text(overview.querySelector('[data-progress-checks-v448]'),`${checksDone} из ${checksTotal}`);
+            text(overview.querySelector('[data-progress-checks-meta-v448]'),'Проверок завершено');
+            const checksNote=overview.querySelector('[data-progress-checks-note-v448]');
+            const compactText=String(metric.dealGate?.compactText||'').trim();
+            const note=compactText==='Нужно письменно'?'Есть пункты без письменного подтверждения':(compactText&&compactText!=='Не проверено'?compactText:'');
+            if(checksNote){
+              text(checksNote,note);
+              checksNote.hidden=!note;
+            }
+
+            const scale=overview.querySelector('[data-quality-scale-v448]');
+            if(scale){
+              scale.dataset.qualityBand=band.className;
+              scale.style.setProperty('--quality-position',`${clamp(quality??0,0,100)}%`);
+              scale.classList.toggle('empty',quality===null||quality===undefined);
+            }
+            const completionBar=overview.querySelector('[data-progress-completion-bar-v448]');
+            if(completionBar)completionBar.style.width=`${clamp(metric.completion||0,0,100)}%`;
+            renderPlan(overview,metric);
+
+            const rank=card.querySelector(`[data-auto-rank=\"${CSS.escape(metric.id)}\"]`);
+            if(rank)rank.title='Рейтинг учитывает стоп-факторы, риски, качество и надёжность оценки.';
+          }
+
+          function patchSortLabel(){""",
+              'replace renderMetric')
+
+          text=sub_once(text,
+              r"function syncSummary\(overview\)\{.*?\n\}",
+              """function syncSummary(overview){
+          const target=overview.querySelector('[data-progress-card-summary-v462]');
+          const source=overview.closest('[data-location-card]')?.querySelector('[data-card-recommendation-v448]');
+          if(!target||!source)return;
+          if(target.textContent!==source.textContent)target.textContent=source.textContent;
+          const semantic=source.dataset.recommendationClass||['empty','weak','medium','good','priority','risk','stop'].find(name=>source.classList.contains(name))||'empty';
+          target.className=`progress-card-summary-v462 recommendation-status-v448 ${semantic}`;
+          target.dataset.recommendationClass=semantic;
+          }""",
+              'replace syncSummary')
+
+          text=sub_once(text,
+              r"function ensureProgress\(card\)\{.*?\n\}\n\nfunction applyLayoutGuards\(card\)\{",
+              """function ensureProgress(card){
+          const overview=card.querySelector('.decision-overview-v340.decision-progress-v448');
+          if(!overview)return false;
+          if(overview.dataset.uiRefineV462==='1'){
+            ensureFillPlan(overview,card);
+            syncSummary(overview);
+            return true;
+          }
+          const heading=overview.querySelector(':scope > .progress-heading-v448');
+          if(!heading)return false;
+          const titleBlock=heading.querySelector(':scope > div:first-child');
+          const content=document.createElement('div');
+          content.className='progress-card-content-v462';
+          while(overview.firstChild)content.append(overview.firstChild);
+          heading.remove();
+          const button=document.createElement('button');
+          const copy=document.createElement('span');
+          const title=document.createElement('strong');
+          const note=document.createElement('span');
+          const summary=document.createElement('span');
+          const arrow=document.createElement('i');
+          button.type='button';
+          button.className='progress-card-toggle-v462';
+          copy.className='progress-card-toggle-copy-v462';
+          title.textContent=titleBlock?.querySelector('strong')?.textContent||'Общая оценка и готовность данных';
+          note.textContent=titleBlock?.querySelector('span')?.textContent||'Здесь видно, насколько подходит локация и сколько данных уже собрано.';
+          summary.className='progress-card-summary-v462 recommendation-status-v448 empty';
+          summary.dataset.progressCardSummaryV462='';
+          summary.textContent=card.querySelector('[data-card-recommendation-v448]')?.textContent||'Недостаточно данных';
+          arrow.className='progress-card-chevron-v462';
+          arrow.setAttribute('aria-hidden','true');
+          copy.append(title,note);
+          button.append(copy,summary,arrow);
+          overview.append(button,content);
+          const key=`bogatka_progress_open_v462:${card.dataset.locationCard||'location'}`;
+          setOpen(button,content,read(key)==='1',null);
+          button.addEventListener('click',()=>setOpen(button,content,button.getAttribute('aria-expanded')!=='true',key));
+          overview.classList.add('progress-card-v462');
+          overview.dataset.uiRefineV462='1';
+          ensureFillPlan(overview,card);
+          syncSummary(overview);
+          return true;
+          }
+
+          function applyLayoutGuards(card){""",
+              'replace ensureProgress')
+
+          text=sub_once(text,
+              r"function applyLayoutGuards\(card\)\{.*?\n\}\n\nasync function syncLegacyStatus",
+              """function applyLayoutGuards(card){
+          for(const grid of card.querySelectorAll('.inspection-grid-v416,.landlord-grid-v416')){
+            grid.style.setProperty('row-gap','12px','important');
+            grid.style.setProperty('column-gap','14px','important');
+          }
+          const selector='.inspection-grid-v416>label.field:not([hidden]):not(.hidden):not(.panel-hidden-v419),.landlord-grid-v416>label.field:not([hidden]):not(.hidden):not(.panel-hidden-v419),.inspection-grid-v416>.next-task-v447';
+          for(const field of card.querySelectorAll(selector))field.style.setProperty('gap','5px','important');
+          card.querySelector('.progress-metrics-v448')?.style.removeProperty('grid-template-columns');
+          }
+
+          async function syncLegacyStatus""",
+              'replace applyLayoutGuards')
+
+          text=sub_once(text,
+              r"function enhanceCard\(card\)\{.*?\n\}",
+              """function enhanceCard(card){
+          if(!card?.dataset?.locationCard)return false;
+          ensureProgress(card);
+          applyLayoutGuards(card);
+          return true;
+          }""",
+              'replace enhanceCard')
+
+          if 'Текущая рекомендация' in text:
+              raise SystemExit('card-progress JS still contains the removed header title')
+          if 'progress-recommendation-v448' in text:
+              raise SystemExit('card-progress JS still contains the removed recommendation card')
+          write(rel,text)
+
+          # Canonical stylesheet: one shared semantic chip, compact header and four equal metrics.
+          rel='card-progress-v448.css'
+          css=read(rel)
+          prefix=""".card-metric-hidden-v448{display:none!important}
+          .card-recommendation-head-v448{display:flex!important;align-items:flex-start!important;justify-content:flex-end!important;width:auto!important;max-width:100%!important}
+          .recommendation-status-v448{display:inline-flex;align-items:center;justify-content:center;width:max-content;max-width:220px;min-height:32px;padding:6px 10px;border:1px solid transparent;border-radius:10px;font-size:11px;font-weight:700;line-height:1.2;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
+          .recommendation-status-v448.empty{border-color:#e5bcbc;background:#fff1f1;color:#8a3f3f}
+          .recommendation-status-v448.weak{border-color:#dda9a9;background:#fbe9e9;color:#873333}
+          .recommendation-status-v448.medium,.recommendation-status-v448.risk{border-color:#dfbd68;background:#fff3d4;color:#745009}
+          .recommendation-status-v448.good{border-color:#afd2bd;background:#edf8f1;color:#236646}
+          .recommendation-status-v448.priority{border-color:#176342;background:#176342;color:#fff}
+          .recommendation-status-v448.stop{border-color:#8f2f2f;background:#8f2f2f;color:#fff}
+          """
+          css=sub_once(css,r"\A.*?(?=\.decision-progress-v448\{)",prefix,'replace recommendation CSS prefix')
+          css=sub_once(css,r"\.progress-recommendation-v448\{.*?(?=\.progress-metrics-v448\{)",'','remove progress recommendation CSS')
+          css=sub_once(css,
+              r"\.progress-metrics-v448\{.*?(?=\.quality-scale-v448\{)",
+              """.progress-metrics-v448{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:9px}
+          .progress-metrics-v448>article{min-width:0;height:100%;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;border:1px solid #d7e4dc;border-radius:13px;background:#fff;box-sizing:border-box}
+          .progress-metrics-v448>article>span{color:#6b7971;font-size:11px;line-height:1.3}
+          .progress-metrics-v448>article>strong{color:#174f3a;font-size:18px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}
+          .progress-metrics-v448>article>small{color:#74817a;font-size:10px;line-height:1.35}
+          .progress-metrics-v448 .progress-metric-note-v448{margin-top:2px;color:#7b5a20;font-size:10px;line-height:1.35}
+          .progress-metrics-v448 .progress-metric-note-v448[hidden]{display:none!important}
+          """,
+              'replace metric CSS')
+
+          marker='/* Consolidated v460 recommendation layer; retained in canonical card-progress-v448.css. */'
+          next_marker='/* Consolidated v462 progress/header/layout layer; retained in canonical card-progress-v448.css. */'
+          if css.count(marker)!=1 or css.count(next_marker)!=1:
+              raise SystemExit('recommendation consolidation markers not found exactly once')
+          css=css[:css.index(marker)]+css[css.index(next_marker):]
+
+          css=sub_once(css,
+              r"html \.location-head\{align-items:stretch!important\}.*?(?=html \.location-panels-v419)",
+              """html .location-head{align-items:flex-start!important}
+          html .location-head-side-v422{display:flex!important;align-items:flex-start!important;align-self:auto!important;justify-content:flex-end!important;gap:12px!important;width:auto!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important}
+          html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{display:flex!important;align-items:flex-start!important;justify-content:flex-end!important;width:auto!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
+          html .location-head-side-v422>.location-collapse-toggle-v422{flex:0 0 auto!important;align-self:flex-start!important;justify-self:auto!important;margin-top:0!important}
+          html .location-head-side-v422 .recommendation-status-v448{flex:0 1 auto!important}
+
+          """,
+              'replace v462 location header CSS')
+
+          css=re.sub(r'(?m)^[^\n{]*\.card-recommendation-v448[^\n{]*\{[^{}]*\}\s*','',css)
+          css=re.sub(r'(?m)^[^\n{]*\.progress-recommendation-v448[^\n{]*\{[^{}]*\}\s*','',css)
+
+          css=sub_once(css,
+              r"html \.progress-card-summary-v462\{.*?\n\}",
+              """html .progress-card-summary-v462{justify-self:end!important;max-width:220px!important}""",
+              'replace progress summary CSS')
+          css=re.sub(r"html \.progress-card-content-v462>\.progress-heading-v448\{[^{}]*\}\s*",'',css)
+          css=re.sub(r"html \.progress-heading-v448\.progress-heading-compact-v462>div:first-child\{[^{}]*\}\s*",'',css)
+
+          css=css.replace('.progress-metrics-v448{grid-template-columns:minmax(0,1fr)}','.progress-metrics-v448{grid-template-columns:repeat(2,minmax(0,1fr))}')
+          css=css.replace('html .decision-progress-v448 .progress-metrics-v448{grid-template-columns:minmax(0,1fr)!important}','html .decision-progress-v448 .progress-metrics-v448{grid-template-columns:repeat(2,minmax(0,1fr))!important}')
+
+          css=css.replace(
+              'html .location-head-side-v422{grid-template-columns:minmax(0,1fr) 32px!important;column-gap:9px!important}',
+              'html .location-head-side-v422{display:flex!important;justify-content:space-between!important;gap:9px!important}')
+          css=re.sub(r"\s*html \.location-head-side-v422>\.decision-head-v340\.card-recommendation-head-v448,\s*html \.card-recommendation-v448\{[^{}]*\}",'\n  html .location-head-side-v422>.decision-head-v340.card-recommendation-head-v448{width:auto!important;max-width:calc(100% - 41px)!important;min-width:0!important}',css)
+
+          mobile_rule="""
+          @media(max-width:520px){
+            html .decision-progress-v448 .progress-metrics-v448{grid-template-columns:minmax(0,1fr)!important}
+          }
+          """
+          insert_at=css.rfind('@media(max-width:460px)')
+          if insert_at<0:
+              raise SystemExit('mobile insertion point not found')
+          css=css[:insert_at]+mobile_rule+css[insert_at:]
+
+          if '.card-recommendation-v448' in css:
+              raise SystemExit('obsolete large header recommendation CSS remains')
+          if '.progress-recommendation-v448' in css:
+              raise SystemExit('obsolete progress recommendation CSS remains')
+          write(rel,css)
+
+          # The URL control is type=url; include it in the canonical input rule instead of adding a field-only override.
+          rel='style.css'
+          base=read(rel)
+          base=replace_once(base,'input[type=text],input[type=date],input[type=time],input[type=number],select,textarea','input[type=text],input[type=url],input[type=date],input[type=time],input[type=number],select,textarea','include URL input in canonical style')
+          write(rel,base)
+
+          # Targeted regression updates.
+          rel='tests/card-progress-v448.spec.mjs'
+          spec=read(rel)
+          spec=sub_once(spec,
+              r"test\('header separates the recommendation panel from the compact semantic status'.*?\n\}\);\n\n(?=test\('recommendation status changes)",
+              """test('header and progress section keep only one compact semantic recommendation status',async({page})=>{
+            const card=await openApp(page);
+            await expect(card.locator('.card-recommendation-v448')).toHaveCount(0);
+            const status=card.locator('[data-card-recommendation-v448]');
+            await expect(status).toBeVisible();
+            await expect(status).toHaveText('Недостаточно оценок');
+            await expect(status).toHaveClass(/empty/);
+
+            const outer=card.locator('.progress-card-toggle-v462');
+            if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+            await expect(card.locator('.progress-card-toggle-copy-v462 strong')).toHaveText('Общая оценка и готовность данных');
+            await expect(card.locator('.progress-card-toggle-copy-v462 span')).toHaveText('Здесь видно, насколько подходит локация и сколько данных уже собрано.');
+            await expect(card.locator('.progress-recommendation-v448')).toHaveCount(0);
+            await expect(card.locator('.progress-metrics-v448>article')).toHaveCount(4);
+            const progressStatus=card.locator('[data-progress-card-summary-v462]');
+            await expect(progressStatus).toHaveText('Недостаточно оценок');
+
+            const result=await card.evaluate(node=>{
+              const headerStatus=node.querySelector('[data-card-recommendation-v448]');
+              const progressStatus=node.querySelector('[data-progress-card-summary-v462]');
+              const toggle=node.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
+              const statusRect=headerStatus.getBoundingClientRect();
+              const metrics=node.querySelector('.progress-metrics-v448');
+              const articles=[...metrics.children].map(item=>item.getBoundingClientRect());
+              const semantic=['empty','weak','medium','good','priority','risk','stop'];
+              return{
+                headerClass:semantic.find(name=>headerStatus.classList.contains(name)),
+                progressClass:semantic.find(name=>progressStatus.classList.contains(name)),
+                statusHeight:Math.round(statusRect.height),
+                gapToToggle:Math.round(toggle.left-statusRect.right),
+                metricCount:articles.length,
+                widthDelta:Math.max(...articles.map(item=>item.width))-Math.min(...articles.map(item=>item.width)),
+                metricsCoverage:Math.abs(articles[0].left-metrics.getBoundingClientRect().left)+Math.abs(articles.at(-1).right-metrics.getBoundingClientRect().right),
+                headerText:node.querySelector(':scope > .location-head').innerText,
+              };
+            });
+            expect(result.headerClass).toBe(result.progressClass);
+            expect(result.statusHeight).toBeGreaterThanOrEqual(30);
+            expect(result.gapToToggle).toBeGreaterThanOrEqual(8);
+            expect(result.metricCount).toBe(4);
+            expect(result.widthDelta).toBeLessThanOrEqual(2);
+            expect(result.metricsCoverage).toBeLessThanOrEqual(2);
+            expect(result.headerText.toUpperCase()).not.toContain('ТЕКУЩАЯ РЕКОМЕНДАЦИЯ');
+            expect(result.headerText).not.toContain('Оцените минимум 5 критериев');
+          });
+
+          """,
+              'replace card progress header test')
+
+          spec=sub_once(spec,
+              r"test\('recommendation status changes semantic color without changing compact geometry'.*?\n\}\);",
+              """test('recommendation status changes shared semantic color without changing compact geometry',async({page})=>{
+            const card=await openApp(page);
+            const id=await card.getAttribute('data-location-card');
+            const status=card.locator('[data-card-recommendation-v448]');
+            const before=await status.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
+
+            await saveData(page,id,{
+              status:'Новый объект',objectType:'Торговый центр',date:'2026-07-02',time:'11:00',floorLocation:'1-й этаж',
+              premiseCondition:'Готово к работе',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',
+              ownerName:'ООО Арендодатель',contactRole:'Собственник',contact:'Иван',contactPhone:'+375290000000',
+              score:{housing:'5',occupied:'5',foot:'5',car:'5',parking:'5',stop:'5',anchor:'5',visibility:'5'},
+              tech:{totalArea:'100',rentPerMonth:'3000',powerKw:'40',openingHours:'09:00–21:00',utilities:'500',repairEstimate:'10000'},
+              pros:'Хорошая видимость',cons:'Нужно уточнить условия',risks:'Нет подтверждённых рисков',questions:'Уточнить срок аренды',decision:'Оставить',criticalDealConditions:{},
+            });
+            await expect(status).toHaveClass(/good/);
+            await expect(status).toHaveText('Перспективно');
+            const progressStatus=card.locator('[data-progress-card-summary-v462]');
+            await expect(progressStatus).toHaveClass(/good/);
+            const after=await status.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
+            const progressColors=await progressStatus.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor}));
+            expect(after.background).not.toBe(before.background);
+            expect(after.border).not.toBe(before.border);
+            expect(progressColors).toEqual({background:after.background,border:after.border});
+            expect(after.height).toBeGreaterThanOrEqual(30);
+          });""",
+              'replace card progress semantic test')
+
+          spec=spec.replace("await expect(card.locator('[data-progress-coverage-meta-v448]')).toHaveText('8 из 14 критериев');","await expect(card.locator('[data-progress-coverage-meta-v448]')).toHaveText('Оценено 8 из 14 критериев');")
+
+          spec=sub_once(spec,
+              r"test\('recommendation panel and compact status remain usable on a phone width'.*?\n\}\);\s*$",
+              """test('compact status and progress metrics remain usable on a phone width',async({page})=>{
+            await page.setViewportSize({width:390,height:844});
+            const card=await openApp(page);
+            const outer=card.locator('.progress-card-toggle-v462');
+            if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+            const layout=await card.locator('.decision-progress-v448').evaluate(element=>({
+              width:element.getBoundingClientRect().width,
+              scrollWidth:element.scrollWidth,
+              metricColumns:getComputedStyle(element.querySelector('.progress-metrics-v448')).gridTemplateColumns,
+            }));
+            const header=await card.locator('[data-card-recommendation-v448]').evaluate(element=>{
+              const side=element.closest('.location-head-side-v422');
+              return{
+                statusWidth:element.getBoundingClientRect().width,
+                statusHeight:element.getBoundingClientRect().height,
+                sideWidth:side.getBoundingClientRect().width,
+                sideScrollWidth:side.scrollWidth,
+              };
+            });
+            expect(layout.scrollWidth).toBeLessThanOrEqual(Math.ceil(layout.width)+1);
+            expect(layout.metricColumns.split(' ').length).toBe(1);
+            expect(header.statusWidth).toBeLessThan(header.sideWidth);
+            expect(header.statusHeight).toBeGreaterThanOrEqual(30);
+            expect(header.sideScrollWidth).toBeLessThanOrEqual(Math.ceil(header.sideWidth)+1);
+          });
+          """,
+              'replace card progress mobile test')
+          write(rel,spec)
+
+          rel='tests/ui-refine-v462.spec.mjs'
+          spec=read(rel)
+          spec=sub_once(spec,
+              r"test\('recommendation status aligns with the action row and explanatory copy is two clean lines'.*?\n\}\);",
+              """test('large recommendation copies are removed and shared compact status remains',async({page})=>{
+            const card=await openApp(page);
+            await expect(card.locator('.card-recommendation-v448')).toHaveCount(0);
+            await expect(card.locator('[data-card-recommendation-reason-v448]')).toHaveCount(0);
+            const status=card.locator('[data-card-recommendation-v448]');
+            await expect(status).toBeVisible();
+            await expect(status).toHaveText('Недостаточно оценок');
+
+            const outer=card.locator('.progress-card-toggle-v462');
+            await expect(outer.locator('.progress-card-toggle-copy-v462 strong')).toHaveText('Общая оценка и готовность данных');
+            await expect(outer.locator('.progress-card-toggle-copy-v462 span')).toHaveText('Здесь видно, насколько подходит локация и сколько данных уже собрано.');
+            if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+            await expect(card.locator('.progress-recommendation-v448')).toHaveCount(0);
+            await expect(card.locator('.progress-metrics-v448>article')).toHaveCount(4);
+            const progressStatus=card.locator('[data-progress-card-summary-v462]');
+            await expect(progressStatus).toHaveText('Недостаточно оценок');
+
+            const result=await card.evaluate(node=>{
+              const status=node.querySelector('[data-card-recommendation-v448]');
+              const progressStatus=node.querySelector('[data-progress-card-summary-v462]');
+              const arrow=node.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
+              const rect=status.getBoundingClientRect();
+              const semantic=['empty','weak','medium','good','priority','risk','stop'];
+              return{
+                gap:arrow.left-rect.right,
+                headerClass:semantic.find(name=>status.classList.contains(name)),
+                progressClass:semantic.find(name=>progressStatus.classList.contains(name)),
+                oldText:node.querySelector(':scope > .location-head').innerText,
+              };
+            });
+            expect(result.gap).toBeGreaterThanOrEqual(8);
+            expect(result.headerClass).toBe(result.progressClass);
+            expect(result.oldText.toUpperCase()).not.toContain('ТЕКУЩАЯ РЕКОМЕНДАЦИЯ');
+          });""",
+              'replace ui-refine recommendation test')
+
+          spec=spec.replace(
+              "overflow:landlord.scrollWidth-landlord.clientWidth,",
+              "overflow:landlord.scrollWidth-landlord.clientWidth,\n      listingPadding:[getComputedStyle(visibleControl('listingUrl')).paddingLeft,getComputedStyle(visibleControl('listingUrl')).paddingRight],\n      participantPadding:[getComputedStyle(visibleControl('inspectionParticipants')).paddingLeft,getComputedStyle(visibleControl('inspectionParticipants')).paddingRight],")
+          spec=spec.replace(
+              "expect(result.overflow).toBeLessThanOrEqual(1);",
+              "expect(result.overflow).toBeLessThanOrEqual(1);\n  expect(result.listingPadding).toEqual(result.participantPadding);\n  expect(result.listingPadding).toEqual(['10px','10px']);",
+              1)
+
+          spec=spec.replace(
+              "scaleBackground:getComputedStyle(scale).backgroundColor,",
+              "scaleBackground:getComputedStyle(scale).backgroundColor,\n      metricCount:metrics.children.length,\n      recommendationCards:node.querySelectorAll('.progress-recommendation-v448').length,\n      heightDelta:Math.max(...[...metrics.children].map(item=>item.getBoundingClientRect().height))-Math.min(...[...metrics.children].map(item=>item.getBoundingClientRect().height)),")
+          spec=spec.replace(
+              "expect(styles.metricsDisplay).toBe('grid');",
+              "expect(styles.metricsDisplay).toBe('grid');\n  expect(styles.metricCount).toBe(4);\n  expect(styles.recommendationCards).toBe(0);\n  expect(styles.heightDelta).toBeLessThanOrEqual(2);")
+          write(rel,spec)
+
+          rel='tests/location-card-collapse-v422.spec.mjs'
+          spec=read(rel)
+          spec=spec.replace("card?.querySelector('.card-recommendation-v448')","card?.querySelector('[data-card-recommendation-v448]')")
+          spec=spec.replace("first.locator('.card-recommendation-v448')","first.locator('[data-card-recommendation-v448]')")
+          spec=spec.replace("first.locator('.card-recommendation-v448 > strong')","first.locator('[data-card-recommendation-v448]')")
+          spec=spec.replace("reloaded.locator('.card-recommendation-v448')","reloaded.locator('[data-card-recommendation-v448]')")
+          spec=spec.replace("card.querySelector('.card-recommendation-v448')","card.querySelector('[data-card-recommendation-v448]')")
+          spec=sub_once(spec,
+              r"test\('header keeps recommendation copy and compact status as separate visual elements'.*?\n\}\);",
+              """test('header keeps only the compact semantic status and separate collapse control',async({page})=>{
+            await openApp(page);
+            const result=await page.locator('[data-location-card]').first().evaluate(card=>{
+              const status=card.querySelector('.location-head-side-v422 [data-card-recommendation-v448]');
+              const statusRect=status.getBoundingClientRect();
+              const toggleRect=card.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
+              const style=getComputedStyle(status);
+              return{
+                statusWidth:Math.round(statusRect.width*10)/10,
+                statusHeight:Math.round(statusRect.height*10)/10,
+                statusBorderWidth:style.borderTopWidth,
+                statusRadius:style.borderTopLeftRadius,
+                statusFontSize:style.fontSize,
+                gap:toggleRect.left-statusRect.right,
+                largePanelCount:card.querySelectorAll('.card-recommendation-v448').length,
+                oldMetricCount:card.querySelectorAll('.location-head-side-v422 .decision-score-v340,.location-head-side-v422 .decision-complete-v340').length,
+                rawVisible:getComputedStyle(card.querySelector('.location-head-side-v422 > .scorebox')).display!=='none',
+              };
+            });
+            expect(result.statusWidth).toBeLessThan(210);
+            expect(result.statusHeight).toBeGreaterThanOrEqual(30);
+            expect(result.statusBorderWidth).toBe('1px');
+            expect(result.statusRadius).toBe('10px');
+            expect(result.statusFontSize).toBe('11px');
+            expect(result.gap).toBeGreaterThanOrEqual(8);
+            expect(result.largePanelCount).toBe(0);
+            expect(result.oldMetricCount).toBe(0);
+            expect(result.rawVisible).toBe(false);
+          });""",
+              'replace desktop collapse header test')
+          write(rel,spec)
+
+          rel='tests/location-card-collapse-mobile-v422.spec.mjs'
+          spec=read(rel)
+          spec=spec.replace("card?.querySelector('.location-head-side-v422 .card-recommendation-v448')","card?.querySelector('.location-head-side-v422 [data-card-recommendation-v448]')")
+          spec=sub_once(spec,
+              r"test\('mobile recommendation panel and compact status stay overflow free'.*?\n\}\);\s*$",
+              """test('mobile compact recommendation status stays overflow free',async({page})=>{
+            await page.setViewportSize({width:390,height:844});
+            await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
+            await page.goto(APP_URL,{waitUntil:'networkidle'});
+            await page.waitForFunction(()=>{
+              const card=document.querySelector('[data-location-card]');
+              return Boolean(window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&card?.querySelector('.location-head-side-v422 [data-card-recommendation-v448]'));
+            });
+
+            const layout=await page.locator('[data-location-card]').first().evaluate(card=>{
+              const head=card.querySelector(':scope > .location-head').getBoundingClientRect();
+              const side=card.querySelector('.location-head-side-v422');
+              const sideRect=side.getBoundingClientRect();
+              const status=side.querySelector('[data-card-recommendation-v448]').getBoundingClientRect();
+              const toggle=side.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
+              return{
+                headWidth:head.width,
+                sideWidth:sideRect.width,
+                overflow:side.scrollWidth-side.clientWidth,
+                statusWidth:status.width,
+                statusHeight:status.height,
+                gapToToggle:toggle.left-status.right,
+                largePanelCount:side.querySelectorAll('.card-recommendation-v448').length,
+              };
+            });
+
+            expect(layout.sideWidth).toBeGreaterThan(layout.headWidth-40);
+            expect(layout.overflow).toBeLessThanOrEqual(1);
+            expect(layout.statusWidth).toBeLessThan(210);
+            expect(layout.statusHeight).toBeGreaterThanOrEqual(30);
+            expect(layout.gapToToggle).toBeGreaterThanOrEqual(8);
+            expect(layout.largePanelCount).toBe(0);
+
+            const card=page.locator('[data-location-card]').first();
+            await card.locator('.location-collapse-toggle-v422').click();
+            await expect(card.locator(':scope > .location-body')).toBeHidden();
+            await expect(card.locator('[data-card-recommendation-v448]')).toBeVisible();
+          });
+          """,
+              'replace mobile collapse test')
+          write(rel,spec)
+
+          rel='tests/inspection-layout-v461.spec.mjs'
+          spec=read(rel)
+          spec=spec.replace(
+              "taskGap:Math.round(taskCard.getBoundingClientRect().top-taskCaption.getBoundingClientRect().bottom),",
+              "taskGap:Math.round(taskCard.getBoundingClientRect().top-taskCaption.getBoundingClientRect().bottom),\n      listingPadding:[getComputedStyle(field('listingUrl')).paddingLeft,getComputedStyle(field('listingUrl')).paddingRight],\n      participantsPadding:[getComputedStyle(field('inspectionParticipants')).paddingLeft,getComputedStyle(field('inspectionParticipants')).paddingRight],")
+          spec=spec.replace(
+              "expect(styles.taskGap).toBe(5);",
+              "expect(styles.taskGap).toBe(5);\n  expect(styles.listingPadding).toEqual(styles.participantsPadding);\n  expect(styles.listingPadding).toEqual(['10px','10px']);")
+          write(rel,spec)
+
+          # Static guardrails for the bounded change.
+          js=read('card-progress-v448.js')
+          css=read('card-progress-v448.css')
+          assert 'Общая оценка и готовность данных' in js
+          assert 'Здесь видно, насколько подходит локация и сколько данных уже собрано.' in js
+          assert 'Есть пункты без письменного подтверждения' in js
+          assert 'Текущая рекомендация' not in js
+          assert 'progress-recommendation-v448' not in js
+          assert '.card-recommendation-v448' not in css
+          assert '.progress-recommendation-v448' not in css
+          assert 'input[type=url]' in read('style.css')
+          PY
+
+      - name: Install Chromium
+        run: |
+          npm install --no-save --silent @playwright/test@1.52.0
+          npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
+
+      - name: Run bounded targeted tests
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
+            sleep 1
+          done
+          npx playwright test \
+            bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs \
+            bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs \
+            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
+            bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
+            bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
+            bogatka-field-8f3c7d/tests/location-data-v452.spec.mjs \
+            --workers=1 --reporter=line | tee /tmp/bogatka-targeted-tests.log
+
+      - name: Capture desktop and mobile review screenshots
+        run: |
+          mkdir -p /tmp/bogatka-ui-review
+          cat > /tmp/capture-bogatka-ui.cjs <<'NODE'
+          const {chromium}=require('@playwright/test');
+          const fs=require('fs');
+          const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?review=ui-recommendation-progress';
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const context=await browser.newContext();
+            const page=await context.newPage();
+            await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
+            const open=async(width,height)=>{
+              await page.setViewportSize({width,height});
+              await page.goto(APP,{waitUntil:'domcontentloaded'});
+              await page.waitForFunction(()=>Boolean(window.BogatkaUIRefineV462?.ready&&window.BogatkaCardProgressV448?.ready&&document.querySelector('[data-location-card] [data-card-recommendation-v448]')),{timeout:30000});
+              await page.waitForTimeout(250);
+            };
+            await open(1600,1100);
+            await page.evaluate(()=>{
+              for(const card of document.querySelectorAll('[data-location-card]'))window.BogatkaLocationCardCollapseV422.setCollapsed(card,true,{persist:false});
+            });
+            await page.locator('#locations').screenshot({path:'/tmp/bogatka-ui-review/01-desktop-collapsed-location-cards.png'});
+
+            const first=page.locator('[data-location-card]').first();
+            await first.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:false}));
+            await first.evaluate(card=>{
+              for(const panel of card.querySelectorAll('.inspection-card-v416,.landlord-card-v416')){
+                panel.classList.remove('panel-closed-v419');
+                panel.dataset.panelOpenV419='1';
+                panel.querySelector('.panel-toggle-v419')?.setAttribute('aria-expanded','true');
+              }
+              window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
+              window.BogatkaInspectionLayoutV461?.enhanceAll?.();
+            });
+            await page.waitForTimeout(150);
+            await first.locator('.location-panels-v419').screenshot({path:'/tmp/bogatka-ui-review/02-desktop-inspection-landlord-url-padding.png'});
+
+            const progress=first.locator('.decision-progress-v448');
+            const toggle=first.locator('.progress-card-toggle-v462');
+            if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
+            await progress.screenshot({path:'/tmp/bogatka-ui-review/03-desktop-progress-four-metrics.png'});
+
+            await open(390,900);
+            const mobile=page.locator('[data-location-card]').first();
+            await mobile.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,true,{persist:false}));
+            await mobile.locator(':scope > .location-head').screenshot({path:'/tmp/bogatka-ui-review/04-mobile-location-header-status.png'});
+            await mobile.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:false}));
+            const mobileToggle=mobile.locator('.progress-card-toggle-v462');
+            if(await mobileToggle.getAttribute('aria-expanded')!=='true')await mobileToggle.click();
+            await mobile.locator('.decision-progress-v448').screenshot({path:'/tmp/bogatka-ui-review/05-mobile-progress-metric-wrapping.png'});
+            await browser.close();
+            fs.writeFileSync('/tmp/bogatka-ui-review/README.txt','Screenshots captured from local branch checkout ui-recommendation-progress-refine.\n');
+          })().catch(error=>{console.error(error);process.exit(1)});
+          NODE
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-screenshot-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
+            sleep 1
+          done
+          node /tmp/capture-bogatka-ui.cjs
+
+      - name: Commit bounded changes and remove temporary workflow
+        run: |
+          rm .github/workflows/bogatka-ui-refinement-apply.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add bogatka-field-8f3c7d .github/workflows/bogatka-ui-refinement-apply.yml
+          git commit -m 'Refine recommendation and progress UI'
+          git push origin HEAD:ui-recommendation-progress-refine
+
+      - name: Upload visual-review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bogatka-ui-recommendation-review
+          path: |
+            /tmp/bogatka-ui-review
+            /tmp/bogatka-targeted-tests.log
+            /tmp/bogatka-http.log
+            /tmp/bogatka-screenshot-http.log
+            /tmp/playwright-install.log
+          if-no-files-found: warn
+          retention-days: 7
