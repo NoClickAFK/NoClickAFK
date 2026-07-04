@@ -251,12 +251,10 @@
     return SCORE_BANDS.find(band=>score<=band.max)||SCORE_BANDS.at(-1);
   }
 
-
   function setRecommendationStatus(node,recommendation={}){
     if(!node)return;
     const semantic=recommendation.className||'empty';
-    const isProgress=node.hasAttribute('data-progress-card-summary-v462');
-    node.className=`recommendation-status-v448 ${semantic}${isProgress?' progress-card-summary-v462':''}`;
+    node.className=`recommendation-status-v448 ${semantic}`;
     node.dataset.recommendationClass=semantic;
     text(node,recommendation.label||'Недостаточно данных');
   }
@@ -277,13 +275,25 @@
       scorebox.setAttribute('aria-hidden','true');
       scorebox.classList.add('card-metric-hidden-v448');
     }
-    const head=card.querySelector(':scope > .location-head .decision-head-v340');
-    if(!head)return null;
+    const actions=card.querySelector(':scope > .location-head .location-actions');
+    let head=card.querySelector('[data-card-recommendation-v448]')?.closest('.decision-head-v340')||card.querySelector(':scope > .location-head .decision-head-v340');
+    if(!head||!actions)return null;
     if(head.dataset.cardProgressV448!=='1'){
       head.dataset.cardProgressV448='1';
-      head.classList.add('card-recommendation-head-v448');
+      head.classList.add('card-recommendation-head-v448','location-action-status-v448');
       head.innerHTML='<strong class="recommendation-status-v448 empty" data-card-recommendation-v448>Недостаточно данных</strong>';
     }
+    let buttons=actions.querySelector(':scope > .location-action-buttons-v448');
+    if(!buttons){
+      buttons=document.createElement('div');
+      buttons.className='location-action-buttons-v448';
+      actions.prepend(buttons);
+    }
+    for(const child of [...actions.children]){
+      if(child===buttons||child===head)continue;
+      buttons.appendChild(child);
+    }
+    if(head.parentElement!==actions)actions.appendChild(head);
     return head;
   }
 
@@ -298,7 +308,7 @@
         <div><strong>Общая оценка и готовность данных</strong><span>Здесь видно, насколько подходит локация и сколько данных уже собрано</span></div>
       </div>
       <div class="progress-metrics-v448">
-        <article class="progress-metric-v448"><span>Качество локации</span><strong data-progress-quality-v448>Нет оценки</strong><small data-progress-quality-meta-v448>Оценено 0 из 14 критериев</small></article>
+        <article class="progress-metric-v448"><span>Качество локации</span><strong data-progress-quality-v448>Нет оценки</strong><small data-progress-quality-meta-v448>Оцените критерии ниже в карточке локации</small></article>
         <article class="progress-metric-v448"><span>Надёжность оценки</span><strong data-progress-coverage-v448>0%</strong><small data-progress-coverage-meta-v448>Оценено 0 из 14 критериев</small></article>
         <article class="progress-metric-v448"><span>Готовность карточки</span><strong data-progress-completion-v448>0%</strong><small data-progress-completion-meta-v448>Заполнено 0 из 7 разделов</small></article>
         <article class="progress-metric-v448"><span>Проверки перед арендой</span><strong data-progress-checks-v448>0 из 10</strong><small data-progress-checks-meta-v448>Проверок завершено</small><small class="progress-metric-note-v448" data-progress-checks-note-v448 hidden></small></article>
@@ -307,7 +317,7 @@
         <div class="quality-scale-track-v448"><span></span><i data-quality-marker-v448></i></div>
         <div class="quality-scale-labels-v448"><span>0–39<br>слабая</span><span>40–59<br>доработать</span><span>60–74<br>перспективная</span><span>75–100<br>сильная</span></div>
       </div>
-      <div class="score-explanation-v448"><strong>Как считается качество:</strong> 1 балл = 0, 2 = 25, 3 = 50, 4 = 75, 5 = 100. Вес критериев учитывается. Пустые критерии не занижают качество — они уменьшают надёжность оценки.</div>
+      <div class="score-explanation-v448"><strong>Что означают показатели</strong><span>Оценки ставятся ниже в разделе оценки локации. Качество показывает средний результат по заполненным критериям, а надёжность — сколько из 14 критериев уже оценено. Пустые критерии не снижают качество, но уменьшают надёжность</span></div>
       <div class="completion-track-v448"><span data-progress-completion-bar-v448></span></div>
       <div class="fill-plan-v448">
         <div class="fill-plan-heading-v448"><strong>Что заполнить дальше</strong><span data-fill-plan-summary-v448></span></div>
@@ -369,13 +379,12 @@
     if(!header||!overview)return;
     const recommendation=metric.recommendation||{label:'Недостаточно данных',className:'empty'};
     setRecommendationStatus(header.querySelector('[data-card-recommendation-v448]'),recommendation);
-    setRecommendationStatus(overview.querySelector('[data-progress-card-summary-v462]'),recommendation);
 
     const quality=metric.qualityScore;
     const band=qualityBand(quality);
     const answered=metric.answeredScores||0;
     text(overview.querySelector('[data-progress-quality-v448]'),quality===null||quality===undefined?'Нет оценки':`${Number.isInteger(quality)?quality:quality.toFixed(1)}/100`);
-    text(overview.querySelector('[data-progress-quality-meta-v448]'),`Оценено ${answered} из 14 критериев`);
+    text(overview.querySelector('[data-progress-quality-meta-v448]'),answered?'Средний результат по заполненным критериям':'Оцените критерии ниже в карточке локации');
     text(overview.querySelector('[data-progress-coverage-v448]'),`${Math.round(metric.scoreCoveragePct||0)}%`);
     text(overview.querySelector('[data-progress-coverage-meta-v448]'),`Оценено ${answered} из 14 критериев`);
     text(overview.querySelector('[data-progress-completion-v448]'),`${metric.completion||0}%`);
@@ -547,22 +556,11 @@ function ensureFillPlan(overview,card){
   return true;
 }
 
-function syncSummary(overview){
-  const target=overview.querySelector('[data-progress-card-summary-v462]');
-  const source=overview.closest('[data-location-card]')?.querySelector('[data-card-recommendation-v448]');
-  if(!target||!source)return;
-  if(target.textContent!==source.textContent)target.textContent=source.textContent;
-  const semantic=source.dataset.recommendationClass||['empty','weak','medium','good','priority','risk','stop'].find(name=>source.classList.contains(name))||'empty';
-  target.className=`progress-card-summary-v462 recommendation-status-v448 ${semantic}`;
-  target.dataset.recommendationClass=semantic;
-}
-
 function ensureProgress(card){
   const overview=card.querySelector('.decision-overview-v340.decision-progress-v448');
   if(!overview)return false;
   if(overview.dataset.uiRefineV462==='1'){
     ensureFillPlan(overview,card);
-    syncSummary(overview);
     return true;
   }
   const heading=overview.querySelector(':scope > .progress-heading-v448');
@@ -576,20 +574,16 @@ function ensureProgress(card){
   const copy=document.createElement('span');
   const title=document.createElement('strong');
   const note=document.createElement('span');
-  const summary=document.createElement('span');
   const arrow=document.createElement('i');
   button.type='button';
   button.className='progress-card-toggle-v462';
   copy.className='progress-card-toggle-copy-v462';
   title.textContent=titleBlock?.querySelector('strong')?.textContent||'Общая оценка и готовность данных';
   note.textContent=titleBlock?.querySelector('span')?.textContent||'Здесь видно, насколько подходит локация и сколько данных уже собрано';
-  summary.className='progress-card-summary-v462 recommendation-status-v448 empty';
-  summary.dataset.progressCardSummaryV462='';
-  summary.textContent=card.querySelector('[data-card-recommendation-v448]')?.textContent||'Недостаточно данных';
   arrow.className='progress-card-chevron-v462';
   arrow.setAttribute('aria-hidden','true');
   copy.append(title,note);
-  button.append(copy,summary,arrow);
+  button.append(copy,arrow);
   overview.append(button,content);
   const key=`bogatka_progress_open_v462:${card.dataset.locationCard||'location'}`;
   setOpen(button,content,read(key)==='1',null);
@@ -597,7 +591,6 @@ function ensureProgress(card){
   overview.classList.add('progress-card-v462');
   overview.dataset.uiRefineV462='1';
   ensureFillPlan(overview,card);
-  syncSummary(overview);
   return true;
 }
 

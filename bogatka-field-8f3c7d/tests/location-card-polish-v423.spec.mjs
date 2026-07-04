@@ -8,7 +8,7 @@ async function openApp(page){
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>{
     const card=document.querySelector('[data-location-card]');
-    return Boolean(window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&card?.querySelector('.location-collapse-toggle-v422')&&card?.querySelector('[data-card-recommendation-v448]'));
+    return Boolean(window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&card?.querySelector('.location-collapse-toggle-v422')&&card?.querySelector('.location-actions [data-card-recommendation-v448]'));
   });
 }
 
@@ -66,54 +66,50 @@ test('collapsed location has no divider seam below the rounded header',async({pa
   expect(styles.bottomRightRadius).toBe('17px');
 });
 
-test('header keeps a compact semantic status beside the separate collapse button',async({page})=>{
+test('status aligns with action buttons while collapse button remains upper-right',async({page})=>{
   await openApp(page);
   const result=await page.locator('[data-location-card]').first().evaluate(card=>{
-    const side=card.querySelector('.location-head-side-v422');
-    const status=side.querySelector('[data-card-recommendation-v448]');
-    const statusRect=status.getBoundingClientRect();
-    const statusStyle=getComputedStyle(status);
+    const head=card.querySelector(':scope > .location-head');
+    const actions=head.querySelector('.location-actions');
+    const buttons=actions.querySelector('.location-action-buttons-v448');
+    const status=actions.querySelector('[data-card-recommendation-v448]');
+    const side=head.querySelector('.location-head-side-v422');
     const button=side.querySelector('.location-collapse-toggle-v422');
+    const actionRect=actions.getBoundingClientRect();
+    const buttonsRect=buttons.getBoundingClientRect();
+    const statusRect=status.getBoundingClientRect();
     const buttonRect=button.getBoundingClientRect();
-    const buttonStyle=getComputedStyle(button);
     const arrowRect=button.querySelector('.location-collapse-chevron-v422').getBoundingClientRect();
-    return {
-      statusWidth:Math.round(statusRect.width),
-      statusHeight:Math.round(statusRect.height),
-      statusBorderWidth:statusStyle.borderTopWidth,
-      statusBorderColor:statusStyle.borderTopColor,
-      statusRadius:statusStyle.borderTopLeftRadius,
-      statusFontSize:statusStyle.fontSize,
-      oldPanelCount:side.querySelectorAll('.card-recommendation-v448').length,
-      oldMetricCount:side.querySelectorAll('.decision-score-v340,.decision-complete-v340').length,
-      rawVisible:getComputedStyle(side.querySelector(':scope > .scorebox')).display!=='none',
-      buttonWidth:Math.round(buttonRect.width),
-      buttonHeight:Math.round(buttonRect.height),
-      buttonBackground:buttonStyle.backgroundColor,
-      buttonBorderWidth:buttonStyle.borderTopWidth,
-      buttonRadius:buttonStyle.borderTopLeftRadius,
-      gap:Math.round(buttonRect.left-statusRect.right),
+    const statusStyle=getComputedStyle(status);
+    const buttonStyle=getComputedStyle(button);
+    return{
+      statusWidth:statusRect.width,statusHeight:statusRect.height,statusBorderWidth:statusStyle.borderTopWidth,
+      statusBorderColor:statusStyle.borderTopColor,statusRadius:statusStyle.borderTopLeftRadius,statusFontSize:statusStyle.fontSize,
+      statusInActions:status.closest('.location-actions')===actions,statusInSide:side.contains(status),
+      actionCenterDelta:Math.abs((buttonsRect.top+buttonsRect.height/2)-(statusRect.top+statusRect.height/2)),
+      statusRightGap:Math.abs(actionRect.right-statusRect.right),buttonWidth:buttonRect.width,buttonHeight:buttonRect.height,
+      buttonBackground:buttonStyle.backgroundColor,buttonBorderWidth:buttonStyle.borderTopWidth,buttonRadius:buttonStyle.borderTopLeftRadius,
+      buttonAboveStatus:buttonRect.top<statusRect.top,
       arrowCenterDeltaX:Math.abs((buttonRect.left+buttonRect.width/2)-(arrowRect.left+arrowRect.width/2)),
       arrowCenterDeltaY:Math.abs((buttonRect.top+buttonRect.height/2)-(arrowRect.top+arrowRect.height/2)),
     };
   });
-
-  expect(result.statusWidth).toBeLessThan(210);
+  expect(result.statusWidth).toBeLessThan(220);
   expect(result.statusHeight).toBeGreaterThanOrEqual(30);
   expect(result.statusBorderWidth).toBe('1px');
   expect(result.statusBorderColor).not.toBe('rgba(0, 0, 0, 0)');
   expect(result.statusRadius).toBe('10px');
   expect(result.statusFontSize).toBe('11px');
-  expect(result.oldPanelCount).toBe(0);
-  expect(result.oldMetricCount).toBe(0);
-  expect(result.rawVisible).toBe(false);
-  expect(result.buttonWidth).toBe(34);
-  expect(result.buttonHeight).toBe(34);
+  expect(result.statusInActions).toBe(true);
+  expect(result.statusInSide).toBe(false);
+  expect(result.actionCenterDelta).toBeLessThanOrEqual(3);
+  expect(result.statusRightGap).toBeLessThanOrEqual(2);
+  expect(Math.round(result.buttonWidth)).toBe(34);
+  expect(Math.round(result.buttonHeight)).toBe(34);
   expect(result.buttonBackground).not.toBe('rgba(0, 0, 0, 0)');
   expect(result.buttonBorderWidth).toBe('1px');
   expect(result.buttonRadius).toBe('10px');
-  expect(result.gap).toBeGreaterThanOrEqual(8);
-  expect(result.gap).toBeLessThanOrEqual(16);
+  expect(result.buttonAboveStatus).toBe(true);
   expect(result.arrowCenterDeltaX).toBeLessThanOrEqual(1);
   expect(result.arrowCenterDeltaY).toBeLessThanOrEqual(1);
 });
