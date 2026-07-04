@@ -1,0 +1,35 @@
+{
+  "verifiedAt": "2026-07-04T18:14:55.917Z",
+  "url": "https://noclickafk.github.io/NoClickAFK/bogatka-field-8f3c7d/?v=pr67-18f53d",
+  "mainSha": "18f53d08141c903e8a4c204632d24384ba13f222",
+  "desktop": {
+    "largeRecommendation": 0,
+    "oldRecommendation": false,
+    "statusInActions": true,
+    "statusInSide": false,
+    "progressStatus": 0,
+    "metricCount": 4,
+    "qualityCopy": "Оцените критерии ниже в карточке локации",
+    "coverageCopy": "Оценено 0 из 14 критериев",
+    "explanationHeading": "Что означают показатели",
+    "explanationText": "Оценки ставятся ниже в разделе оценки локации. Качество показывает средний результат по заполненным критериям, а надёжность — сколько из 14 критериев уже оценено. Пустые критерии не снижают качество, но уменьшают надёжность",
+    "oldFormula": false,
+    "urlPaddingLeft": "",
+    "urlPaddingRight": "",
+    "overflow": 0
+  },
+  "mobile": {
+    "statusInActions": true,
+    "statusInSide": false,
+    "overlapsButtons": false,
+    "overlapsArrow": false,
+    "inside": true,
+    "headOverflow": 0,
+    "actionOverflow": 0,
+    "documentOverflow": 0,
+    "arrowAbove": true
+  },
+  "pageErrors": [],
+  "consoleErrors": [],
+  "failedRequests": []
+}
