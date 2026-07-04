@@ -38,7 +38,14 @@ jobs:
           node bogatka-field-8f3c7d/tests/validate-hardening.mjs
           node bogatka-field-8f3c7d/tests/validate-report-live-v427.mjs
           node bogatka-field-8f3c7d/tests/validate-report-polish-v428.mjs
-          node bogatka-field-8f3c7d/tests/generate-dependency-inventory.mjs --check
+          node bogatka-field-8f3c7d/tests/generate-dependency-inventory.mjs --check --json-output "$RUNNER_TEMP/dependency-inventory.json"
+      - name: Upload full dependency inventory JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: bogatka-dependency-inventory
+          path: ${{ runner.temp }}/dependency-inventory.json
+          if-no-files-found: error
+          retention-days: 7
 
   critical-smoke:
     runs-on: ubuntu-latest

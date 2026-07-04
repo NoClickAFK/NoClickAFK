@@ -9,6 +9,7 @@ async function openApp(page,width=1600,height=1200){
   await page.waitForFunction(()=>Boolean(
     window.BogatkaUIRefineV462?.ready&&
     window.BogatkaInspectionLayoutV461?.ready&&
+    window.BogatkaLocationPanelsV419?.ready&&
     window.BogatkaCardProgressV448?.ready&&
     document.querySelector('[data-location-card] .progress-card-toggle-v462')&&
     document.querySelector('[data-location-card][data-inspection-layout-v462="1"]')
@@ -22,6 +23,11 @@ async function openApp(page,width=1600,height=1200){
       panel.querySelector('.panel-toggle-v419')?.setAttribute('aria-expanded','true');
     }
   });
+  await page.evaluate(async()=>{
+    await window.BogatkaLocationPanelsV419.enhanceAll({force:true});
+    window.BogatkaInspectionLayoutV461.enhanceAll();
+  });
+  await card.locator('.location-panels-v419').waitFor({state:'visible'});
   await page.waitForTimeout(120);
   return card;
 }
