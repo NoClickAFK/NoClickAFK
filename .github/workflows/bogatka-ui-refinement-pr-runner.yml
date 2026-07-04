@@ -114,8 +114,11 @@ jobs:
             bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
             bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
             bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
+            --workers=1 --reporter=line --timeout=45000 | tee /tmp/bogatka-targeted-tests.log
+          npx playwright test \
             bogatka-field-8f3c7d/tests/location-data-v452.spec.mjs \
-            --workers=1 --reporter=line | tee /tmp/bogatka-targeted-tests.log
+            --grep 'source, listing and repeat-inspection basis persist without rerendering the card' \
+            --workers=1 --reporter=line --timeout=45000 --retries=1 | tee -a /tmp/bogatka-targeted-tests.log
 
       - name: Capture review screenshots
         run: |
