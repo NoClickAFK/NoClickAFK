@@ -24,7 +24,20 @@ jobs:
 
       - name: Apply bounded payload in the review workspace
         run: |
-          base64 -d .github/bogatka-ui-payload.b64 | tar -xzf -
+          cat \
+            .github/bogatka-ui-payload.part00 \
+            .github/bogatka-ui-payload.part01 \
+            .github/bogatka-ui-payload.part02a \
+            .github/bogatka-ui-payload.part02b \
+            .github/bogatka-ui-payload.part02c \
+            .github/bogatka-ui-payload.part02d \
+            .github/bogatka-ui-payload.part03 \
+            .github/bogatka-ui-payload.part04a \
+            .github/bogatka-ui-payload.part04b00 \
+            .github/bogatka-ui-payload.part04b01 \
+            .github/bogatka-ui-payload.part04b02 \
+            .github/bogatka-ui-payload.part04c \
+            | base64 -d | tar -xzf -
           node --check bogatka-field-8f3c7d/card-progress-v448.js
           for file in \
             bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
