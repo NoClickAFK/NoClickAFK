@@ -24,17 +24,24 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Extract and apply bounded correction
+      - name: Apply bounded correction payload
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import textwrap
-          source=Path('.github/workflows/bogatka-pr67-visual-correction.yml').read_text(encoding='utf-8')
-          start=source.index("          python3 - <<'PY'\n")+len("          python3 - <<'PY'\n")
-          end=source.index("\n          PY\n\n      - name: Install Chromium",start)
-          Path('/tmp/apply-pr67.py').write_text(textwrap.dedent(source[start:end]),encoding='utf-8')
-          PY
-          python3 /tmp/apply-pr67.py
+          cat .github/pr67-correction.bin.* > /tmp/pr67-correction.tar.gz
+          tar -xzf /tmp/pr67-correction.tar.gz
+          node --check bogatka-field-8f3c7d/card-progress-v448.js
+          for file in \
+            bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs \
+            bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs \
+            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
+            bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
+            bogatka-field-8f3c7d/tests/location-card-polish-v423.spec.mjs; do
+            node --check "$file"
+          done
+          grep -q 'Что означают показатели' bogatka-field-8f3c7d/card-progress-v448.js
+          grep -q 'Оцените критерии ниже в карточке локации' bogatka-field-8f3c7d/card-progress-v448.js
+          grep -q 'Средний результат по заполненным критериям' bogatka-field-8f3c7d/card-progress-v448.js
+          ! grep -q '1 балл = 0' bogatka-field-8f3c7d/card-progress-v448.js
+          ! grep -q 'data-progress-card-summary-v462' bogatka-field-8f3c7d/card-progress-v448.js
 
       - name: Install Chromium
         run: |
@@ -59,17 +66,56 @@ jobs:
             bogatka-field-8f3c7d/tests/location-card-polish-v423.spec.mjs \
             --workers=1 --reporter=line --timeout=45000 | tee /tmp/bogatka-targeted-tests.log
 
-      - name: Extract and capture screenshots
+      - name: Capture desktop and mobile screenshots
         run: |
           mkdir -p /tmp/bogatka-pr67-review
-          python3 - <<'PY'
-          from pathlib import Path
-          import textwrap
-          source=Path('.github/workflows/bogatka-pr67-visual-correction.yml').read_text(encoding='utf-8')
-          start=source.index("          cat > capture-pr67.cjs <<'NODE'\n")+len("          cat > capture-pr67.cjs <<'NODE'\n")
-          end=source.index("\n          NODE\n",start)
-          Path('capture-pr67.cjs').write_text(textwrap.dedent(source[start:end]),encoding='utf-8')
-          PY
+          cat > capture-pr67.cjs <<'NODE'
+          const {chromium}=require('@playwright/test');
+          const APP='http://127.0.0.1:4174/bogatka-field-8f3c7d/?review=pr67-status-row';
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage();
+            await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
+            async function open(width,height){
+              await page.setViewportSize({width,height});
+              await page.goto(APP,{waitUntil:'domcontentloaded'});
+              await page.waitForFunction(()=>Boolean(
+                window.BogatkaCardProgressV448?.ready&&
+                window.BogatkaLocationCardCollapseV422?.ready&&
+                document.querySelector('.location-actions [data-card-recommendation-v448]')&&
+                document.querySelector('.progress-card-toggle-v462')
+              ),{timeout:30000});
+              await page.waitForTimeout(500);
+            }
+
+            await open(1600,1100);
+            await page.evaluate(()=>document.querySelectorAll('[data-location-card]').forEach(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,true,{persist:false})));
+            await page.waitForTimeout(250);
+            const cards=page.locator('[data-location-card]');
+            const boxes=[await cards.nth(0).boundingBox(),await cards.nth(1).boundingBox()].filter(Boolean);
+            const x=Math.min(...boxes.map(b=>b.x));
+            const y=Math.min(...boxes.map(b=>b.y));
+            const right=Math.max(...boxes.map(b=>b.x+b.width));
+            const bottom=Math.max(...boxes.map(b=>b.y+b.height));
+            await page.screenshot({path:'/tmp/bogatka-pr67-review/01-desktop-two-collapsed-cards.png',clip:{x,y,width:right-x,height:bottom-y}});
+
+            const first=cards.first();
+            await first.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:false}));
+            const progress=first.locator('.progress-card-toggle-v462');
+            if(await progress.getAttribute('aria-expanded')!=='true')await progress.click();
+            await first.locator('.decision-progress-v448').screenshot({path:'/tmp/bogatka-pr67-review/02-desktop-expanded-progress.png'});
+
+            await open(390,1000);
+            const mobile=page.locator('[data-location-card]').first();
+            await mobile.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,true,{persist:false}));
+            await mobile.locator(':scope > .location-head').screenshot({path:'/tmp/bogatka-pr67-review/03-mobile-location-header-actions.png'});
+            await mobile.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:false}));
+            const mobileProgress=mobile.locator('.progress-card-toggle-v462');
+            if(await mobileProgress.getAttribute('aria-expanded')!=='true')await mobileProgress.click();
+            await mobile.locator('.decision-progress-v448').screenshot({path:'/tmp/bogatka-pr67-review/04-mobile-expanded-progress.png'});
+            await browser.close();
+          })().catch(error=>{console.error(error);process.exit(1)});
+          NODE
           python3 -m http.server 4174 --bind 127.0.0.1 > /tmp/bogatka-screenshot-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
@@ -80,22 +126,16 @@ jobs:
           node capture-pr67.cjs
           rm capture-pr67.cjs
 
-      - name: Commit focused correction and remove temporary runners
+      - name: Commit focused correction and remove temporary files
         run: |
-          rm .github/workflows/bogatka-pr67-visual-correction.yml
-          rm .github/workflows/bogatka-pr67-pr-runner.yml
+          rm -f .github/pr67-correction.bin.*
+          rm -f .github/workflows/bogatka-pr67-visual-correction.yml
+          rm -f .github/workflows/bogatka-pr67-pr-runner.yml
+          rm -f bogatka-field-8f3c7d/.pr67-trigger
+          rm -rf node_modules package-lock.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            bogatka-field-8f3c7d/card-progress-v448.js \
-            bogatka-field-8f3c7d/card-progress-v448.css \
-            bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs \
-            bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs \
-            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
-            bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
-            bogatka-field-8f3c7d/tests/location-card-polish-v423.spec.mjs \
-            .github/workflows/bogatka-pr67-visual-correction.yml \
-            .github/workflows/bogatka-pr67-pr-runner.yml
+          git add -A
           git commit -m 'Refine status placement and metric guidance'
           git push origin HEAD:ui-recommendation-progress-refine
 
