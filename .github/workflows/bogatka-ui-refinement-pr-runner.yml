@@ -38,6 +38,49 @@ jobs:
             .github/bogatka-ui-payload.part04b02 \
             .github/bogatka-ui-payload.part04c \
             | base64 -d | tar -xzf -
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs')
+          s=p.read_text(encoding='utf-8')
+          start=s.index("test('lease metric uses completion count as primary and written-proof warning as secondary note'")
+          end=s.index("\ntest('authoritative HTML and PDF report",start)
+          replacement="""test('lease metric uses completion count as primary and written-proof warning as secondary note',async({page})=>{
+            const card=await openApp(page);
+            const id=await card.getAttribute('data-location-card');
+            const criticalDealConditions=await page.evaluate(()=>Object.fromEntries(
+              window.BogatkaCriticalDeal.CONDITIONS.map((definition,index)=>{
+                if(index===0)return[definition.key,{status:'needs_formalization',evidenceType:'not_confirmed',note:'Получить письменное подтверждение'}];
+                const evidence=window.BogatkaCriticalDeal.evidenceOptions(definition).find(item=>!['not_confirmed','oral_agreement','oral_promise'].includes(item.value));
+                return[definition.key,{status:'confirmed',evidenceType:evidence.value,note:''}];
+              })
+            ));
+            await saveData(page,id,{criticalDealConditions});
+            const outer=card.locator('.progress-card-toggle-v462');
+            if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+            const primary=card.locator('[data-progress-checks-v448]');
+            const secondary=card.locator('[data-progress-checks-meta-v448]');
+            const note=card.locator('[data-progress-checks-note-v448]');
+            await expect(primary).toHaveText('10 из 10');
+            await expect(secondary).toHaveText('Проверок завершено');
+            await expect(primary).not.toHaveText('Нужно письменно');
+            await expect(note).toBeVisible();
+            await expect(note).toHaveText('Есть пункты без письменного подтверждения');
+            const hierarchy=await card.evaluate(node=>{
+              const primary=node.querySelector('[data-progress-checks-v448]');
+              const note=node.querySelector('[data-progress-checks-note-v448]');
+              return{
+                primarySize:parseFloat(getComputedStyle(primary).fontSize),
+                primaryWeight:Number(getComputedStyle(primary).fontWeight),
+                noteSize:parseFloat(getComputedStyle(note).fontSize),
+                noteWeight:Number(getComputedStyle(note).fontWeight),
+              };
+            });
+            expect(hierarchy.noteSize).toBeLessThan(hierarchy.primarySize);
+            expect(hierarchy.noteWeight).toBeLessThan(hierarchy.primaryWeight);
+          });
+          """
+          p.write_text(s[:start]+replacement+s[end:],encoding='utf-8')
+          PY
           node --check bogatka-field-8f3c7d/card-progress-v448.js
           for file in \
             bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
@@ -56,6 +99,7 @@ jobs:
 
       - name: Run bounded targeted tests
         run: |
+          set -o pipefail
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
@@ -76,7 +120,7 @@ jobs:
       - name: Capture review screenshots
         run: |
           mkdir -p /tmp/bogatka-ui-review
-          cat > /tmp/capture.cjs <<'NODE'
+          cat > ./capture-bogatka-ui.cjs <<'NODE'
           const {chromium}=require('@playwright/test');
           const APP='http://127.0.0.1:4174/bogatka-field-8f3c7d/?review=ui-recommendation-progress';
           (async()=>{
@@ -86,18 +130,28 @@ jobs:
             await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
             const open=async(width,height)=>{
               await page.setViewportSize({width,height});
-              await page.goto(APP,{waitUntil:'networkidle'});
+              await page.goto(APP,{waitUntil:'domcontentloaded'});
               await page.waitForFunction(()=>Boolean(window.BogatkaCardProgressV448?.ready&&window.BogatkaLocationCardCollapseV422?.ready&&document.querySelector('[data-card-recommendation-v448]')),{timeout:30000});
+              await page.waitForTimeout(250);
             };
             await open(1600,1100);
             await page.evaluate(()=>document.querySelectorAll('[data-location-card]').forEach(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,true,{persist:false})));
-            await page.locator('#locations').screenshot({path:'/tmp/bogatka-ui-review/01-desktop-collapsed-location-cards.png'});
-            const first=page.locator('[data-location-card]').first();
+            const cards=page.locator('[data-location-card]');
+            const boxes=[];
+            for(let i=0;i<Math.min(3,await cards.count());i++)boxes.push(await cards.nth(i).boundingBox());
+            const valid=boxes.filter(Boolean);
+            const x=Math.min(...valid.map(b=>b.x));
+            const y=Math.min(...valid.map(b=>b.y));
+            const right=Math.max(...valid.map(b=>b.x+b.width));
+            const bottom=Math.max(...valid.map(b=>b.y+b.height));
+            await page.screenshot({path:'/tmp/bogatka-ui-review/01-desktop-collapsed-location-cards.png',clip:{x,y,width:right-x,height:bottom-y}});
+            const first=cards.first();
             await first.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:false}));
             for(const selector of ['.inspection-card-v416 .panel-toggle-v419','.landlord-card-v416 .panel-toggle-v419']){
               const toggle=first.locator(selector);
-              if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
+              if(await toggle.count()&&await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
             }
+            await page.waitForTimeout(150);
             await first.locator('.location-panels-v419').screenshot({path:'/tmp/bogatka-ui-review/02-desktop-inspection-landlord-url-padding.png'});
             const progressToggle=first.locator('.progress-card-toggle-v462');
             if(await progressToggle.getAttribute('aria-expanded')!=='true')await progressToggle.click();
@@ -120,7 +174,8 @@ jobs:
             curl --fail --silent http://127.0.0.1:4174/bogatka-field-8f3c7d/ > /dev/null && break
             sleep 1
           done
-          node /tmp/capture.cjs
+          node ./capture-bogatka-ui.cjs
+          rm ./capture-bogatka-ui.cjs
 
       - name: Upload review evidence
         if: always()
