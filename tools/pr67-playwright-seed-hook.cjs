@@ -18,8 +18,12 @@ playwright.chromium.launch=async(...launchArgs)=>{
             await page.locator('#locationNote').fill('Изолированная браузерная проверка PR #67');
             await page.locator('#saveLocationBtn').click();
             await page.waitForSelector('[data-location-card]:visible',{timeout:15000});
-            await page.waitForFunction(()=>Boolean(document.querySelector('[data-location-card]:not([hidden]) .location-actions [data-card-recommendation-v448]')),{timeout:15000});
           }
+          const card=page.locator('[data-location-card]:visible').first();
+          const quick=card.getByRole('button',{name:/Быстрый чек-лист/}).first();
+          if(await quick.count()&&await quick.getAttribute('aria-expanded')!=='true')await quick.click();
+          await card.locator('[data-field="listingUrl"]:not([data-stage6-marker-v461])').waitFor({state:'attached',timeout:30000});
+          await page.waitForFunction(()=>Boolean(document.querySelector('[data-location-card]:not([hidden]) .location-actions [data-card-recommendation-v448]')),{timeout:15000});
         }catch(error){console.error('SEED_HOOK_ERROR',error)}
       }
       return response;
