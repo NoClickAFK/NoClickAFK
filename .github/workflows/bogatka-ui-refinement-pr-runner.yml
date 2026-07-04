@@ -33,6 +33,7 @@ jobs:
           start=source.index("          python3 - <<'PY'\n")+len("          python3 - <<'PY'\n")
           end=source.index("\n          PY\n\n      - name: Install Chromium",start)
           script=textwrap.dedent(source[start:end])
+          script=script.replace('Здесь видно, насколько подходит локация и сколько данных уже собрано.','Здесь видно, насколько подходит локация и сколько данных уже собрано')
           Path('/tmp/apply-bogatka-ui.py').write_text(script,encoding='utf-8')
           PY
           python3 /tmp/apply-bogatka-ui.py
