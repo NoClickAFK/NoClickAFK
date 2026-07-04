@@ -78,13 +78,12 @@
   }
 
   function updateScoreSection(card){
-    const details=[...card.querySelectorAll(':scope .location-body > details')].find(item=>{
-      const title=item.querySelector(':scope > summary')?.textContent||'';
-      return title.includes('70-балльной')||title.includes('Сравнительная оценка');
-    });
+    const details=[...card.querySelectorAll(':scope .location-body > details')].find(item=>Boolean(
+      item.querySelector('select[data-field^="score."],.score-table')
+    ));
     if(!details)return;
     const summary=details.querySelector(':scope > summary');
-    if(summary&&summary.textContent!=='Сравнительная оценка потенциала локации — 70 баллов')summary.textContent='Сравнительная оценка потенциала локации — 70 баллов';
+    if(summary&&summary.textContent!=='Оценка локации')summary.textContent='Оценка локации';
     const guide=details.querySelector('.score-guide-v331');
     const paragraph=guide?.querySelector('p');
     if(paragraph&&paragraph.textContent!==SCORE_DESCRIPTION)paragraph.textContent=SCORE_DESCRIPTION;
