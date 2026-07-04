@@ -5,19 +5,30 @@
   const VERSION='4.5.3';
   const TRAFFIC_KEY='trafficMeasurements';
   const COMPETITORS_KEY='competitors';
+  const EMPTY_WEEKDAY_GUIDANCE='День недели определится автоматически после выбора даты. Показатели целевой аудитории, конкурента и парковки заполняйте только при наличии наблюдаемых данных';
   const LEGACY_TRAFFIC_FIELDS=[
     ['weekdayMorning','Будни 08:00–10:00, человек'],['weekdayDay','Будни 12:00–14:00, человек'],
     ['weekdayEvening','Будни 17:00–20:00, человек'],['weekendDay','Выходной 11:00–14:00, человек'],
     ['weekendEvening','Выходной 16:00–19:00, человек'],['parkingOccupied','Занято парковочных мест, %'],
     ['dogWalkers','Люди с собаками за 30 минут'],['competitorVisitors','Покупатели у конкурента за 30 минут'],
   ];
+  const DURATION_OPTIONS=[['15','15 минут'],['30','30 минут'],['60','60 минут'],['90','90 минут'],['120','120 минут']];
+  const WEATHER_OPTIONS=[
+    ['','Не выбрано'],['Ясно','Ясно'],['Переменная облачность','Переменная облачность'],['Пасмурно','Пасмурно'],
+    ['Дождь','Дождь'],['Снег','Снег'],['Туман','Туман'],['Мороз','Мороз'],['Сильный ветер','Сильный ветер'],
+    ['Жара','Жара'],['Другое','Другое'],
+  ];
   const TRAFFIC_FIELDS=[
-    ['date','Дата замера','date'],['startTime','Начало замера','time'],
-    ['durationMinutes','Длительность','select',[['15','15 минут'],['30','30 минут'],['60','60 минут']]],
-    ['peopleCount','Всего людей','number'],['targetCustomers','Целевые покупатели','number'],
-    ['dogWalkers','Люди с собаками','number'],['competitorVisitors','Посетители конкурента','number'],
-    ['parkingOccupiedPct','Занято парковки, %','number'],['weather','Погода','text'],
-    ['comment','Комментарий','textarea',null,true],
+    ['date','Дата замера','date'],
+    ['startTime','Начало замера','time'],
+    ['durationMinutes','Длительность','select',DURATION_OPTIONS],
+    ['weather','Погода','select',WEATHER_OPTIONS],
+    ['peopleCount','Прохожих всего','number',null,false,'Все люди, прошедшие мимо точки наблюдения'],
+    ['targetCustomers','Потенциальная целевая аудитория','number',null,false,'Оценочно, только если можно определить'],
+    ['dogWalkers','Прохожих с собаками','number',null,false,'Люди, проходящие или гуляющие с собаками'],
+    ['competitorVisitors','Посетителей конкурента','number',null,false,'Заполняйте только при наличии конкурента'],
+    ['parkingOccupiedPct','Занято парковки, %','number',null,false,'Заполняйте только при наличии парковки',100],
+    ['comment','Комментарий','textarea',null,true,'Например: где проводился замер, что происходило рядом, были ли очереди, мероприятия, перекрытия или другие факторы, повлиявшие на поток'],
   ];
   const COMPETITOR_FIELDS=[
     ['name','Название','text'],
@@ -27,6 +38,7 @@
     ['weaknesses','Слабые стороны','textarea',null,true],['photoReference','Фото конкурента','text'],
     ['comment','Комментарий','textarea',null,true],
   ];
+  const TRAFFIC_NUMERIC_FIELDS=new Set(['peopleCount','targetCustomers','dogWalkers','competitorVisitors','parkingOccupiedPct']);
   const timers=new Map();
   const saveQueues=new Map();
   let observer=null;
@@ -50,17 +62,36 @@
   }
 
   function weekday(value){
-    if(!value)return'День недели появится после выбора даты';
+    if(!value)return EMPTY_WEEKDAY_GUIDANCE;
     const date=new Date(`${value}T12:00:00`);
-    return Number.isNaN(date.getTime())?'Проверьте дату':date.toLocaleDateString('ru-RU',{weekday:'long'});
+    if(Number.isNaN(date.getTime()))return'Проверьте дату';
+    const label=date.toLocaleDateString('ru-RU',{weekday:'long'});
+    return label.charAt(0).toUpperCase()+label.slice(1);
   }
 
-  function fieldHtml([key,label,kind,options,wide],value,extra=''){
-    const common=`data-stage7-field="${esc(key)}" ${extra}`;
+  function selectOptions(options,value,kind){
+    const current=String(value??'');
+    const list=[...(options||[])];
+    if(current&&!list.some(([optionValue])=>String(optionValue)===current)){
+      list.push([current,kind==='durationMinutes'?`${current} минут`:current]);
+    }
+    return list;
+  }
+
+  function fieldHtml([key,label,kind,options,wide,placeholder,max],value,extra=''){
+    const current=String(value??'');
+    const common=`data-stage7-field="${esc(key)}" data-last-valid-value="${esc(current)}" ${extra}`;
+    const placeholderAttr=placeholder?` placeholder="${esc(placeholder)}"`:'';
     let control='';
-    if(kind==='textarea')control=`<textarea rows="3" ${common}>${esc(value??'')}</textarea>`;
-    else if(kind==='select')control=`<select ${common}>${options.map(([optionValue,optionLabel])=>`<option value="${esc(optionValue)}"${String(optionValue)===String(value??'')?' selected':''}>${esc(optionLabel)}</option>`).join('')}</select>`;
-    else control=`<input type="${kind}" value="${esc(value??'')}"${kind==='number'?' min="0" step="1"':''} ${common}>`;
+    if(kind==='textarea'){
+      control=`<textarea rows="4"${placeholderAttr} ${common}>${esc(current)}</textarea>`;
+    }else if(kind==='select'){
+      const values=selectOptions(options,current,key);
+      control=`<select ${common}>${values.map(([optionValue,optionLabel])=>`<option value="${esc(optionValue)}"${String(optionValue)===current?' selected':''}>${esc(optionLabel)}</option>`).join('')}</select>`;
+    }else{
+      const numberAttrs=kind==='number'?` min="0"${max!==undefined?` max="${max}"`:''} step="1" inputmode="numeric"`:'';
+      control=`<input type="${kind}" value="${esc(current)}"${numberAttrs}${placeholderAttr} ${common}>`;
+    }
     return`<label class="field stage7-field-v453${wide?' stage7-wide-v453':''}"><span class="profile-caption-v416">${esc(label)}</span>${control}</label>`;
   }
 
@@ -85,7 +116,18 @@
   }
 
   function trafficArticle(item,index){
-    return`<article class="traffic-measurement-v453" data-traffic-id="${esc(item.id)}" data-created-at="${esc(item.createdAt||'')}"><div class="stage7-card-head-v453"><div><span>Замер ${index+1}</span><strong data-weekday-v453>${esc(weekday(item.date))}</strong></div><button type="button" class="btn danger small" data-stage7-action="remove-traffic">Удалить</button></div><div class="traffic-measurement-grid-v453">${TRAFFIC_FIELDS.map(def=>fieldHtml(def,item[def[0]])).join('')}</div></article>`;
+    const primary=TRAFFIC_FIELDS.slice(0,4).map(def=>fieldHtml(def,item[def[0]])).join('');
+    const indicators=TRAFFIC_FIELDS.slice(4,9).map(def=>fieldHtml(def,item[def[0]])).join('');
+    const comment=fieldHtml(TRAFFIC_FIELDS[9],item.comment);
+    return`<article class="traffic-measurement-v453" data-traffic-id="${esc(item.id)}" data-created-at="${esc(item.createdAt||'')}">
+      <div class="stage7-card-head-v453">
+        <div><span>Замер ${index+1}</span><strong data-weekday-v453>${esc(weekday(item.date))}</strong></div>
+        <button type="button" class="btn danger small" data-stage7-action="remove-traffic">Удалить</button>
+      </div>
+      <div class="traffic-primary-row-v453">${primary}</div>
+      <div class="traffic-indicators-row-v453">${indicators}</div>
+      <div class="traffic-comment-row-v453">${comment}</div>
+    </article>`;
   }
 
   function competitorArticle(item,index,legacy=false){
@@ -98,12 +140,43 @@
     });
   }
 
+  function validTrafficNumber(field,value){
+    if(value==='')return true;
+    const number=Number(value);
+    if(!Number.isFinite(number)||number<0||!Number.isInteger(number))return false;
+    return field!=='parkingOccupiedPct'||number<=100;
+  }
+
+  function validateTrafficControl(control,{revert=false}={}){
+    const field=control?.dataset?.stage7Field;
+    if(!TRAFFIC_NUMERIC_FIELDS.has(field))return true;
+    const valid=validTrafficNumber(field,control.value);
+    control.setCustomValidity(valid?'':field==='parkingOccupiedPct'?'Введите значение от 0 до 100':'Введите целое число не меньше нуля');
+    if(valid){
+      control.dataset.lastValidValue=control.value;
+      return true;
+    }
+    if(revert){
+      control.value=control.dataset.lastValidValue??'';
+      control.setCustomValidity('');
+    }
+    return false;
+  }
+
+  function summaryNumber(control){
+    const field=control?.dataset?.stage7Field;
+    const value=String(control?.value??'');
+    if(TRAFFIC_NUMERIC_FIELDS.has(field)&&!validTrafficNumber(field,value))return 0;
+    const number=Number(value);
+    return Number.isFinite(number)&&number>0?number:0;
+  }
+
   function updateTrafficSummary(root){
     const rows=[...root.querySelectorAll('.traffic-measurement-v453')];
     const values={
       count:rows.length,
-      minutes:rows.reduce((sum,row)=>sum+(Number(row.querySelector('[data-stage7-field="durationMinutes"]')?.value)||0),0),
-      people:rows.reduce((sum,row)=>sum+(Number(row.querySelector('[data-stage7-field="peopleCount"]')?.value)||0),0),
+      minutes:rows.reduce((sum,row)=>sum+summaryNumber(row.querySelector('[data-stage7-field="durationMinutes"]')),0),
+      people:rows.reduce((sum,row)=>sum+summaryNumber(row.querySelector('[data-stage7-field="peopleCount"]')),0),
     };
     Object.entries(values).forEach(([key,value])=>{const node=root.querySelector(`[data-traffic-summary-v453="${key}"]`);if(node)node.textContent=String(value);});
   }
@@ -113,8 +186,17 @@
     if(!body)return false;
     if(body.querySelector('.traffic-stage7-v453')&&!force)return true;
     const rows=normalizeList(data[TRAFFIC_KEY]);
-    const legacy=legacyTrafficRows(data);
-    body.innerHTML=`<div class="traffic-stage7-v453"><p class="section-note"><strong>Каждый замер хранится отдельно.</strong> Укажите дату, начало, длительность, погоду и комментарий.</p><div class="traffic-summary-v453"><div><span>Замеров</span><strong data-traffic-summary-v453="count">0</strong></div><div><span>Всего минут</span><strong data-traffic-summary-v453="minutes">0</strong></div><div><span>Учтено людей</span><strong data-traffic-summary-v453="people">0</strong></div></div>${legacy.length?`<details class="legacy-traffic-v453"><summary>Ранее сохранённые поля — ${legacy.length}</summary><div class="legacy-traffic-grid-v453">${legacy.map(row=>`<div><span>${esc(row.label)}</span><strong>${esc(row.value)}</strong></div>`).join('')}</div><p>Эти значения сохранены без преобразования и не удаляются.</p></details>`:''}${legacyCompatibilityHtml(card.dataset.locationCard,data)}<div class="traffic-measurements-list-v453">${rows.length?rows.map(trafficArticle).join(''):'<div class="stage7-empty-v453">Замеров пока нет.</div>'}</div><button type="button" class="btn secondary" data-stage7-action="add-traffic">+ Добавить замер</button></div>`;
+    body.innerHTML=`<div class="traffic-stage7-v453">
+      <p class="traffic-intro-v453">Замеры помогают сравнить поток людей в разное время и понять, насколько локация подходит для магазина. Каждый замер сохраняется отдельно и может быть отредактирован или удалён</p>
+      <div class="traffic-summary-v453">
+        <div><span>Замеров</span><strong data-traffic-summary-v453="count">0</strong></div>
+        <div><span>Всего минут</span><strong data-traffic-summary-v453="minutes">0</strong></div>
+        <div><span>Учтено прохожих</span><strong data-traffic-summary-v453="people">0</strong></div>
+      </div>
+      ${legacyCompatibilityHtml(card.dataset.locationCard,data)}
+      <div class="traffic-measurements-list-v453">${rows.length?rows.map(trafficArticle).join(''):'<div class="stage7-empty-v453">Замеров пока нет.</div>'}</div>
+      <button type="button" class="btn secondary traffic-add-v453" data-stage7-action="add-traffic">+ Добавить замер</button>
+    </div>`;
     updateTrafficSummary(body);
     enhanceSelects(body);
     return true;
@@ -134,10 +216,19 @@
 
   function controlValue(control){return control?.type==='checkbox'?control.checked:control?.value??'';}
 
+  function safeTrafficValue(control,key){
+    const value=controlValue(control);
+    if(!TRAFFIC_NUMERIC_FIELDS.has(key)||validTrafficNumber(key,String(value)))return value;
+    return control?.dataset?.lastValidValue??'';
+  }
+
   function collectRows(card,selector,idAttribute,fields){
     return[...card.querySelectorAll(selector)].map(row=>{
       const item={id:row.getAttribute(idAttribute)||createId(),createdAt:row.dataset.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
-      fields.forEach(([key])=>item[key]=controlValue(row.querySelector(`[data-stage7-field="${key}"]`)));
+      fields.forEach(([key])=>{
+        const control=row.querySelector(`[data-stage7-field="${key}"]`);
+        item[key]=selector.includes('traffic-measurement')?safeTrafficValue(control,key):controlValue(control);
+      });
       return item;
     });
   }
@@ -199,6 +290,7 @@
     article.remove();
     const list=card.querySelector('.traffic-measurements-list-v453');
     if(list&&!list.querySelector('.traffic-measurement-v453'))list.innerHTML='<div class="stage7-empty-v453">Замеров пока нет.</div>';
+    [...list?.querySelectorAll('.traffic-measurement-v453')||[]].forEach((row,index)=>{const title=row.querySelector('.stage7-card-head-v453 span');if(title)title.textContent=`Замер ${index+1}`;});
     updateTrafficSummary(card);
     const id=card.dataset.locationCard,rows=trafficSnapshot(card);
     await enqueueSave(id,()=>saveTrafficSnapshot(id,rows));
@@ -213,7 +305,14 @@
 
   function applyViewerState(root=document){
     const readOnly=isViewer();
-    root.querySelectorAll?.('.traffic-stage7-v453 input,.traffic-stage7-v453 select,.traffic-stage7-v453 textarea,.competitors-stage7-v453 input,.competitors-stage7-v453 select,.competitors-stage7-v453 textarea').forEach(control=>control.disabled=readOnly);
+    root.querySelectorAll?.('.traffic-stage7-v453 input,.traffic-stage7-v453 select,.traffic-stage7-v453 textarea,.competitors-stage7-v453 input,.competitors-stage7-v453 select,.competitors-stage7-v453 textarea').forEach(control=>{
+      control.disabled=readOnly;
+      const trigger=control.nextElementSibling;
+      if(trigger?.classList?.contains('premium-select-trigger')){
+        trigger.disabled=readOnly;
+        trigger.setAttribute('aria-disabled',String(readOnly));
+      }
+    });
     root.querySelectorAll?.('[data-stage7-action]').forEach(button=>{button.hidden=readOnly;button.disabled=readOnly;});
   }
 
@@ -298,6 +397,7 @@
       if(!card.querySelector('.competitors-stage7-v453'))failures.push(`${id}:competitors:missing`);
       if(!card.querySelector('[data-field="traffic.dogWalkers"]'))failures.push(`${id}:legacy-traffic-compatibility:missing`);
       if(!card.querySelector('[data-field="competitor.name"]'))failures.push(`${id}:legacy-competitor:missing`);
+      if(card.querySelector('.legacy-traffic-v453'))failures.push(`${id}:legacy-traffic-visible`);
     });
     return{ok:failures.length===0,failures,lastError:lastError?String(lastError):''};
   }
@@ -318,6 +418,8 @@
       const traffic=control.closest?.('.traffic-measurement-v453');const competitor=control.closest?.('.competitor-card-v453');
       const id=card.dataset.locationCard;
       if(traffic){
+        const valid=validateTrafficControl(control,{revert:event.type==='change'});
+        if(!valid){updateTrafficSummary(card);return;}
         if(control.dataset.stage7Field==='date')traffic.querySelector('[data-weekday-v453]').textContent=weekday(control.value);
         updateTrafficSummary(card);
         const rows=trafficSnapshot(card);scheduleSave(`${id}:traffic`,id,()=>saveTrafficSnapshot(id,rows));
@@ -335,7 +437,11 @@
     setInterval(()=>applyViewerState(document),1200);installLiveReport();
   }
 
-  window.BogatkaTrafficCompetitorsV453={version:VERSION,ready:true,TRAFFIC_FIELDS,COMPETITOR_FIELDS,LEGACY_TRAFFIC_FIELDS,trafficTemplate,competitorTemplate,legacyTrafficRows,renderTraffic,renderCompetitors,enhanceAll,enhanceCard,applyViewerState,audit,transformLiveReport,get lastError(){return lastError;}};
+  window.BogatkaTrafficCompetitorsV453={
+    version:VERSION,ready:true,TRAFFIC_FIELDS,COMPETITOR_FIELDS,LEGACY_TRAFFIC_FIELDS,DURATION_OPTIONS,WEATHER_OPTIONS,
+    trafficTemplate,competitorTemplate,legacyTrafficRows,renderTraffic,renderCompetitors,enhanceAll,enhanceCard,
+    applyViewerState,audit,transformLiveReport,updateTrafficSummary,validateTrafficControl,get lastError(){return lastError;},
+  };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
   window.addEventListener('load',()=>schedule(20),{once:true});
 })();

@@ -20,14 +20,29 @@ test('v453 assets are loaded and cached once',()=>{
   expect(publicLoader).toContain('script.src=src');
 });
 
-test('v453 keeps legacy traffic and first competitor structures',()=>{
+test('v453 preserves legacy storage without visible migration UI',()=>{
   const source=read('traffic-competitors-v453.js');
   expect(source).toContain("const TRAFFIC_KEY='trafficMeasurements'");
   expect(source).toContain("const COMPETITORS_KEY='competitors'");
   expect(source).toContain('data.traffic');
-  expect(source).toContain('data.competitor');
+  expect(source).toContain('legacyCompatibilityHtml');
   expect(source).not.toContain('delete data.traffic');
   expect(source).not.toContain('delete data.competitor');
+  expect(source).not.toContain('class="legacy-traffic-v453"');
+  expect(source).not.toContain('Ранее сохранённые поля');
+  expect(source).not.toContain('Эти значения сохранены без преобразования и не удаляются.');
+});
+
+test('traffic form exposes canonical keys with premium duration and weather options',()=>{
+  const source=read('traffic-competitors-v453.js');
+  for(const key of ['date','startTime','durationMinutes','weather','peopleCount','targetCustomers','dogWalkers','competitorVisitors','parkingOccupiedPct','comment']){
+    expect(source).toContain(`['${key}'`);
+  }
+  expect(source).toContain("['90','90 минут']");
+  expect(source).toContain("['120','120 минут']");
+  expect(source).toContain("['Переменная облачность','Переменная облачность']");
+  expect(source).toContain('selectOptions(options,current,key)');
+  expect(source).toContain("field!=='parkingOccupiedPct'||number<=100");
 });
 
 test('public report supports structured traffic and competitor lists',()=>{
