@@ -7,8 +7,13 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: pr67-production-verification
+  cancel-in-progress: true
+
 jobs:
   verify:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -28,17 +33,24 @@ jobs:
           npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
 
       - name: Verify deployed production
+        id: verify
+        continue-on-error: true
         run: |
+          set -o pipefail
           mkdir -p /tmp/pr67-production
-          node tools/pr67-production-verify.cjs | tee /tmp/pr67-production/verification.log
+          node tools/pr67-production-verify.cjs 2>&1 | tee /tmp/pr67-production/verification.log
 
       - name: Publish temporary evidence
-        if: success()
+        if: always()
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
         run: |
           mkdir -p .pr67-production-evidence
-          cp /tmp/pr67-production/verification.json .pr67-production-evidence/verification.json
-          cp /tmp/pr67-production/mobile-production-header.png .pr67-production-evidence/mobile-production-header.png
-          cp /tmp/pr67-production/desktop.png .pr67-production-evidence/desktop.png
+          cp /tmp/pr67-production/verification.log .pr67-production-evidence/verification.log || true
+          cp /tmp/pr67-production/verification.json .pr67-production-evidence/verification.json || true
+          cp /tmp/pr67-production/mobile-production-header.png .pr67-production-evidence/mobile-production-header.png || true
+          cp /tmp/pr67-production/desktop.png .pr67-production-evidence/desktop.png || true
+          printf '%s\n' "$VERIFY_OUTCOME" > .pr67-production-evidence/status.txt
           rm -f .github/workflows/bogatka-pr67-production-verify.yml
           rm -f bogatka-field-8f3c7d/.pr67-production-trigger
           rm -f tools/pr67-production-verify.cjs
@@ -48,6 +60,10 @@ jobs:
           git add -A
           git commit -m 'Publish temporary PR 67 production evidence'
           git push origin HEAD:ui-recommendation-progress-refine
+
+      - name: Fail when verification failed
+        if: steps.verify.outcome != 'success'
+        run: exit 1
 
       - name: Upload evidence
         if: always()
