@@ -1,0 +1,10 @@
+name: PR 67 production diagnostic marker
+
+on:
+  workflow_dispatch:
+
+jobs:
+  marker:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo marker
