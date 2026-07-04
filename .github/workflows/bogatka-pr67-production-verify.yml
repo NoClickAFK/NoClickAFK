@@ -5,7 +5,7 @@ on:
     branches: [ui-recommendation-progress-refine]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -13,84 +13,42 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ui-recommendation-progress-refine
+          fetch-depth: 0
+          persist-credentials: true
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
       - name: Install Chromium
         run: |
           npm install --no-save --silent @playwright/test@1.52.0
-          npx playwright install --with-deps chromium >/tmp/playwright-install.log 2>&1
-      - name: Verify production
+          npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
+
+      - name: Verify deployed production
         run: |
           mkdir -p /tmp/pr67-production
-          cat > /tmp/verify.cjs <<'NODE'
-          const fs=require('fs');
-          const {chromium}=require('@playwright/test');
-          const URL='https://noclickafk.github.io/NoClickAFK/bogatka-field-8f3c7d/?v=pr67-18f53d';
-          const delay=ms=>new Promise(r=>setTimeout(r,ms));
-          (async()=>{
-            const browser=await chromium.launch({headless:true});
-            const page=await browser.newPage({viewport:{width:1600,height:1100}});
-            const pageErrors=[],consoleErrors=[],failedRequests=[];
-            page.on('pageerror',e=>pageErrors.push(String(e)));
-            page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text())});
-            page.on('requestfailed',r=>failedRequests.push(`${r.url()} :: ${r.failure()?.errorText||'failed'}`));
-            await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
-            let live=false,last='';
-            for(let attempt=1;attempt<=30;attempt++){
-              try{
-                await page.goto(`${URL}&attempt=${attempt}&t=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:45000});
-                await page.waitForFunction(()=>Boolean(window.BogatkaCardProgressV448?.ready&&window.BogatkaLocationCardCollapseV422?.ready&&document.querySelector('[data-location-card]')),{timeout:30000});
-                const s=await page.evaluate(()=>({explanation:document.querySelector('.score-explanation-v448 strong')?.textContent.trim()||'',actionStatus:Boolean(document.querySelector('.location-actions [data-card-recommendation-v448]')),oldFormula:document.body.innerText.includes('1 балл = 0'),oldRecommendation:document.body.innerText.includes('Текущая рекомендация')}));
-                if(s.explanation==='Что означают показатели'&&s.actionStatus&&!s.oldFormula&&!s.oldRecommendation){live=true;break}
-                last=JSON.stringify(s);
-              }catch(e){last=String(e)}
-              await delay(20000);
-            }
-            if(!live)throw new Error(`deployment timeout: ${last}`);
-            const desktop=await page.evaluate(()=>{
-              const card=document.querySelector('[data-location-card]');
-              const toggle=card.querySelector('.progress-card-toggle-v462');
-              const input=document.querySelector('input[type="url"]');
-              const style=input?getComputedStyle(input):null;
-              return {largeRecommendation:document.querySelectorAll('.card-recommendation-v448').length,oldRecommendation:document.body.innerText.includes('Текущая рекомендация'),statusInActions:Boolean(card.querySelector('.location-actions [data-card-recommendation-v448]')),statusInSide:Boolean(card.querySelector('.location-head-side-v422 [data-card-recommendation-v448]')),progressStatus:toggle?.querySelectorAll('[data-progress-card-summary-v462],.recommendation-status-v448').length??-1,metricCount:card.querySelectorAll('.progress-metrics-v448>article').length,qualityCopy:card.querySelector('[data-progress-quality-meta-v448]')?.textContent.trim()||'',coverageCopy:card.querySelector('[data-progress-coverage-meta-v448]')?.textContent.trim()||'',explanationHeading:card.querySelector('.score-explanation-v448 strong')?.textContent.trim()||'',explanationText:card.querySelector('.score-explanation-v448 span')?.textContent.trim()||'',oldFormula:document.body.innerText.includes('1 балл = 0'),urlPaddingLeft:style?.paddingLeft||'',urlPaddingRight:style?.paddingRight||'',overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth};
-            });
-            if(desktop.largeRecommendation||desktop.oldRecommendation||!desktop.statusInActions||desktop.statusInSide||desktop.progressStatus!==0||desktop.metricCount!==4||!desktop.coverageCopy.startsWith('Оценено ')||desktop.explanationHeading!=='Что означают показатели'||!desktop.explanationText.includes('Качество показывает средний результат')||desktop.oldFormula||parseFloat(desktop.urlPaddingLeft)<9||parseFloat(desktop.urlPaddingRight)<9||desktop.overflow>1)throw new Error(`desktop failed ${JSON.stringify(desktop)}`);
-            const first=page.locator('[data-location-card]').first();
-            await first.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:false}));
-            const pt=first.locator('.progress-card-toggle-v462');
-            if(await pt.getAttribute('aria-expanded')!=='true')await pt.click();
-            await first.screenshot({path:'/tmp/pr67-production/desktop.png'});
-            await page.setViewportSize({width:390,height:1000});
-            await page.reload({waitUntil:'domcontentloaded'});
-            await page.waitForFunction(()=>Boolean(window.BogatkaCardProgressV448?.ready&&window.BogatkaLocationCardCollapseV422?.ready&&document.querySelector('.location-actions [data-card-recommendation-v448]')),{timeout:30000});
-            const card=page.locator('[data-location-card]').first();
-            await card.evaluate(c=>window.BogatkaLocationCardCollapseV422.setCollapsed(c,true,{persist:false}));
-            await page.waitForTimeout(300);
-            const mobile=await card.evaluate(c=>{
-              const head=c.querySelector(':scope > .location-head');
-              const actions=head.querySelector('.location-actions');
-              const buttons=actions.querySelector('.location-action-buttons-v448');
-              const status=actions.querySelector('[data-card-recommendation-v448]');
-              const side=head.querySelector('.location-head-side-v422');
-              const arrow=side.querySelector('.location-collapse-toggle-v422');
-              const ar=actions.getBoundingClientRect(),sr=status.getBoundingClientRect(),rr=arrow.getBoundingClientRect();
-              const br=[...buttons.children].map(n=>n.getBoundingClientRect());
-              const hit=(a,b)=>!(a.right<=b.left||a.left>=b.right||a.bottom<=b.top||a.top>=b.bottom);
-              return {statusInActions:status.closest('.location-actions')===actions,statusInSide:side.contains(status),overlapsButtons:br.some(r=>hit(r,sr)),overlapsArrow:hit(rr,sr),inside:sr.left>=ar.left-1&&sr.right<=ar.right+1,headOverflow:head.scrollWidth-head.clientWidth,actionOverflow:actions.scrollWidth-actions.clientWidth,documentOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,arrowAbove:rr.top<sr.top};
-            });
-            if(!mobile.statusInActions||mobile.statusInSide||mobile.overlapsButtons||mobile.overlapsArrow||!mobile.inside||mobile.headOverflow>1||mobile.actionOverflow>1||mobile.documentOverflow>1||!mobile.arrowAbove)throw new Error(`mobile failed ${JSON.stringify(mobile)}`);
-            await card.locator(':scope > .location-head').screenshot({path:'/tmp/pr67-production/mobile-production-header.png'});
-            const meaningfulConsole=consoleErrors.filter(x=>!x.includes('favicon'));
-            const meaningfulFailed=failedRequests.filter(x=>!x.includes('favicon'));
-            if(pageErrors.length||meaningfulConsole.length||meaningfulFailed.length)throw new Error(`runtime errors ${JSON.stringify({pageErrors,meaningfulConsole,meaningfulFailed})}`);
-            const result={verifiedAt:new Date().toISOString(),url:URL,mainSha:'18f53d08141c903e8a4c204632d24384ba13f222',desktop,mobile,pageErrors,consoleErrors:meaningfulConsole,failedRequests:meaningfulFailed};
-            fs.writeFileSync('/tmp/pr67-production/verification.json',JSON.stringify(result,null,2));
-            console.log(JSON.stringify(result,null,2));
-            await browser.close();
-          })().catch(e=>{console.error(e);process.exit(1)});
-          NODE
-          node /tmp/verify.cjs | tee /tmp/pr67-production/verification.log
+          node tools/pr67-production-verify.cjs | tee /tmp/pr67-production/verification.log
+
+      - name: Publish temporary evidence
+        if: success()
+        run: |
+          mkdir -p .pr67-production-evidence
+          cp /tmp/pr67-production/verification.json .pr67-production-evidence/verification.json
+          cp /tmp/pr67-production/mobile-production-header.png .pr67-production-evidence/mobile-production-header.png
+          cp /tmp/pr67-production/desktop.png .pr67-production-evidence/desktop.png
+          rm -f .github/workflows/bogatka-pr67-production-verify.yml
+          rm -f bogatka-field-8f3c7d/.pr67-production-trigger
+          rm -f tools/pr67-production-verify.cjs
+          rm -rf node_modules package-lock.json test-results
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Publish temporary PR 67 production evidence'
+          git push origin HEAD:ui-recommendation-progress-refine
+
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
