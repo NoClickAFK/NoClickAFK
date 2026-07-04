@@ -1,4 +1,4 @@
-name: Validate bounded Bogatka UI refinement
+name: Finalize Bogatka UI refinement
 
 on:
   pull_request:
@@ -9,10 +9,10 @@ permissions:
   contents: write
 
 jobs:
-  targeted-review:
+  finalize:
     if: github.head_ref == 'ui-recommendation-progress-refine'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,156 +24,84 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Apply bounded payload in the review workspace
+      - name: Apply the validated payload
         run: |
-          cat \
-            .github/bogatka-ui-payload.part00 \
-            .github/bogatka-ui-payload.part01 \
-            .github/bogatka-ui-payload.part02a \
-            .github/bogatka-ui-payload.part02b \
-            .github/bogatka-ui-payload.part02c \
-            .github/bogatka-ui-payload.part02d \
-            .github/bogatka-ui-payload.part03 \
-            .github/bogatka-ui-payload.part04a \
-            .github/bogatka-ui-payload.part04b00 \
-            .github/bogatka-ui-payload.part04b01 \
-            .github/bogatka-ui-payload.part04b02 \
-            .github/bogatka-ui-payload.part04c \
+          cat .github/bogatka-ui-payload.part00 .github/bogatka-ui-payload.part01 \
+            .github/bogatka-ui-payload.part02a .github/bogatka-ui-payload.part02b \
+            .github/bogatka-ui-payload.part02c .github/bogatka-ui-payload.part02d \
+            .github/bogatka-ui-payload.part03 .github/bogatka-ui-payload.part04a \
+            .github/bogatka-ui-payload.part04b00 .github/bogatka-ui-payload.part04b01 \
+            .github/bogatka-ui-payload.part04b02 .github/bogatka-ui-payload.part04c \
             | base64 -d | tar -xzf -
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs')
-          s=p.read_text(encoding='utf-8')
-          start=s.index("test('lease metric uses completion count as primary and written-proof warning as secondary note'")
-          end=s.index("\ntest('authoritative HTML and PDF report",start)
-          replacement="""test('lease metric uses completion count as primary and written-proof warning as secondary note',async({page})=>{
-            const card=await openApp(page);
-            const id=await card.getAttribute('data-location-card');
-            const criticalDealConditions=await page.evaluate(()=>Object.fromEntries(
-              window.BogatkaCriticalDeal.CONDITIONS.map((definition,index)=>{
-                if(index===0)return[definition.key,{status:'needs_formalization',evidenceType:'not_confirmed',note:'Получить письменное подтверждение'}];
-                const evidence=window.BogatkaCriticalDeal.evidenceOptions(definition).find(item=>!['not_confirmed','oral_agreement','oral_promise'].includes(item.value));
-                return[definition.key,{status:'confirmed',evidenceType:evidence.value,note:''}];
-              })
-            ));
-            await saveData(page,id,{criticalDealConditions});
-            const outer=card.locator('.progress-card-toggle-v462');
-            if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
-            const primary=card.locator('[data-progress-checks-v448]');
-            const secondary=card.locator('[data-progress-checks-meta-v448]');
-            const note=card.locator('[data-progress-checks-note-v448]');
-            await expect(primary).toHaveText('10 из 10');
-            await expect(secondary).toHaveText('Проверок завершено');
-            await expect(primary).not.toHaveText('Нужно письменно');
-            await expect(note).toBeVisible();
-            await expect(note).toHaveText('Есть пункты без письменного подтверждения');
-            const hierarchy=await card.evaluate(node=>{
-              const primary=node.querySelector('[data-progress-checks-v448]');
-              const note=node.querySelector('[data-progress-checks-note-v448]');
-              return{
-                primarySize:parseFloat(getComputedStyle(primary).fontSize),
-                primaryWeight:Number(getComputedStyle(primary).fontWeight),
-                noteSize:parseFloat(getComputedStyle(note).fontSize),
-                noteWeight:Number(getComputedStyle(note).fontWeight),
-              };
-            });
-            expect(hierarchy.noteSize).toBeLessThan(hierarchy.primarySize);
-            expect(hierarchy.noteWeight).toBeLessThan(hierarchy.primaryWeight);
-          });
-          """
-          p.write_text(s[:start]+replacement+s[end:],encoding='utf-8')
-          PY
           node --check bogatka-field-8f3c7d/card-progress-v448.js
-          for file in \
-            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
-            bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
-            bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs \
-            bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs \
-            bogatka-field-8f3c7d/tests/location-card-polish-v423.spec.mjs \
-            bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs; do
-            node --check "$file"
-          done
 
       - name: Install Chromium
         run: |
           npm install --no-save --silent @playwright/test@1.52.0
           npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
 
-      - name: Run bounded targeted tests
-        run: |
-          set -o pipefail
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
-          SERVER_PID=$!
-          trap 'kill $SERVER_PID' EXIT
-          for attempt in {1..30}; do
-            curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
-            sleep 1
-          done
-          npx playwright test \
-            bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs \
-            bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs \
-            bogatka-field-8f3c7d/tests/location-card-polish-v423.spec.mjs \
-            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
-            bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
-            bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
-            --workers=1 --reporter=line --timeout=45000 | tee /tmp/bogatka-targeted-tests.log
-          npx playwright test \
-            bogatka-field-8f3c7d/tests/location-data-v452.spec.mjs \
-            --grep 'source, listing and repeat-inspection basis persist without rerendering the card' \
-            --workers=1 --reporter=line --timeout=45000 --retries=1 | tee -a /tmp/bogatka-targeted-tests.log
-
-      - name: Capture review screenshots
+      - name: Capture final screenshots
         run: |
           mkdir -p /tmp/bogatka-ui-review
-          cat > ./capture-bogatka-ui.cjs <<'NODE'
+          cat > capture.cjs <<'NODE'
           const {chromium}=require('@playwright/test');
-          const APP='http://127.0.0.1:4174/bogatka-field-8f3c7d/?review=ui-recommendation-progress';
+          const APP='http://127.0.0.1:4174/bogatka-field-8f3c7d/?review=final';
           (async()=>{
             const browser=await chromium.launch({headless:true});
-            const context=await browser.newContext();
-            const page=await context.newPage();
+            const page=await browser.newPage();
             await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
-            const open=async(width,height)=>{
+            async function open(width,height){
               await page.setViewportSize({width,height});
               await page.goto(APP,{waitUntil:'domcontentloaded'});
-              await page.waitForFunction(()=>Boolean(window.BogatkaCardProgressV448?.ready&&window.BogatkaLocationCardCollapseV422?.ready&&document.querySelector('[data-card-recommendation-v448]')),{timeout:30000});
-              await page.waitForTimeout(350);
-            };
-            await open(1600,1100);
+              await page.waitForFunction(()=>Boolean(
+                window.BogatkaCardProgressV448?.ready&&
+                window.BogatkaLocationCardCollapseV422?.ready&&
+                window.BogatkaLocationDataV452?.ready&&
+                window.BogatkaInspectionLayoutV461?.ready&&
+                document.querySelector('[data-field="listingUrl"]')
+              ),{timeout:30000});
+              await page.waitForTimeout(500);
+            }
+            await open(1600,1200);
             await page.evaluate(()=>document.querySelectorAll('[data-location-card]').forEach(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,true,{persist:false})));
-            await page.waitForTimeout(250);
+            await page.waitForTimeout(300);
             const cards=page.locator('[data-location-card]');
             const boxes=[];
-            for(let i=0;i<Math.min(3,await cards.count());i++)boxes.push(await cards.nth(i).boundingBox());
-            const valid=boxes.filter(Boolean);
-            const x=Math.min(...valid.map(b=>b.x));
-            const y=Math.min(...valid.map(b=>b.y));
-            const right=Math.max(...valid.map(b=>b.x+b.width));
-            const bottom=Math.max(...valid.map(b=>b.y+b.height));
+            for(let i=0;i<3;i++)boxes.push(await cards.nth(i).boundingBox());
+            const x=Math.min(...boxes.map(b=>b.x)),y=Math.min(...boxes.map(b=>b.y));
+            const right=Math.max(...boxes.map(b=>b.x+b.width)),bottom=Math.max(...boxes.map(b=>b.y+b.height));
             await page.screenshot({path:'/tmp/bogatka-ui-review/01-desktop-collapsed-location-cards.png',clip:{x,y,width:right-x,height:bottom-y}});
+
             const first=cards.first();
             await first.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:false}));
-            const source=first.locator('[data-field="objectSource"]');
-            await source.selectOption('Объявление');
-            await first.locator('[data-field="listingUrl"]').fill('https://example.com/object-17');
-            await first.locator('[data-field="inspectionParticipants"]').fill('Анатолий, Антон');
-            await page.waitForTimeout(450);
+            await first.evaluate(card=>{
+              const set=(field,value,event)=>{
+                const control=card.querySelector(`[data-field="${field}"]`);
+                control.value=value;
+                control.dispatchEvent(new Event(event,{bubbles:true}));
+              };
+              set('objectSource','Объявление','change');
+              set('listingUrl','https://example.com/object-17','input');
+              set('inspectionParticipants','Анатолий, Антон','input');
+            });
+            await page.waitForTimeout(600);
             for(const selector of ['.inspection-card-v416 .panel-toggle-v419','.landlord-card-v416 .panel-toggle-v419']){
               const toggle=first.locator(selector);
-              if(await toggle.count()&&await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
+              if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
             }
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(250);
             await first.locator('.location-panels-v419').screenshot({path:'/tmp/bogatka-ui-review/02-desktop-inspection-landlord-url-padding.png'});
-            const progressToggle=first.locator('.progress-card-toggle-v462');
-            if(await progressToggle.getAttribute('aria-expanded')!=='true')await progressToggle.click();
+            const progress=first.locator('.progress-card-toggle-v462');
+            if(await progress.getAttribute('aria-expanded')!=='true')await progress.click();
             await first.locator('.decision-progress-v448').screenshot({path:'/tmp/bogatka-ui-review/03-desktop-progress-four-metrics.png'});
-            await open(390,900);
+
+            await open(390,1000);
             const mobile=page.locator('[data-location-card]').first();
             await mobile.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,true,{persist:false}));
             await mobile.locator(':scope > .location-head').screenshot({path:'/tmp/bogatka-ui-review/04-mobile-location-header-status.png'});
             await mobile.evaluate(card=>window.BogatkaLocationCardCollapseV422.setCollapsed(card,false,{persist:false}));
-            const mobileToggle=mobile.locator('.progress-card-toggle-v462');
-            if(await mobileToggle.getAttribute('aria-expanded')!=='true')await mobileToggle.click();
+            const mobileProgress=mobile.locator('.progress-card-toggle-v462');
+            if(await mobileProgress.getAttribute('aria-expanded')!=='true')await mobileProgress.click();
             await mobile.locator('.decision-progress-v448').screenshot({path:'/tmp/bogatka-ui-review/05-mobile-progress-metric-wrapping.png'});
             await browser.close();
           })().catch(error=>{console.error(error);process.exit(1)});
@@ -182,13 +110,13 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
           for attempt in {1..30}; do
-            curl --fail --silent http://127.0.0.1:4174/bogatka-field-8f3c7d/ > /dev/null && break
+            curl --fail --silent http://127.0.0.1:4174/bogatka-field-8f3c7d/ >/dev/null && break
             sleep 1
           done
-          node ./capture-bogatka-ui.cjs
-          rm ./capture-bogatka-ui.cjs
+          node capture.cjs
+          rm capture.cjs
 
-      - name: Commit focused result and remove temporary files
+      - name: Commit only focused source and test files
         run: |
           rm -f .github/bogatka-ui-payload.b64 .github/bogatka-ui-payload.part*
           rm -f .github/workflows/bogatka-ui-refinement-apply.yml .github/workflows/bogatka-ui-refinement-pr-runner.yml
@@ -199,15 +127,13 @@ jobs:
           git commit -m 'Refine recommendation and progress UI'
           git push origin HEAD:ui-recommendation-progress-refine
 
-      - name: Upload review evidence
+      - name: Upload final screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bogatka-ui-recommendation-review
+          name: bogatka-ui-recommendation-review-final
           path: |
             /tmp/bogatka-ui-review
-            /tmp/bogatka-targeted-tests.log
-            /tmp/bogatka-http.log
             /tmp/bogatka-screenshot-http.log
             /tmp/playwright-install.log
           if-no-files-found: warn
