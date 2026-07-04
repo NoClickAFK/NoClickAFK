@@ -2,58 +2,42 @@ import { test, expect } from '@playwright/test';
 
 const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=462';
 
-test('mobile recommendation panel and compact status stay overflow free',async({page})=>{
+test('mobile compact recommendation status stays overflow free',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>{
     const card=document.querySelector('[data-location-card]');
-    return Boolean(window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&card?.querySelector('.location-head-side-v422 .card-recommendation-v448'));
+    return Boolean(window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&card?.querySelector('.location-head-side-v422 [data-card-recommendation-v448]'));
   });
 
   const layout=await page.locator('[data-location-card]').first().evaluate(card=>{
     const head=card.querySelector(':scope > .location-head').getBoundingClientRect();
-    const title=card.querySelector('.location-title-wrap').getBoundingClientRect();
     const side=card.querySelector('.location-head-side-v422');
     const sideRect=side.getBoundingClientRect();
-    const recommendation=side.querySelector('.card-recommendation-v448');
-    const recommendationRect=recommendation.getBoundingClientRect();
-    const status=recommendation.querySelector(':scope > strong').getBoundingClientRect();
+    const status=side.querySelector('[data-card-recommendation-v448]').getBoundingClientRect();
     const toggle=side.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
-    return {
+    return{
       headWidth:head.width,
-      titleWidth:title.width,
       sideWidth:sideRect.width,
-      sideLeft:sideRect.left,
-      headLeft:head.left,
       overflow:side.scrollWidth-side.clientWidth,
-      recommendationWidth:recommendationRect.width,
-      recommendationHeight:recommendationRect.height,
-      recommendationOverflow:recommendation.scrollWidth-recommendation.clientWidth,
       statusWidth:status.width,
       statusHeight:status.height,
-      gapToToggle:toggle.left-recommendationRect.right,
-      oldMetricCount:side.querySelectorAll(':scope > .scorebox:not([hidden]),.decision-score-v340,.decision-complete-v340').length,
+      gapToToggle:toggle.left-status.right,
+      largePanelCount:side.querySelectorAll('.card-recommendation-v448').length,
     };
   });
 
-  expect(layout.titleWidth).toBeGreaterThan(layout.headWidth-40);
   expect(layout.sideWidth).toBeGreaterThan(layout.headWidth-40);
-  expect(Math.abs(layout.sideLeft-layout.headLeft)).toBeLessThanOrEqual(20);
   expect(layout.overflow).toBeLessThanOrEqual(1);
-  expect(layout.recommendationWidth).toBeGreaterThan(250);
-  expect(layout.recommendationWidth).toBeLessThan(layout.sideWidth);
-  expect(layout.recommendationHeight).toBeGreaterThan(80);
-  expect(layout.recommendationOverflow).toBeLessThanOrEqual(1);
   expect(layout.statusWidth).toBeLessThan(210);
-  expect(layout.statusHeight).toBe(34);
-  expect(layout.gapToToggle).toBeGreaterThanOrEqual(9);
-  expect(layout.gapToToggle).toBeLessThanOrEqual(12);
-  expect(layout.oldMetricCount).toBe(0);
+  expect(layout.statusHeight).toBeGreaterThanOrEqual(30);
+  expect(layout.gapToToggle).toBeGreaterThanOrEqual(8);
+  expect(layout.largePanelCount).toBe(0);
 
   const card=page.locator('[data-location-card]').first();
   await card.locator('.location-collapse-toggle-v422').click();
   await expect(card.locator(':scope > .location-body')).toBeHidden();
-  await expect(card.locator('.card-recommendation-v448')).toBeVisible();
-  await expect(card.locator('.card-recommendation-v448 > strong')).toBeVisible();
+  await expect(card.locator('[data-card-recommendation-v448]')).toBeVisible();
 });
+

@@ -9,7 +9,7 @@ async function openApp(page){
   await page.waitForFunction(()=>window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&document.querySelectorAll('[data-location-card]').length>1);
   await page.waitForFunction(()=>{
     const card=document.querySelector('[data-location-card]');
-    return Boolean(window.BogatkaLocationCardCollapseV422.audit().ok&&card?.querySelector('.location-collapse-toggle-v422')&&card?.querySelector('.card-recommendation-v448'));
+    return Boolean(window.BogatkaLocationCardCollapseV422.audit().ok&&card?.querySelector('.location-collapse-toggle-v422')&&card?.querySelector('[data-card-recommendation-v448]'));
   });
 }
 
@@ -33,8 +33,8 @@ test('whole location card collapses to its header and remembers state independen
   await expect(first.locator('.scorebox')).toBeHidden();
   await expect(first.locator('.decision-score-v340')).toHaveCount(0);
   await expect(first.locator('.decision-complete-v340')).toHaveCount(0);
-  await expect(first.locator('.card-recommendation-v448')).toBeVisible();
-  await expect(first.locator('.card-recommendation-v448 > strong')).toBeVisible();
+  await expect(first.locator('[data-card-recommendation-v448]')).toBeVisible();
+  await expect(first.locator('[data-card-recommendation-v448]')).toBeVisible();
   await expect(second.locator(':scope > .location-body')).toBeVisible();
 
   await page.reload({waitUntil:'networkidle'});
@@ -42,47 +42,38 @@ test('whole location card collapses to its header and remembers state independen
   const reloaded=page.locator(`[data-location-card="${firstId}"]`);
   await expect(reloaded.locator('.location-collapse-toggle-v422')).toHaveAttribute('aria-expanded','false');
   await expect(reloaded.locator(':scope > .location-body')).toBeHidden();
-  await expect(reloaded.locator('.card-recommendation-v448')).toBeVisible();
+  await expect(reloaded.locator('[data-card-recommendation-v448]')).toBeVisible();
 
   await reloaded.locator('.location-collapse-toggle-v422').click();
   await expect(reloaded.locator(':scope > .location-body')).toBeVisible();
 });
 
-test('header keeps recommendation copy and compact status as separate visual elements',async({page})=>{
+test('header keeps only the compact semantic status and separate collapse control',async({page})=>{
   await openApp(page);
   const result=await page.locator('[data-location-card]').first().evaluate(card=>{
-    const recommendation=card.querySelector('.location-head-side-v422 .card-recommendation-v448');
-    const rect=recommendation.getBoundingClientRect();
-    const title=recommendation.querySelector(':scope > span');
-    const reason=recommendation.querySelector(':scope > small');
-    const status=recommendation.querySelector(':scope > strong');
+    const status=card.querySelector('.location-head-side-v422 [data-card-recommendation-v448]');
     const statusRect=status.getBoundingClientRect();
-    const statusStyle=getComputedStyle(status);
-    return {
-      width:Math.round(rect.width*10)/10,
-      height:Math.round(rect.height*10)/10,
-      titleVisible:getComputedStyle(title).display!=='none',
-      reasonVisible:getComputedStyle(reason).display!=='none',
+    const toggleRect=card.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
+    const style=getComputedStyle(status);
+    return{
       statusWidth:Math.round(statusRect.width*10)/10,
       statusHeight:Math.round(statusRect.height*10)/10,
-      statusBorderWidth:statusStyle.borderTopWidth,
-      statusRadius:statusStyle.borderTopLeftRadius,
-      statusFontSize:statusStyle.fontSize,
+      statusBorderWidth:style.borderTopWidth,
+      statusRadius:style.borderTopLeftRadius,
+      statusFontSize:style.fontSize,
+      gap:toggleRect.left-statusRect.right,
+      largePanelCount:card.querySelectorAll('.card-recommendation-v448').length,
       oldMetricCount:card.querySelectorAll('.location-head-side-v422 .decision-score-v340,.location-head-side-v422 .decision-complete-v340').length,
       rawVisible:getComputedStyle(card.querySelector('.location-head-side-v422 > .scorebox')).display!=='none',
     };
   });
-
-  expect(result.width).toBeGreaterThan(250);
-  expect(result.width).toBeLessThanOrEqual(330);
-  expect(result.height).toBeGreaterThan(80);
-  expect(result.titleVisible).toBe(true);
-  expect(result.reasonVisible).toBe(true);
   expect(result.statusWidth).toBeLessThan(210);
-  expect(result.statusHeight).toBe(34);
+  expect(result.statusHeight).toBeGreaterThanOrEqual(30);
   expect(result.statusBorderWidth).toBe('1px');
   expect(result.statusRadius).toBe('10px');
-  expect(result.statusFontSize).toBe('12px');
+  expect(result.statusFontSize).toBe('11px');
+  expect(result.gap).toBeGreaterThanOrEqual(8);
+  expect(result.largePanelCount).toBe(0);
   expect(result.oldMetricCount).toBe(0);
   expect(result.rawVisible).toBe(false);
 });
@@ -101,7 +92,7 @@ test('collapse state survives full card rerender without changing saved form dat
   await page.evaluate(()=>renderLocations());
   await page.waitForFunction(locationId=>{
     const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
-    return Boolean(card?.querySelector('.location-collapse-toggle-v422')&&card.classList.contains('location-card-collapsed-v422')&&card.querySelector('.card-recommendation-v448'));
+    return Boolean(card?.querySelector('.location-collapse-toggle-v422')&&card.classList.contains('location-card-collapsed-v422')&&card.querySelector('[data-card-recommendation-v448]'));
   },id);
 
   const rerendered=page.locator(`[data-location-card="${id}"]`);

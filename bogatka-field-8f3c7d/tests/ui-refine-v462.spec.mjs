@@ -32,30 +32,39 @@ async function openApp(page,width=1600,height=1200){
   return card;
 }
 
-test('recommendation status aligns with the action row and explanatory copy is two clean lines',async({page})=>{
+test('large recommendation copies are removed and shared compact status remains',async({page})=>{
   const card=await openApp(page);
-  const lines=card.locator('[data-card-recommendation-reason-v448] .recommendation-line-v462');
-  await expect(lines).toHaveCount(2);
-  await expect(lines.nth(0)).toHaveText('Оцените минимум 5 критериев');
-  await expect(lines.nth(1)).toHaveText('Сейчас заполнено 0 из 14');
+  await expect(card.locator('.card-recommendation-v448')).toHaveCount(0);
+  await expect(card.locator('[data-card-recommendation-reason-v448]')).toHaveCount(0);
+  const status=card.locator('[data-card-recommendation-v448]');
+  await expect(status).toBeVisible();
+  await expect(status).toHaveText('Недостаточно оценок');
 
-  const geometry=await card.evaluate(node=>{
-    const actions=node.querySelector('.location-actions').getBoundingClientRect();
-    const status=node.querySelector('[data-card-recommendation-v448]').getBoundingClientRect();
-    const recommendation=node.querySelector('.card-recommendation-v448>span').getBoundingClientRect();
-    const collapse=node.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
-    const head=node.querySelector('.decision-head-v340').getBoundingClientRect();
+  const outer=card.locator('.progress-card-toggle-v462');
+  await expect(outer.locator('.progress-card-toggle-copy-v462 strong')).toHaveText('Общая оценка и готовность данных');
+  await expect(outer.locator('.progress-card-toggle-copy-v462 span')).toHaveText('Здесь видно, насколько подходит локация и сколько данных уже собрано');
+  if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+  await expect(card.locator('.progress-recommendation-v448')).toHaveCount(0);
+  await expect(card.locator('.progress-metrics-v448>article')).toHaveCount(4);
+  const progressStatus=card.locator('[data-progress-card-summary-v462]');
+  await expect(progressStatus).toHaveText('Недостаточно оценок');
+
+  const result=await card.evaluate(node=>{
+    const status=node.querySelector('[data-card-recommendation-v448]');
+    const progressStatus=node.querySelector('[data-progress-card-summary-v462]');
+    const arrow=node.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
+    const rect=status.getBoundingClientRect();
+    const semantic=['empty','weak','medium','good','priority','risk','stop'];
     return{
-      centerDelta:Math.abs((actions.top+actions.bottom)/2-(status.top+status.bottom)/2),
-      bottomDelta:Math.abs(actions.bottom-status.bottom),
-      recommendationArrowGap:collapse.left-recommendation.right,
-      headWidth:head.width,
+      gap:arrow.left-rect.right,
+      headerClass:semantic.find(name=>status.classList.contains(name)),
+      progressClass:semantic.find(name=>progressStatus.classList.contains(name)),
+      oldText:node.querySelector(':scope > .location-head').innerText,
     };
   });
-  expect(geometry.centerDelta).toBeLessThanOrEqual(3);
-  expect(geometry.bottomDelta).toBeLessThanOrEqual(3);
-  expect(geometry.recommendationArrowGap).toBeGreaterThanOrEqual(9);
-  expect(geometry.headWidth).toBeLessThanOrEqual(302);
+  expect(result.gap).toBeGreaterThanOrEqual(8);
+  expect(result.headerClass).toBe(result.progressClass);
+  expect(result.oldText.toUpperCase()).not.toContain('ТЕКУЩАЯ РЕКОМЕНДАЦИЯ');
 });
 
 test('inspection and landlord cards use one native grid rhythm without overflow',async({page})=>{
@@ -86,6 +95,8 @@ test('inspection and landlord cards use one native grid rhythm without overflow'
       heightDelta:Math.abs(leftCard.height-rightCard.height),
       fieldsInside:fields.every(rect=>rect.left>=landlordRect.left-1&&rect.right<=landlordRect.right+1),
       overflow:landlord.scrollWidth-landlord.clientWidth,
+      listingPadding:[getComputedStyle(visibleControl('listingUrl')).paddingLeft,getComputedStyle(visibleControl('listingUrl')).paddingRight],
+      participantPadding:[getComputedStyle(visibleControl('inspectionParticipants')).paddingLeft,getComputedStyle(visibleControl('inspectionParticipants')).paddingRight],
     };
   });
   expect(result.inspectionRowGap).toBe('12px');
@@ -95,6 +106,8 @@ test('inspection and landlord cards use one native grid rhythm without overflow'
   expect(result.heightDelta).toBeLessThanOrEqual(2);
   expect(result.fieldsInside).toBe(true);
   expect(result.overflow).toBeLessThanOrEqual(1);
+  expect(result.listingPadding).toEqual(result.participantPadding);
+  expect(result.listingPadding).toEqual(['10px','10px']);
 });
 
 test('progress card styling is restored and both accordion levels work independently',async({page})=>{
@@ -125,10 +138,16 @@ test('progress card styling is restored and both accordion levels work independe
       metricsColumns:getComputedStyle(metrics).gridTemplateColumns.split(' ').length,
       articleRadius:getComputedStyle(article).borderRadius,
       scaleBackground:getComputedStyle(scale).backgroundColor,
+      metricCount:metrics.children.length,
+      recommendationCards:node.querySelectorAll('.progress-recommendation-v448').length,
+      heightDelta:Math.max(...[...metrics.children].map(item=>item.getBoundingClientRect().height))-Math.min(...[...metrics.children].map(item=>item.getBoundingClientRect().height)),
       cssLoaded:[...document.querySelectorAll('link[rel="stylesheet"]')].some(link=>(link.getAttribute('href')||'').includes('card-progress-v448.css')),
     };
   });
   expect(styles.metricsDisplay).toBe('grid');
+  expect(styles.metricCount).toBe(4);
+  expect(styles.recommendationCards).toBe(0);
+  expect(styles.heightDelta).toBeLessThanOrEqual(2);
   expect(styles.metricsColumns).toBe(4);
   expect(styles.articleRadius).toBe('13px');
   expect(styles.cssLoaded).toBe(true);

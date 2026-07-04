@@ -90,6 +90,8 @@ test('labels, source wording and controls use the established typography and dim
       taskTitleWeight:Number(getComputedStyle(taskTitle).fontWeight),
       taskMetaWeight:Number(getComputedStyle(taskMeta).fontWeight),
       taskGap:Math.round(taskCard.getBoundingClientRect().top-taskCaption.getBoundingClientRect().bottom),
+      listingPadding:[getComputedStyle(field('listingUrl')).paddingLeft,getComputedStyle(field('listingUrl')).paddingRight],
+      participantsPadding:[getComputedStyle(field('inspectionParticipants')).paddingLeft,getComputedStyle(field('inspectionParticipants')).paddingRight],
     };
   });
   expect(styles.sourceHeight).toBe(46);
@@ -102,6 +104,8 @@ test('labels, source wording and controls use the established typography and dim
   expect(styles.taskMetaFont).toBe('12px');
   expect(styles.taskTitleWeight).toBeGreaterThan(styles.taskMetaWeight);
   expect(styles.taskGap).toBe(5);
+  expect(styles.listingPadding).toEqual(styles.participantsPadding);
+  expect(styles.listingPadding).toEqual(['10px','10px']);
 });
 
 test('moved controls keep persistence, conditional source behavior and viewer protection',async({page})=>{

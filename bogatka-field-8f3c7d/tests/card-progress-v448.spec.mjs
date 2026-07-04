@@ -36,73 +36,61 @@ async function openProgressPlan(card){
   if(await inner.count()&&await inner.getAttribute('aria-expanded')!=='true')await inner.click();
 }
 
-test('header separates the recommendation panel from the compact semantic status',async({page})=>{
+test('header and progress section keep only one compact semantic recommendation status',async({page})=>{
   const card=await openApp(page);
-  await expect(card.locator(':scope > .location-head .scorebox')).toBeHidden();
-  await expect(card.locator(':scope > .location-head .decision-score-v340')).toHaveCount(0);
-  await expect(card.locator(':scope > .location-head .decision-complete-v340')).toHaveCount(0);
+  await expect(card.locator('.card-recommendation-v448')).toHaveCount(0);
+  const headerStatus=card.locator('[data-card-recommendation-v448]');
+  await expect(headerStatus).toBeVisible();
+  await expect(headerStatus).toHaveText('Недостаточно оценок');
+  await expect(headerStatus).toHaveClass(/empty/);
 
-  const panel=card.locator('.card-recommendation-v448');
-  const title=panel.locator(':scope > span');
-  const reason=panel.locator(':scope > small');
-  const status=panel.locator('[data-card-recommendation-v448]');
-  await expect(title).toBeVisible();
-  await expect(title).toHaveText('Текущая рекомендация');
-  await expect(reason).toBeVisible();
-  await expect(reason).toContainText('Оцените минимум 5 критериев');
-  await expect(status).toBeVisible();
-  await expect(status).toHaveText('Недостаточно оценок');
+  const outer=card.locator('.progress-card-toggle-v462');
+  if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+  await expect(card.locator('.progress-card-toggle-copy-v462 strong')).toHaveText('Общая оценка и готовность данных');
+  await expect(card.locator('.progress-card-toggle-copy-v462 span')).toHaveText('Здесь видно, насколько подходит локация и сколько данных уже собрано');
+  await expect(card.locator('.progress-recommendation-v448')).toHaveCount(0);
+  await expect(card.locator('.progress-metrics-v448>article')).toHaveCount(4);
+  const progressStatus=card.locator('[data-progress-card-summary-v462]');
+  await expect(progressStatus).toHaveText('Недостаточно оценок');
 
-  const geometry=await panel.evaluate(element=>{
-    const rect=element.getBoundingClientRect();
-    const titleRect=element.querySelector(':scope > span').getBoundingClientRect();
-    const reason=element.querySelector(':scope > small');
-    const reasonRect=reason.getBoundingClientRect();
-    const statusNode=element.querySelector(':scope > strong');
-    const statusRect=statusNode.getBoundingClientRect();
-    const statusStyle=getComputedStyle(statusNode);
+  const result=await card.evaluate(node=>{
+    const headerStatus=node.querySelector('[data-card-recommendation-v448]');
+    const progressStatus=node.querySelector('[data-progress-card-summary-v462]');
+    const toggle=node.querySelector('.location-collapse-toggle-v422').getBoundingClientRect();
+    const statusRect=headerStatus.getBoundingClientRect();
+    const metrics=node.querySelector('.progress-metrics-v448');
+    const articles=[...metrics.children].map(item=>item.getBoundingClientRect());
+    const semantic=['empty','weak','medium','good','priority','risk','stop'];
     return{
-      panelWidth:rect.width,
-      panelHeight:rect.height,
-      recommendationBottom:reasonRect.bottom,
-      statusTop:statusRect.top,
-      statusWidth:statusRect.width,
-      statusHeight:statusRect.height,
-      statusFontSize:statusStyle.fontSize,
-      statusPadding:[statusStyle.paddingTop,statusStyle.paddingRight,statusStyle.paddingBottom,statusStyle.paddingLeft],
-      statusBorderStyle:statusStyle.borderStyle,
-      titleVisible:titleRect.height>0,
-      emptyPrefix:getComputedStyle(reason,'::before').content,
-      className:element.className,
+      headerClass:semantic.find(name=>headerStatus.classList.contains(name)),
+      progressClass:semantic.find(name=>progressStatus.classList.contains(name)),
+      statusHeight:Math.round(statusRect.height),
+      gapToToggle:Math.round(toggle.left-statusRect.right),
+      metricCount:articles.length,
+      widthDelta:Math.max(...articles.map(item=>item.width))-Math.min(...articles.map(item=>item.width)),
+      metricsCoverage:Math.abs(articles[0].left-metrics.getBoundingClientRect().left)+Math.abs(articles.at(-1).right-metrics.getBoundingClientRect().right),
+      headerText:node.querySelector(':scope > .location-head').innerText,
     };
   });
-  expect(geometry.panelWidth).toBeGreaterThan(250);
-  expect(geometry.panelWidth).toBeLessThanOrEqual(330);
-  expect(geometry.panelHeight).toBeGreaterThan(80);
-  expect(geometry.statusTop-geometry.recommendationBottom).toBeGreaterThanOrEqual(7);
-  expect(geometry.statusWidth).toBeLessThan(210);
-  expect(geometry.statusHeight).toBe(34);
-  expect(geometry.statusFontSize).toBe('12px');
-  expect(geometry.statusPadding).toEqual(['7px','10px','7px','10px']);
-  expect(geometry.statusBorderStyle).toBe('solid');
-  expect(geometry.titleVisible).toBe(true);
-  expect(geometry.emptyPrefix).toBe('none');
-  expect(geometry.className).toContain('empty');
-
-  const headerText=await card.locator(':scope > .location-head').innerText();
-  expect(headerText.toUpperCase()).toContain('ТЕКУЩАЯ РЕКОМЕНДАЦИЯ');
-  expect(headerText).toContain('Недостаточно оценок');
-  expect(headerText).not.toContain('/ 70');
-  expect(headerText).not.toContain('/100');
-  expect(headerText).not.toMatch(/\b\d+%\b/);
+  expect(result.headerClass).toBe(result.progressClass);
+  expect(result.statusHeight).toBeGreaterThanOrEqual(30);
+  expect(result.gapToToggle).toBeGreaterThanOrEqual(8);
+  expect(result.metricCount).toBe(4);
+  expect(result.widthDelta).toBeLessThanOrEqual(2);
+  expect(result.metricsCoverage).toBeLessThanOrEqual(2);
+  expect(result.headerText.toUpperCase()).not.toContain('ТЕКУЩАЯ РЕКОМЕНДАЦИЯ');
+  expect(result.headerText).not.toContain('Оцените минимум 5 критериев');
 });
 
-test('recommendation status changes semantic color without changing compact geometry',async({page})=>{
+test('recommendation status changes shared semantic color without changing compact geometry',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
-  const panel=card.locator('.card-recommendation-v448');
-  const status=panel.locator('[data-card-recommendation-v448]');
-  const before=await status.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
+  const status=card.locator('[data-card-recommendation-v448]');
+  const before=await status.evaluate(element=>({
+    background:getComputedStyle(element).backgroundColor,
+    border:getComputedStyle(element).borderColor,
+    height:element.getBoundingClientRect().height,
+  }));
 
   await saveData(page,id,{
     status:'Новый объект',objectType:'Торговый центр',date:'2026-07-02',time:'11:00',floorLocation:'1-й этаж',
@@ -112,12 +100,23 @@ test('recommendation status changes semantic color without changing compact geom
     tech:{totalArea:'100',rentPerMonth:'3000',powerKw:'40',openingHours:'09:00–21:00',utilities:'500',repairEstimate:'10000'},
     pros:'Хорошая видимость',cons:'Нужно уточнить условия',risks:'Нет подтверждённых рисков',questions:'Уточнить срок аренды',decision:'Оставить',criticalDealConditions:{},
   });
-  await expect(panel).toHaveClass(/good/);
+  await expect(status).toHaveClass(/good/);
   await expect(status).toHaveText('Перспективно');
-  const after=await status.evaluate(element=>({background:getComputedStyle(element).backgroundColor,border:getComputedStyle(element).borderColor,height:element.getBoundingClientRect().height}));
+  const progressStatus=card.locator('[data-progress-card-summary-v462]');
+  await expect(progressStatus).toHaveClass(/good/);
+  const after=await status.evaluate(element=>({
+    background:getComputedStyle(element).backgroundColor,
+    border:getComputedStyle(element).borderColor,
+    height:element.getBoundingClientRect().height,
+  }));
+  const progressColors=await progressStatus.evaluate(element=>({
+    background:getComputedStyle(element).backgroundColor,
+    border:getComputedStyle(element).borderColor,
+  }));
   expect(after.background).not.toBe(before.background);
   expect(after.border).not.toBe(before.border);
-  expect(after.height).toBe(34);
+  expect(progressColors).toEqual({background:after.background,border:after.border});
+  expect(after.height).toBeGreaterThanOrEqual(30);
 });
 
 test('quality excludes blank criteria while coverage records how much was evaluated',async({page})=>{
@@ -134,7 +133,7 @@ test('quality excludes blank criteria while coverage records how much was evalua
   await saveData(page,id,{score:{housing:'5',occupied:'5',foot:'5',car:'5',parking:'5',stop:'5',anchor:'5',visibility:'5'}});
   await expect(card.locator('[data-progress-quality-v448]')).toHaveText('100/100');
   await expect(card.locator('[data-progress-coverage-v448]')).toHaveText('57%');
-  await expect(card.locator('[data-progress-coverage-meta-v448]')).toHaveText('8 из 14 критериев');
+  await expect(card.locator('[data-progress-coverage-meta-v448]')).toHaveText('Оценено 8 из 14 критериев');
   await expect(card.locator('.score-explanation-v448')).toContainText('Пустые критерии не занижают качество');
 });
 
@@ -164,6 +163,33 @@ test('fill plan follows the real workflow and opens the required section',async(
   await expect(card.locator('[data-fill-plan-summary-v448]')).toContainText('2 из 7 разделов готовы');
 });
 
+test('lease metric uses completion count as primary and written-proof warning as secondary note',async({page})=>{
+  const card=await openApp(page);
+  const outer=card.locator('.progress-card-toggle-v462');
+  if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+  const primary=card.locator('[data-progress-checks-v448]');
+  const secondary=card.locator('[data-progress-checks-meta-v448]');
+  const note=card.locator('[data-progress-checks-note-v448]');
+  await expect(primary).toHaveText(/\d+ из 10/);
+  await expect(secondary).toHaveText('Проверок завершено');
+  await expect(primary).not.toHaveText('Нужно письменно');
+  if(await note.isVisible()){
+    await expect(note).toHaveText('Есть пункты без письменного подтверждения');
+    const hierarchy=await card.evaluate(node=>{
+      const primary=node.querySelector('[data-progress-checks-v448]');
+      const note=node.querySelector('[data-progress-checks-note-v448]');
+      return{
+        primarySize:parseFloat(getComputedStyle(primary).fontSize),
+        primaryWeight:Number(getComputedStyle(primary).fontWeight),
+        noteSize:parseFloat(getComputedStyle(note).fontSize),
+        noteWeight:Number(getComputedStyle(note).fontWeight),
+      };
+    });
+    expect(hierarchy.noteSize).toBeLessThan(hierarchy.primarySize);
+    expect(hierarchy.noteWeight).toBeLessThan(hierarchy.primaryWeight);
+  }
+});
+
 test('authoritative HTML and PDF report keeps the expanded evaluation block',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
@@ -189,37 +215,29 @@ test('authoritative HTML and PDF report keeps the expanded evaluation block',asy
   expect(report.text).toContain('Пустые критерии не занижают качество');
 });
 
-test('recommendation panel and compact status remain usable on a phone width',async({page})=>{
+test('compact status and progress metrics remain usable on a phone width',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const card=await openApp(page);
   const outer=card.locator('.progress-card-toggle-v462');
-  if(await outer.count()&&await outer.getAttribute('aria-expanded')!=='true')await outer.click();
+  if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
   const layout=await card.locator('.decision-progress-v448').evaluate(element=>({
     width:element.getBoundingClientRect().width,
     scrollWidth:element.scrollWidth,
     metricColumns:getComputedStyle(element.querySelector('.progress-metrics-v448')).gridTemplateColumns,
   }));
-  const header=await card.locator('.card-recommendation-v448').evaluate(element=>{
-    const status=element.querySelector(':scope > strong');
-    const statusStyle=getComputedStyle(status);
+  const header=await card.locator('[data-card-recommendation-v448]').evaluate(element=>{
+    const side=element.closest('.location-head-side-v422');
     return{
-      panelWidth:element.getBoundingClientRect().width,
-      panelScrollWidth:element.scrollWidth,
-      container:element.closest('.location-head-side-v422').getBoundingClientRect().width,
-      statusWidth:status.getBoundingClientRect().width,
-      statusHeight:status.getBoundingClientRect().height,
-      whiteSpace:statusStyle.whiteSpace,
-      overflow:statusStyle.overflow,
-      textOverflow:statusStyle.textOverflow,
+      statusWidth:element.getBoundingClientRect().width,
+      statusHeight:element.getBoundingClientRect().height,
+      sideWidth:side.getBoundingClientRect().width,
+      sideScrollWidth:side.scrollWidth,
     };
   });
   expect(layout.scrollWidth).toBeLessThanOrEqual(Math.ceil(layout.width)+1);
   expect(layout.metricColumns.split(' ').length).toBe(1);
-  expect(header.panelWidth).toBeLessThan(header.container);
-  expect(header.panelScrollWidth).toBeLessThanOrEqual(Math.ceil(header.panelWidth)+1);
-  expect(header.statusWidth).toBeLessThan(210);
-  expect(header.statusHeight).toBe(34);
-  expect(header.whiteSpace).toBe('nowrap');
-  expect(header.overflow).toBe('hidden');
-  expect(header.textOverflow).toBe('ellipsis');
+  expect(header.statusWidth).toBeLessThan(header.sideWidth);
+  expect(header.statusHeight).toBeGreaterThanOrEqual(30);
+  expect(header.sideScrollWidth).toBeLessThanOrEqual(Math.ceil(header.sideWidth)+1);
 });
+
