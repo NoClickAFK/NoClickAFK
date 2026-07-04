@@ -251,6 +251,14 @@
     return SCORE_BANDS.find(band=>score<=band.max)||SCORE_BANDS.at(-1);
   }
 
+  function setRecommendationStatus(node,recommendation={}){
+    if(!node)return;
+    const semantic=recommendation.className||'empty';
+    node.className=`recommendation-status-v448 ${semantic}`;
+    node.dataset.recommendationClass=semantic;
+    text(node,recommendation.label||'Недостаточно данных');
+  }
+
   function compactMissing(group){
     if(group.missingCount===0)return'Раздел заполнен.';
     if(group.key==='scores')return `Осталось оценить ${group.missingCount} из ${group.total} критериев.`;
@@ -267,13 +275,25 @@
       scorebox.setAttribute('aria-hidden','true');
       scorebox.classList.add('card-metric-hidden-v448');
     }
-    const head=card.querySelector(':scope > .location-head .decision-head-v340');
-    if(!head)return null;
+    const actions=card.querySelector(':scope > .location-head .location-actions');
+    let head=card.querySelector('[data-card-recommendation-v448]')?.closest('.decision-head-v340')||card.querySelector(':scope > .location-head .decision-head-v340');
+    if(!head||!actions)return null;
     if(head.dataset.cardProgressV448!=='1'){
       head.dataset.cardProgressV448='1';
-      head.classList.add('card-recommendation-head-v448');
-      head.innerHTML='<div class="card-recommendation-v448"><span>Текущая рекомендация</span><strong data-card-recommendation-v448>Недостаточно данных</strong><small data-card-recommendation-reason-v448>Заполните ключевые данные по локации.</small></div>';
+      head.classList.add('card-recommendation-head-v448','location-action-status-v448');
+      head.innerHTML='<strong class="recommendation-status-v448 empty" data-card-recommendation-v448>Недостаточно данных</strong>';
     }
+    let buttons=actions.querySelector(':scope > .location-action-buttons-v448');
+    if(!buttons){
+      buttons=document.createElement('div');
+      buttons.className='location-action-buttons-v448';
+      actions.prepend(buttons);
+    }
+    for(const child of [...actions.children]){
+      if(child===buttons||child===head)continue;
+      buttons.appendChild(child);
+    }
+    if(head.parentElement!==actions)actions.appendChild(head);
     return head;
   }
 
@@ -285,20 +305,19 @@
     overview.classList.add('decision-progress-v448');
     overview.innerHTML=`
       <div class="progress-heading-v448">
-        <div><strong>Оценка и готовность данных</strong><span>Качество локации отделено от полноты заполнения.</span></div>
-        <div class="progress-recommendation-v448" data-progress-recommendation-v448><span>Рекомендация</span><strong data-progress-recommendation-label-v448></strong><small data-progress-recommendation-reason-v448></small></div>
+        <div><strong>Общая оценка и готовность данных</strong><span>Здесь видно, насколько подходит локация и сколько данных уже собрано</span></div>
       </div>
       <div class="progress-metrics-v448">
-        <article><span>Качество локации</span><strong data-progress-quality-v448>—</strong><small data-progress-quality-meta-v448>Нет оценок</small></article>
-        <article><span>Надёжность оценки</span><strong data-progress-coverage-v448>0%</strong><small data-progress-coverage-meta-v448>0 из 14 критериев</small></article>
-        <article><span>Готовность карточки</span><strong data-progress-completion-v448>0%</strong><small data-progress-completion-meta-v448>0 из 7 разделов</small></article>
-        <article><span>Проверки перед арендой</span><strong data-progress-checks-v448>Не проверено</strong><small data-progress-checks-meta-v448></small></article>
+        <article class="progress-metric-v448"><span>Качество локации</span><strong data-progress-quality-v448>Нет оценки</strong><small data-progress-quality-meta-v448>Оцените критерии ниже в карточке локации</small></article>
+        <article class="progress-metric-v448"><span>Надёжность оценки</span><strong data-progress-coverage-v448>0%</strong><small data-progress-coverage-meta-v448>Оценено 0 из 14 критериев</small></article>
+        <article class="progress-metric-v448"><span>Готовность карточки</span><strong data-progress-completion-v448>0%</strong><small data-progress-completion-meta-v448>Заполнено 0 из 7 разделов</small></article>
+        <article class="progress-metric-v448"><span>Проверки перед арендой</span><strong data-progress-checks-v448>0 из 10</strong><small data-progress-checks-meta-v448>Проверок завершено</small><small class="progress-metric-note-v448" data-progress-checks-note-v448 hidden></small></article>
       </div>
       <div class="quality-scale-v448" data-quality-scale-v448>
         <div class="quality-scale-track-v448"><span></span><i data-quality-marker-v448></i></div>
         <div class="quality-scale-labels-v448"><span>0–39<br>слабая</span><span>40–59<br>доработать</span><span>60–74<br>перспективная</span><span>75–100<br>сильная</span></div>
       </div>
-      <div class="score-explanation-v448"><strong>Как считается качество:</strong> 1 балл = 0, 2 = 25, 3 = 50, 4 = 75, 5 = 100. Вес критериев учитывается. Пустые критерии не занижают качество — они уменьшают надёжность оценки.</div>
+      <div class="score-explanation-v448"><strong>Что означают показатели</strong><span>Оценки ставятся ниже в разделе оценки локации. Качество показывает средний результат по заполненным критериям, а надёжность — сколько из 14 критериев уже оценено. Пустые критерии не снижают качество, но уменьшают надёжность</span></div>
       <div class="completion-track-v448"><span data-progress-completion-bar-v448></span></div>
       <div class="fill-plan-v448">
         <div class="fill-plan-heading-v448"><strong>Что заполнить дальше</strong><span data-fill-plan-summary-v448></span></div>
@@ -358,28 +377,33 @@
     const header=ensureHeader(card);
     const overview=ensureOverview(card);
     if(!header||!overview)return;
-    const recommendationClass=metric.recommendation?.className||'empty';
-    const headerBox=header.querySelector('.card-recommendation-v448');
-    if(headerBox)headerBox.className=`card-recommendation-v448 ${recommendationClass}`;
-    text(header.querySelector('[data-card-recommendation-v448]'),metric.recommendation?.label||'Недостаточно данных');
-    text(header.querySelector('[data-card-recommendation-reason-v448]'),metric.recommendation?.reason||'');
-
-    const recommendation=overview.querySelector('[data-progress-recommendation-v448]');
-    if(recommendation)recommendation.className=`progress-recommendation-v448 ${recommendationClass}`;
-    text(overview.querySelector('[data-progress-recommendation-label-v448]'),metric.recommendation?.label||'Недостаточно данных');
-    text(overview.querySelector('[data-progress-recommendation-reason-v448]'),metric.recommendation?.reason||'');
+    const recommendation=metric.recommendation||{label:'Недостаточно данных',className:'empty'};
+    setRecommendationStatus(header.querySelector('[data-card-recommendation-v448]'),recommendation);
 
     const quality=metric.qualityScore;
     const band=qualityBand(quality);
-    text(overview.querySelector('[data-progress-quality-v448]'),quality===null||quality===undefined?'—':`${Number.isInteger(quality)?quality:quality.toFixed(1)}/100`);
-    text(overview.querySelector('[data-progress-quality-meta-v448]'),quality===null||quality===undefined?'Нет заполненных критериев':band.label);
+    const answered=metric.answeredScores||0;
+    text(overview.querySelector('[data-progress-quality-v448]'),quality===null||quality===undefined?'Нет оценки':`${Number.isInteger(quality)?quality:quality.toFixed(1)}/100`);
+    text(overview.querySelector('[data-progress-quality-meta-v448]'),answered?'Средний результат по заполненным критериям':'Оцените критерии ниже в карточке локации');
     text(overview.querySelector('[data-progress-coverage-v448]'),`${Math.round(metric.scoreCoveragePct||0)}%`);
-    text(overview.querySelector('[data-progress-coverage-meta-v448]'),`${metric.answeredScores||0} из 14 критериев`);
+    text(overview.querySelector('[data-progress-coverage-meta-v448]'),`Оценено ${answered} из 14 критериев`);
     text(overview.querySelector('[data-progress-completion-v448]'),`${metric.completion||0}%`);
-    text(overview.querySelector('[data-progress-completion-meta-v448]'),`${metric.completedProgressGroups||0} из ${metric.totalProgressGroups||7} разделов`);
-    text(overview.querySelector('[data-progress-checks-v448]'),metric.dealGate?.compactText||'Не проверено');
+    text(overview.querySelector('[data-progress-completion-meta-v448]'),`Заполнено ${metric.completedProgressGroups||0} из ${metric.totalProgressGroups||7} разделов`);
+
     const checksGroup=metric.progressGroups?.find(group=>group.key==='checks');
-    text(overview.querySelector('[data-progress-checks-meta-v448]'),checksGroup?`${checksGroup.done} из ${checksGroup.total} завершено`:'');
+    const checksDone=checksGroup?.done??Number(metric.stopAnswered||0);
+    const checksTotal=checksGroup?.total??10;
+    text(overview.querySelector('[data-progress-checks-v448]'),`${checksDone} из ${checksTotal}`);
+    text(overview.querySelector('[data-progress-checks-meta-v448]'),'Проверок завершено');
+    const checksNote=overview.querySelector('[data-progress-checks-note-v448]');
+    const compactText=String(metric.dealGate?.compactText||'').trim();
+    const note=compactText==='Нужно письменно'
+      ?'Есть пункты без письменного подтверждения'
+      :(compactText&&compactText!=='Не проверено'?compactText:'');
+    if(checksNote){
+      text(checksNote,note);
+      checksNote.hidden=!note;
+    }
 
     const scale=overview.querySelector('[data-quality-scale-v448]');
     if(scale){
@@ -532,19 +556,11 @@ function ensureFillPlan(overview,card){
   return true;
 }
 
-function syncSummary(overview){
-  const target=overview.querySelector('[data-progress-card-summary-v462]');
-  const source=overview.querySelector('[data-progress-recommendation-label-v448]');
-  if(target&&source&&target.textContent!==source.textContent)target.textContent=source.textContent;
-  splitReason(overview.querySelector('[data-progress-recommendation-reason-v448]'));
-}
-
 function ensureProgress(card){
   const overview=card.querySelector('.decision-overview-v340.decision-progress-v448');
   if(!overview)return false;
   if(overview.dataset.uiRefineV462==='1'){
     ensureFillPlan(overview,card);
-    syncSummary(overview);
     return true;
   }
   const heading=overview.querySelector(':scope > .progress-heading-v448');
@@ -553,25 +569,21 @@ function ensureProgress(card){
   const content=document.createElement('div');
   content.className='progress-card-content-v462';
   while(overview.firstChild)content.append(overview.firstChild);
-  heading.classList.add('progress-heading-compact-v462');
+  heading.remove();
   const button=document.createElement('button');
   const copy=document.createElement('span');
   const title=document.createElement('strong');
   const note=document.createElement('span');
-  const summary=document.createElement('span');
   const arrow=document.createElement('i');
   button.type='button';
   button.className='progress-card-toggle-v462';
   copy.className='progress-card-toggle-copy-v462';
-  title.textContent=titleBlock?.querySelector('strong')?.textContent||'Оценка и готовность данных';
-  note.textContent=titleBlock?.querySelector('span')?.textContent||'Качество локации отдельно от полноты заполнения.';
-  summary.className='progress-card-summary-v462';
-  summary.dataset.progressCardSummaryV462='';
-  summary.textContent=overview.querySelector('[data-progress-recommendation-label-v448]')?.textContent||'Недостаточно данных';
+  title.textContent=titleBlock?.querySelector('strong')?.textContent||'Общая оценка и готовность данных';
+  note.textContent=titleBlock?.querySelector('span')?.textContent||'Здесь видно, насколько подходит локация и сколько данных уже собрано';
   arrow.className='progress-card-chevron-v462';
   arrow.setAttribute('aria-hidden','true');
   copy.append(title,note);
-  button.append(copy,summary,arrow);
+  button.append(copy,arrow);
   overview.append(button,content);
   const key=`bogatka_progress_open_v462:${card.dataset.locationCard||'location'}`;
   setOpen(button,content,read(key)==='1',null);
@@ -579,7 +591,6 @@ function ensureProgress(card){
   overview.classList.add('progress-card-v462');
   overview.dataset.uiRefineV462='1';
   ensureFillPlan(overview,card);
-  syncSummary(overview);
   return true;
 }
 
@@ -590,11 +601,7 @@ function applyLayoutGuards(card){
   }
   const selector='.inspection-grid-v416>label.field:not([hidden]):not(.hidden):not(.panel-hidden-v419),.landlord-grid-v416>label.field:not([hidden]):not(.hidden):not(.panel-hidden-v419),.inspection-grid-v416>.next-task-v447';
   for(const field of card.querySelectorAll(selector))field.style.setProperty('gap','5px','important');
-  const metrics=card.querySelector('.progress-metrics-v448');
-  if(metrics){
-    if(matchMedia('(max-width:700px)').matches)metrics.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
-    else metrics.style.removeProperty('grid-template-columns');
-  }
+  card.querySelector('.progress-metrics-v448')?.style.removeProperty('grid-template-columns');
 }
 
 async function syncLegacyStatus(card){
@@ -640,7 +647,6 @@ function wrapStatusEnhancer(){
 
 function enhanceCard(card){
   if(!card?.dataset?.locationCard)return false;
-  splitReason(card.querySelector('[data-card-recommendation-reason-v448]'));
   ensureProgress(card);
   applyLayoutGuards(card);
   return true;
