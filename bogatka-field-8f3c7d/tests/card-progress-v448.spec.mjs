@@ -165,29 +165,37 @@ test('fill plan follows the real workflow and opens the required section',async(
 
 test('lease metric uses completion count as primary and written-proof warning as secondary note',async({page})=>{
   const card=await openApp(page);
+  const id=await card.getAttribute('data-location-card');
+  const criticalDealConditions=await page.evaluate(()=>Object.fromEntries(
+    window.BogatkaCriticalDeal.CONDITIONS.map((definition,index)=>{
+      if(index===0)return[definition.key,{status:'needs_formalization',evidenceType:'not_confirmed',note:'Получить письменное подтверждение'}];
+      const evidence=window.BogatkaCriticalDeal.evidenceOptions(definition).find(item=>!['not_confirmed','oral_agreement','oral_promise'].includes(item.value));
+      return[definition.key,{status:'confirmed',evidenceType:evidence.value,note:''}];
+    })
+  ));
+  await saveData(page,id,{criticalDealConditions});
   const outer=card.locator('.progress-card-toggle-v462');
   if(await outer.getAttribute('aria-expanded')!=='true')await outer.click();
   const primary=card.locator('[data-progress-checks-v448]');
   const secondary=card.locator('[data-progress-checks-meta-v448]');
   const note=card.locator('[data-progress-checks-note-v448]');
-  await expect(primary).toHaveText(/\d+ из 10/);
+  await expect(primary).toHaveText('10 из 10');
   await expect(secondary).toHaveText('Проверок завершено');
   await expect(primary).not.toHaveText('Нужно письменно');
-  if(await note.isVisible()){
-    await expect(note).toHaveText('Есть пункты без письменного подтверждения');
-    const hierarchy=await card.evaluate(node=>{
-      const primary=node.querySelector('[data-progress-checks-v448]');
-      const note=node.querySelector('[data-progress-checks-note-v448]');
-      return{
-        primarySize:parseFloat(getComputedStyle(primary).fontSize),
-        primaryWeight:Number(getComputedStyle(primary).fontWeight),
-        noteSize:parseFloat(getComputedStyle(note).fontSize),
-        noteWeight:Number(getComputedStyle(note).fontWeight),
-      };
-    });
-    expect(hierarchy.noteSize).toBeLessThan(hierarchy.primarySize);
-    expect(hierarchy.noteWeight).toBeLessThan(hierarchy.primaryWeight);
-  }
+  await expect(note).toBeVisible();
+  await expect(note).toHaveText('Есть пункты без письменного подтверждения');
+  const hierarchy=await card.evaluate(node=>{
+    const primary=node.querySelector('[data-progress-checks-v448]');
+    const note=node.querySelector('[data-progress-checks-note-v448]');
+    return{
+      primarySize:parseFloat(getComputedStyle(primary).fontSize),
+      primaryWeight:Number(getComputedStyle(primary).fontWeight),
+      noteSize:parseFloat(getComputedStyle(note).fontSize),
+      noteWeight:Number(getComputedStyle(note).fontWeight),
+    };
+  });
+  expect(hierarchy.noteSize).toBeLessThan(hierarchy.primarySize);
+  expect(hierarchy.noteWeight).toBeLessThan(hierarchy.primaryWeight);
 });
 
 test('authoritative HTML and PDF report keeps the expanded evaluation block',async({page})=>{
@@ -240,4 +248,3 @@ test('compact status and progress metrics remain usable on a phone width',async(
   expect(header.statusHeight).toBeGreaterThanOrEqual(30);
   expect(header.sideScrollWidth).toBeLessThanOrEqual(Math.ceil(header.sideWidth)+1);
 });
-
