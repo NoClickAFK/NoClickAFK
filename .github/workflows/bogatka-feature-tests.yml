@@ -1,78 +1,96 @@
 name: Bogatka feature tests
 
 on:
-  push:
-    branches: [ui-recommendation-progress-refine]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'bogatka-field-8f3c7d/**'
+      - '.github/workflows/bogatka-feature-tests.yml'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: pr67-final-production-verification
+  group: bogatka-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verify-production:
+  changed-domain-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          persist-credentials: true
-
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
+      - name: Select tests for changed domains
+        id: select
+        run: |
+          CHANGED="$(git diff --name-only HEAD^ HEAD | tr '[:upper:]' '[:lower:]')"
+          : > /tmp/selected-tests.txt
+          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|progress|recommendation|ui-refine|card-progress|compare'; then
+            printf '%s\n' \
+              bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
+              bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
+              bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
+              bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          if echo "$CHANGED" | grep -Eq 'critical-deal|lease'; then
+            printf '%s\n' bogatka-field-8f3c7d/tests/critical-deal-bootstrap-v430.spec.mjs bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          if echo "$CHANGED" | grep -Eq 'traffic|competitor'; then
+            echo bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          if echo "$CHANGED" | grep -Eq 'launch|opening-project'; then
+            printf '%s\n' bogatka-field-8f3c7d/tests/launch-gate-v454.spec.mjs bogatka-field-8f3c7d/tests/opening-project-v455.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          if echo "$CHANGED" | grep -Eq 'report|pdf'; then
+            printf '%s\n' bogatka-field-8f3c7d/tests/browser-report.spec.mjs bogatka-field-8f3c7d/tests/report-live-v427.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|select'; then
+            printf '%s\n' bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs bogatka-field-8f3c7d/tests/sync-field-merge.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          if echo "$CHANGED" | grep -Eq 'backup|restore'; then
+            echo bogatka-field-8f3c7d/tests/backup-v400.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          sort -u /tmp/selected-tests.txt -o /tmp/selected-tests.txt
+          COUNT="$(wc -l < /tmp/selected-tests.txt | tr -d ' ')"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          cat /tmp/selected-tests.txt
+
       - name: Install Chromium
+        if: steps.select.outputs.count != '0'
         run: |
           npm install --no-save --silent @playwright/test@1.52.0
           npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
 
-      - name: Verify deployed production
-        id: verify
-        continue-on-error: true
+      - name: Run changed-domain tests
+        if: steps.select.outputs.count != '0'
         run: |
-          set -o pipefail
-          node tools/pr67-production-verify.cjs 2>&1 | tee /tmp/pr67-verification.log
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
+            sleep 1
+          done
+          npx playwright test $(cat /tmp/selected-tests.txt) --workers=1 --reporter=line | tee /tmp/bogatka-feature-tests.log
 
-      - name: Publish verification evidence and restore workflow
-        if: always()
-        env:
-          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
-        run: |
-          mkdir -p .pr67-production-evidence
-          cp /tmp/pr67-verification.log .pr67-production-evidence/verification.log || true
-          cp /tmp/pr67-production/verification.json .pr67-production-evidence/verification.json || true
-          cp /tmp/pr67-production/mobile-production-header.png .pr67-production-evidence/mobile-production-header.png || true
-          cp /tmp/pr67-production/desktop.png .pr67-production-evidence/desktop.png || true
-          printf '%s\n' "$VERIFY_OUTCOME" > .pr67-production-evidence/status.txt
-          git checkout origin/main -- .github/workflows/bogatka-feature-tests.yml
-          rm -f .github/workflows/bogatka-pr67-production-verify.yml
-          rm -f .github/workflows/bogatka-pr67-visual-correction.yml
-          rm -f .github/workflows/bogatka-pr67-pr-runner.yml
-          rm -f bogatka-field-8f3c7d/.pr67-production-trigger
-          rm -f tools/pr67-production-verify.cjs
-          rm -rf node_modules package-lock.json test-results
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'Publish final PR 67 production verification'
-          git push origin HEAD:ui-recommendation-progress-refine
+      - name: No mapped feature tests
+        if: steps.select.outputs.count == '0'
+        run: echo 'The latest commit did not change a mapped application domain.'
 
-      - name: Fail when verification failed
-        if: steps.verify.outcome != 'success'
-        run: exit 1
-
-      - name: Upload evidence
-        if: always()
+      - name: Upload feature diagnostics
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: bogatka-pr67-final-production-verification
+          name: bogatka-feature-test-diagnostics
           path: |
-            /tmp/pr67-production
-            /tmp/pr67-verification.log
-            /tmp/playwright-install.log
+            /tmp/bogatka-feature-tests.log
+            /tmp/bogatka-http.log
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
