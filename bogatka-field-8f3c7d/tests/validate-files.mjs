@@ -101,8 +101,8 @@ if (!failures.length) {
   if (decisionUi.includes('section.open=true')) failures.push('Lease checks are still forced open on page load');
   for (const legacyLabel of ['Критические условия сделки','Основание / что требуется закрепить','Нет проблемы','Есть риск / уточнить','Есть стоп-фактор']) if (decisionUi.includes(legacyLabel)) failures.push(`decision-ui-v340.js contains legacy label: ${legacyLabel}`);
   const criticalCss = read('critical-deal-v430.css');
-  for (const marker of [':is(.critical-deal-v430,.economy-v400,.launch-project-v400)>summary::before','content:""','border-left:8px solid currentColor',':is(.critical-deal-v430,.economy-v400,.launch-project-v400)[open]>summary::before','justify-self:end!important']) if (!criticalCss.includes(marker)) failures.push(`critical-deal-v430.css is missing ${marker}`);
-  if (criticalCss.includes("content:'▶'")) failures.push('critical-deal-v430.css still uses a character-based disclosure icon');
+  for (const marker of ['.critical-deal-v430>summary::-webkit-details-marker','.economy-v400>summary::-webkit-details-marker','.launch-project-v400>summary::-webkit-details-marker','.critical-deal-v430>summary::marker','.economy-v400>summary::marker','.launch-project-v400>summary::marker','.critical-deal-v430>summary::before','.economy-v400>summary::before','.launch-project-v400>summary::before','border-left:8px solid currentColor','justify-self:end!important']) if (!criticalCss.includes(marker)) failures.push(`critical-deal-v430.css is missing ${marker}`);
+  if (criticalCss.includes("content:'▶'")||criticalCss.includes('content:"▶"')) failures.push('critical-deal-v430.css still uses a character-based disclosure icon');
   const comparison = read('compare-v430.js');
   if (!comparison.includes('Перед арендой') || !comparison.includes('dealGate')) failures.push('compare-v430.js does not expose the lease-check gate');
 

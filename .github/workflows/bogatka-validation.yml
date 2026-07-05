@@ -87,3 +87,101 @@ jobs:
             /tmp/playwright-install.log
           if-no-files-found: warn
           retention-days: 3
+
+  production-mobile-verification:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [static-validation, critical-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install WebKit
+        run: |
+          npm install --no-save --silent @playwright/test@1.52.0
+          npx playwright install --with-deps webkit > /tmp/playwright-webkit-install.log 2>&1
+      - name: Wait for GitHub Pages assets
+        run: |
+          TOKEN="${GITHUB_SHA:0:7}"
+          STYLE_URL="https://noclickafk.github.io/NoClickAFK/bogatka-field-8f3c7d/style.css?v=${TOKEN}"
+          MARKER_URL="https://noclickafk.github.io/NoClickAFK/bogatka-field-8f3c7d/critical-deal-v430.css?v=${TOKEN}"
+          for attempt in {1..72}; do
+            STYLE="$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "$STYLE_URL" || true)"
+            MARKERS="$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "$MARKER_URL" || true)"
+            if printf '%s' "$STYLE" | grep -q -- '--form-select-font-size:12px' && printf '%s' "$MARKERS" | grep -q -- '.critical-deal-v430>summary::-webkit-details-marker'; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'GitHub Pages did not expose the merged mobile assets in time.' >&2
+          exit 1
+      - name: Verify and capture production mobile view
+        env:
+          PRODUCTION_URL: https://noclickafk.github.io/NoClickAFK/bogatka-field-8f3c7d/
+        run: |
+          node <<'NODE'
+          const {webkit}=require('@playwright/test');
+          (async()=>{
+            const browser=await webkit.launch();
+            try{
+              const context=await browser.newContext({viewport:{width:390,height:900},deviceScaleFactor:2});
+              const page=await context.newPage();
+              await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
+              const token=process.env.GITHUB_SHA.slice(0,7);
+              const url=`${process.env.PRODUCTION_URL}?v=${token}`;
+              await page.goto(url,{waitUntil:'networkidle',timeout:60000});
+              await page.waitForFunction(()=>Boolean(
+                window.BogatkaInspectionLayoutV461?.ready&&
+                window.BogatkaQuickChecklistV451?.ready&&
+                document.querySelector('[data-location-card]')&&
+                document.querySelector('.critical-deal-v430')&&
+                document.querySelector('.economy-v400')&&
+                document.querySelector('.launch-project-v400')
+              ),{timeout:60000});
+              const card=page.locator('[data-location-card]').first();
+              await card.evaluate(node=>{
+                window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:false});
+                for(const details of node.querySelectorAll('details'))details.open=false;
+              });
+              const result=await card.evaluate(node=>{
+                const field=name=>[...node.querySelectorAll(`[data-field="${name}"]`)].find(item=>!item.hasAttribute('data-stage6-marker-v461'));
+                const visible=control=>control?.nextElementSibling?.classList.contains('premium-select-trigger')?control.nextElementSibling:control;
+                const label=control=>control?.closest('label.field')?.querySelector(':scope > .profile-caption-v416')||control?.closest('label.field');
+                const owner=field('ownerName');
+                const role=field('contactRole');
+                const inspection=field('inspectionPurpose');
+                const affected=[node.querySelector('.critical-deal-v430'),node.querySelector('.economy-v400'),node.querySelector('.launch-project-v400')];
+                const marker=details=>{
+                  const summary=details.querySelector(':scope > summary');
+                  const base=getComputedStyle(summary);
+                  const before=getComputedStyle(summary,'::before');
+                  const standards=getComputedStyle(summary,'::marker');
+                  return{list:base.listStyleType,marker:standards.content,markerSize:standards.fontSize,before:before.content,width:before.borderLeftWidth};
+                };
+                return{
+                  labelSize:getComputedStyle(label(owner)).fontSize,
+                  inspectionLabelSize:getComputedStyle(label(inspection)).fontSize,
+                  selectSize:getComputedStyle(visible(role)).fontSize,
+                  placeholderSize:getComputedStyle(owner,'::placeholder').fontSize,
+                  placeholderWeight:getComputedStyle(owner,'::placeholder').fontWeight,
+                  markers:affected.map(marker),
+                  overflow:document.documentElement.scrollWidth-window.innerWidth,
+                };
+              });
+              if(result.labelSize!=='11px'||result.inspectionLabelSize!=='11px'||result.selectSize!=='12px'||result.placeholderSize!=='11px'||result.placeholderWeight!=='400'||result.overflow>1)throw new Error(`Production typography mismatch: ${JSON.stringify(result)}`);
+              for(const marker of result.markers)if(marker.list!=='none'||marker.markerSize!=='0px'||marker.before!=='""'||marker.width!=='8px')throw new Error(`Production marker mismatch: ${JSON.stringify(result)}`);
+              console.log(JSON.stringify({url,sha:process.env.GITHUB_SHA,...result},null,2));
+              await card.screenshot({path:'/tmp/bogatka-production-mobile.png',animations:'disabled'});
+            }finally{
+              await browser.close();
+            }
+          })().catch(error=>{console.error(error);process.exit(1)});
+          NODE
+      - name: Upload production mobile screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: bogatka-production-mobile-${{ github.sha }}
+          path: /tmp/bogatka-production-mobile.png
+          if-no-files-found: error
+          retention-days: 14
