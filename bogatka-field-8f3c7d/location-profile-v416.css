@@ -43,11 +43,12 @@
 }
 .profile-caption-v416{
   display:block;
-  margin:0 0 5px;
-  color:#174f3a;
-  font-size:11px;
-  font-weight:800;
-  line-height:1.35;
+  margin:0 0 var(--form-label-control-gap);
+  color:var(--form-label-color);
+  font-family:var(--form-font-family);
+  font-size:var(--form-label-font-size);
+  font-weight:var(--form-label-font-weight);
+  line-height:var(--form-label-line-height);
 }
 .inspection-grid-v416>.field,
 .landlord-grid-v416>.field,
@@ -66,12 +67,15 @@
   width:100%;
   min-height:46px;
   border-radius:12px;
-  font-size:12px;
+  font-family:var(--form-font-family);
+  font-size:var(--form-control-font-size);
+  font-weight:var(--form-control-font-weight);
+  line-height:var(--form-control-line-height);
 }
 .landlord-grid-v416 textarea{
   min-height:72px;
   padding:10px 12px;
-  line-height:1.45;
+  line-height:var(--form-control-line-height);
   resize:vertical;
 }
 .profile-wide-v416{
@@ -86,9 +90,11 @@
   grid-column:1/-1;
   min-height:0;
   margin:0;
-  color:#718078;
-  font-size:10px;
-  line-height:1.4;
+  color:var(--form-helper-color);
+  font-family:var(--form-font-family);
+  font-size:var(--form-helper-font-size);
+  font-weight:var(--form-helper-font-weight);
+  line-height:var(--form-helper-line-height);
 }
 .location-modal-guide-v416{
   margin:-2px 0 14px;
