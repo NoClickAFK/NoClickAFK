@@ -18,7 +18,7 @@ concurrency:
 jobs:
   changed-domain-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,10 +40,15 @@ jobs:
               bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'critical-deal|lease'; then
-            printf '%s\n' bogatka-field-8f3c7d/tests/critical-deal-bootstrap-v430.spec.mjs bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs >> /tmp/selected-tests.txt
+            printf '%s\n' \
+              bogatka-field-8f3c7d/tests/critical-deal-bootstrap-v430.spec.mjs \
+              bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs \
+              bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'traffic|competitor'; then
-            echo bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs >> /tmp/selected-tests.txt
+            printf '%s\n' \
+              bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs \
+              bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'launch|opening-project'; then
             printf '%s\n' bogatka-field-8f3c7d/tests/launch-gate-v454.spec.mjs bogatka-field-8f3c7d/tests/opening-project-v455.spec.mjs >> /tmp/selected-tests.txt
@@ -62,11 +67,11 @@ jobs:
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
           cat /tmp/selected-tests.txt
 
-      - name: Install Chromium
+      - name: Install Chromium and WebKit
         if: steps.select.outputs.count != '0'
         run: |
           npm install --no-save --silent @playwright/test@1.52.0
-          npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
+          npx playwright install --with-deps chromium webkit > /tmp/playwright-install.log 2>&1
 
       - name: Run changed-domain tests
         if: steps.select.outputs.count != '0'
@@ -92,5 +97,6 @@ jobs:
           path: |
             /tmp/bogatka-feature-tests.log
             /tmp/bogatka-http.log
+            /tmp/playwright-install.log
           if-no-files-found: warn
           retention-days: 3
