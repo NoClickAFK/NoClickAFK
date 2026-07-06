@@ -82,6 +82,7 @@
       deletionState(state);
       delete state.deletedLocations[clientId];
       for(const photoId of photoIds)delete state.deletedPhotos[photoId];
+      state.dirtyPhotos=(state.dirtyPhotos||[]).filter(id=>!photoIds.has(id));
       state.dirtyLocations=state.dirtyLocations.filter(id=>id!==clientId);
     };
     clear(syncState);
@@ -93,10 +94,10 @@
       const tombstone={clientId,...tombstoneValue};
       try{
         const row=await adapter.findLocation(cloudProjectId,tombstone);
+        const photoRows=row?await adapter.listPhotos(cloudProjectId,row.id):[];
+        const paths=[...new Set([...(tombstone.storagePaths||[]),...photoRows.map(photo=>photo.storage_path).filter(Boolean)])];
+        await adapter.removeStorage(paths);
         if(row){
-          const photoRows=await adapter.listPhotos(cloudProjectId,row.id);
-          const paths=[...new Set([...(tombstone.storagePaths||[]),...photoRows.map(photo=>photo.storage_path).filter(Boolean)])];
-          await adapter.removeStorage(paths);
           await adapter.deleteLocation(cloudProjectId,row,tombstone);
           if(await adapter.locationExists(cloudProjectId,row,tombstone))throw new Error('Сервер не подтвердил удаление локации. Проверьте права доступа и повторите синхронизацию.');
           tombstone.photoIds=[...new Set([...(tombstone.photoIds||[]),...photoRows.map(photo=>photo.id).filter(Boolean)])];
