@@ -2,14 +2,18 @@ import {test,expect} from '@playwright/test';
 
 const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=pr67-mobile-status-row';
 
-test('mobile action area keeps status without overflow while arrow stays upper-right',async({page})=>{
-  await page.setViewportSize({width:390,height:844});
+async function openApp(page,width=390,height=844){
+  await page.setViewportSize({width,height});
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>{
     const card=document.querySelector('[data-location-card]');
-    return Boolean(window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.ready&&card?.querySelector('.location-actions [data-card-recommendation-v448]'));
+    return Boolean(window.BogatkaLocationCardCollapseV422?.ready&&window.BogatkaCardProgressV448?.initialized&&window.BogatkaUIRefineV462?.ready&&card?.querySelector('.location-actions [data-card-recommendation-v448]'));
   },{timeout:30000});
+}
+
+test('mobile action area keeps status without overflow while arrow stays upper-right',async({page})=>{
+  await openApp(page);
 
   const card=page.locator('[data-location-card]').first();
   const layout=await card.evaluate(node=>{
@@ -49,4 +53,20 @@ test('mobile action area keeps status without overflow while arrow stays upper-r
   await card.locator('.location-collapse-toggle-v422').click();
   await expect(card.locator(':scope > .location-body')).toBeHidden();
   await expect(card.locator('.location-actions [data-card-recommendation-v448]')).toBeVisible();
+});
+
+test('new location receives canonical progress accordions before save action finishes',async({page})=>{
+  await openApp(page,1440,1000);
+  await page.locator('#addLocationBtn').click();
+  await page.locator('#locationTitle').fill('Новая тестовая локация UI');
+  await page.locator('#locationAddress').fill('Гродно, тестовый адрес UI');
+  await page.locator('#saveLocationBtn').click();
+  const card=page.locator('[data-location-card]').filter({hasText:'Новая тестовая локация UI'});
+  await expect(card).toHaveCount(1);
+  await expect(card.locator('.decision-progress-v448.progress-card-v462')).toHaveCount(1);
+  await expect(card.locator('.progress-card-toggle-v462')).toHaveCount(1);
+  await expect(card.locator('.progress-card-content-v462')).toHaveCount(1);
+  await expect(card.locator('.fill-plan-toggle-v462')).toHaveCount(1);
+  await expect(card.locator('.fill-plan-chevron-v462')).toHaveCount(1);
+  await expect(card).not.toContainText(/Следующий приоритет|Далее/);
 });
