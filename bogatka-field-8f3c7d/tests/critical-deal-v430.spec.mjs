@@ -86,9 +86,9 @@ test('ten tailored lease checks are collapsed and use the same accordion present
     const launch=element.querySelector('[data-launch-details]>summary');
     const collaboration=element.querySelector('[data-collaboration]>summary');
     return {
-      leaseArrow:getComputedStyle(lease,'::before').borderLeftWidth,
-      economyArrow:getComputedStyle(economy,'::before').borderLeftWidth,
-      launchArrow:getComputedStyle(launch,'::before').borderLeftWidth,
+      leaseArrow:getComputedStyle(lease,'::before').content,
+      economyArrow:getComputedStyle(economy,'::before').content,
+      launchArrow:getComputedStyle(launch,'::before').content,
       leaseDisplay:getComputedStyle(lease).display,
       economyDisplay:getComputedStyle(economy).display,
       launchDisplay:getComputedStyle(launch).display,
@@ -97,9 +97,9 @@ test('ten tailored lease checks are collapsed and use the same accordion present
       economyStatusAlign:getComputedStyle(element.querySelector('[data-economy-status]')).justifySelf,
     };
   });
-  expect(presentation.leaseArrow).toBe('8px');
-  expect(presentation.economyArrow).toBe('8px');
-  expect(presentation.launchArrow).toBe('8px');
+  expect(presentation.leaseArrow).toContain('▶');
+  expect(presentation.economyArrow).toContain('▶');
+  expect(presentation.launchArrow).toContain('▶');
   expect(presentation.leaseDisplay).toBe('grid');
   expect(presentation.economyDisplay).toBe('grid');
   expect(presentation.launchDisplay).toBe('grid');
@@ -176,4 +176,22 @@ test('oral agreement requires writing and a blocker overrides recommendation',as
   await works.locator('[data-critical-field="note"]').blur();
   await expect(card.locator('[data-critical-gate]')).toHaveText('СТОП: есть условие, которое не позволяет арендовать помещение');
   await expect(card.locator('[data-recommendation]')).toHaveText('СТОП');
+});
+
+test('reports viewer mode and mobile layout support all ten checks',async({page})=>{
+  await openApp(page,{width:390,height:844});
+  const card=page.locator('[data-location-card]').first();
+  const toggle=card.locator('.location-collapse-toggle-v422');
+  if(await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
+  const section=await expandLeaseChecks(card);
+  const grid=section.locator('.critical-grid-v430');
+  expect(await grid.evaluate(element=>getComputedStyle(element).gridTemplateColumns.split(' ').filter(Boolean).length)).toBe(1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  await page.waitForFunction(()=>window.BogatkaLiveReport?.build?.__reportStabilityV429,{timeout:20000});
+  const html=await page.evaluate(()=>window.buildReportHtml());
+  expect(html).toContain('Уточните, кто собственник помещения и кто будет подписывать договор');
+  expect(html).toContain('Проверки перед арендой');
+  await page.evaluate(()=>Reflect.set(window,'cloudRole','viewer'));
+  await expect(section.locator('select').first()).toBeDisabled({timeout:5000});
+  await expect(section.locator('textarea').first()).toBeDisabled();
 });
