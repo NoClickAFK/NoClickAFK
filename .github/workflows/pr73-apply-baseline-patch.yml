@@ -1,4 +1,4 @@
-name: PR73 build corrected tests
+name: PR73 inspect baseline patch
 
 on:
   pull_request:
@@ -9,24 +9,27 @@ permissions:
   contents: read
 
 jobs:
-  build-corrected-tests:
+  inspect-patch:
     if: github.event.pull_request.number == 73
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: archive-permanent-delete-tombstones
-      - name: Apply reviewed baseline corrections in workspace
+      - name: Apply patch and capture diagnostics
         shell: bash
         run: |
-          set -euo pipefail
-          patch -p1 --forward --batch --fuzz=3 < .github/pr73-baseline.patch
-          test -z "$(find bogatka-field-8f3c7d/tests -name '*.rej' -print -quit)"
-      - name: Upload corrected tests
+          set +e
+          patch -p1 --forward --batch --fuzz=3 < .github/pr73-baseline.patch > /tmp/pr73-patch.log 2>&1
+          echo "patch_exit=$?" >> /tmp/pr73-patch.log
+          find bogatka-field-8f3c7d/tests -name '*.rej' -print -exec cat {} \; >> /tmp/pr73-patch.log
+          exit 0
+      - name: Upload patch diagnostics and workspace
         uses: actions/upload-artifact@v4
         with:
-          name: pr73-corrected-tests
+          name: pr73-patch-diagnostics
           path: |
+            /tmp/pr73-patch.log
             bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs
             bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs
             bogatka-field-8f3c7d/tests/report-live-v427.spec.js
