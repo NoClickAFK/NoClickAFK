@@ -5,7 +5,7 @@
   let noOpPuts=0;
   const normalize=state=>{
     state=state&&typeof state==='object'?state:{};
-    state.dirtyLocations||=[];state.dirtyPhotos||=[];state.deletedPhotos||={};state.knownLocationIds||=[];state.knownPhotoIds||=[];
+    state.dirtyLocations||=[];state.dirtyPhotos||=[];state.deletedPhotos||={};state.deletedLocations||={};state.knownLocationIds||=[];state.knownPhotoIds||=[];
     return state;
   };
   const key=()=>cloudProjectId?`bogatka_cloud_sync_state_v412:${cloudProjectId}`:'';
@@ -47,7 +47,7 @@
   const rawDelete=()=>typeof cloudOriginalIdbDelete!=='undefined'&&cloudOriginalIdbDelete?cloudOriginalIdbDelete:idbDelete;
   const baseKey=id=>`syncbase:v412:${cloudProjectId}:${id}`;
   window.BogatkaSyncState={
-    version:'4.1.2',ready:true,key,rawPut,rawDelete,baseKey,
+    version:'4.1.2',ready:true,key,normalize,rawPut,rawDelete,baseKey,
     readBase:id=>idbGet(STORE,baseKey(id)),
     writeBase:(id,value)=>rawPut()(STORE,value,baseKey(id)),
     deleteBase:id=>rawDelete()(STORE,baseKey(id)),
