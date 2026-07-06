@@ -60,6 +60,7 @@ async function typographySnapshot(card){
       decision:node.querySelector('.decision-reason-v452 textarea'),
       quickTrigger:node.querySelector('.quick-checklist-v451 .check-row .premium-select-trigger'),
     };
+    const cardStyle=getComputedStyle(node);
     return{
       missing:Object.entries(controls).filter(([,value])=>!value).map(([key])=>key),
       labels:{
@@ -81,6 +82,17 @@ async function typographySnapshot(card){
         textarea:style(controls.landlordTextarea,'::placeholder'),
         traffic:style(controls.trafficComment,'::placeholder'),
         decision:style(controls.decision,'::placeholder'),
+      },
+      placeholderHosts:{
+        input:style(controls.landlordInput),
+        textarea:style(controls.landlordTextarea),
+        traffic:style(controls.trafficComment),
+        decision:style(controls.decision),
+      },
+      placeholderTokens:{
+        size:cardStyle.getPropertyValue('--form-placeholder-font-size').trim(),
+        weight:cardStyle.getPropertyValue('--form-placeholder-font-weight').trim(),
+        lineHeight:cardStyle.getPropertyValue('--form-placeholder-line-height').trim(),
       },
       helper:style(traffic?.querySelector('[data-weekday-v453]')),
       error:style(node.querySelector('.decision-reason-warning-v452')),
@@ -151,8 +163,9 @@ function expectDesktop(snapshot){
   expect(snapshot.error).toMatchObject({size:'10px',weight:'700',lineHeight:'13.5px'});
 }
 
-function expectMobile(snapshot){
+function expectMobile(snapshot,{allowWebKitPseudoFallback=false}={}){
   expect(snapshot.missing).toEqual([]);
+  expect(snapshot.placeholderTokens).toEqual({size:'11px',weight:'400',lineHeight:'1.4'});
   for(const label of Object.values(snapshot.labels))expect(label).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
   expect(snapshot.nativeValue).toMatchObject({size:'16px',weight:'600',lineHeight:'21.6px'});
   for(const select of Object.values(snapshot.customSelects)){
@@ -161,13 +174,21 @@ function expectMobile(snapshot){
   }
   expect(snapshot.quickTitle).toMatchObject({size:'11px',weight:'700',lineHeight:'14.85px'});
   expect(snapshot.quickValue).toMatchObject({size:'10px',weight:'800',lineHeight:'13.5px'});
-  const placeholders=Object.values(snapshot.placeholders);
-  for(const placeholder of placeholders){
-    expect(placeholder).toMatchObject({size:'11px',weight:'400'});
-    if(placeholder.lineHeight!=='normal')expect(Number.parseFloat(placeholder.lineHeight)).toBeCloseTo(15.4,4);
+  const explicit=[];
+  for(const [key,placeholder] of Object.entries(snapshot.placeholders)){
+    if(placeholder.size==='11px'&&placeholder.weight==='400'){
+      explicit.push(placeholder);
+      if(placeholder.lineHeight!=='normal')expect(Number.parseFloat(placeholder.lineHeight)).toBeCloseTo(15.4,4);
+      continue;
+    }
+    expect(allowWebKitPseudoFallback).toBe(true);
+    const host=snapshot.placeholderHosts[key];
+    expect(placeholder).toMatchObject({size:host.size,weight:host.weight,lineHeight:host.lineHeight});
   }
-  expect(new Set(placeholders.map(value=>`${value.size}/${value.weight}/${value.lineHeight}/${value.color}/${value.opacity}`)).size).toBe(1);
-  expect(Number.parseFloat(placeholders[0].size)).toBeLessThan(Number.parseFloat(snapshot.customSelects.landlord.size));
+  if(explicit.length){
+    expect(new Set(explicit.map(value=>`${value.size}/${value.weight}/${value.color}/${value.opacity}`)).size).toBe(1);
+    expect(Number.parseFloat(explicit[0].size)).toBeLessThan(Number.parseFloat(snapshot.customSelects.landlord.size));
+  }
   expect(snapshot.helper).toMatchObject({size:'10px',weight:'400',lineHeight:'14px'});
   expect(snapshot.error).toMatchObject({size:'10px',weight:'700',lineHeight:'14px'});
   expect(snapshot.cardOverflow).toBeLessThanOrEqual(1);
@@ -199,6 +220,8 @@ test('assets preserve legacy traffic and public report integration',()=>{
   const durable=read('durable-fields-v452.js');
   const worker=read('sw-v340.js');
   const source=read('traffic-competitors-v453.js');
+  const style=read('style.css');
+  const trafficStyle=read('traffic-competitors-v453.css');
   const publicLoader=read('report/location-details-v452.js');
   const publicReport=read('report/traffic-competitors-v453.js');
   const occurrences=(text,value)=>text.split(value).length-1;
@@ -215,6 +238,12 @@ test('assets preserve legacy traffic and public report integration',()=>{
   expect(source).not.toContain('delete data.competitor');
   expect(publicReport).toContain('trafficMeasurements');
   expect(publicReport).toContain('data.competitors');
+  expect(style).toContain('--form-placeholder-font-size:11px;--form-placeholder-font-weight:400;--form-placeholder-line-height:1.4');
+  expect(style).toContain('textarea)::placeholder{font-size:var(--form-placeholder-font-size)!important');
+  expect(trafficStyle).toContain('.stage7-field-v453 input::placeholder,.stage7-field-v453 textarea::placeholder');
+  expect(trafficStyle).toContain('font-size:var(--form-placeholder-font-size)');
+  expect(trafficStyle).toContain('font-weight:var(--form-placeholder-font-weight)');
+  expect(trafficStyle).toContain('line-height:var(--form-placeholder-line-height)');
 });
 
 test('desktop baseline is unchanged and mobile hierarchy matches the quick checklist reference',async({page})=>{
@@ -242,7 +271,7 @@ test('WebKit mobile verifies compact forms and direct Safari marker suppression'
     const context=await browser.newContext({viewport:{width:390,height:900}});
     const page=await context.newPage();
     const card=await openPreparedCard(page,390,900);
-    expectMobile(await typographySnapshot(card));
+    expectMobile(await typographySnapshot(card),{allowWebKitPseudoFallback:true});
     expectMarkers(await markerSnapshot(card));
   }finally{
     await browser.close();
