@@ -126,22 +126,22 @@ test('textarea accepts a complete word without losing focus after each autosave'
       await new Promise(resolve=>setTimeout(resolve,380));
     }
     const during={
+      id,
       sameNode:document.querySelector(`[data-location="${id}"][data-field="pros"]`)===window.__prosNode,
       active:document.activeElement===input,
       value:input.value,
       pending:window.BogatkaUIStability.pending,
     };
     input.blur();
-    await new Promise(resolve=>setTimeout(resolve,1900));
-    const stored=await getLocationData(id);
-    return {...during,stored:stored.pros,settled:!window.BogatkaUIStability.pending};
+    return during;
   });
+  await page.waitForFunction(()=>!window.BogatkaUIStability.pending);
+  const stored=await page.evaluate(async id=>(await getLocationData(id)).pros,result.id);
   expect(result.sameNode).toBe(true);
   expect(result.active).toBe(true);
   expect(result.value).toBe('Стоимость');
   expect(result.pending).toBe(true);
-  expect(result.stored).toBe('Стоимость');
-  expect(result.settled).toBe(true);
+  expect(stored).toBe('Стоимость');
 });
 
 test('idle background sync updates visible fields without page reload',async({page})=>{

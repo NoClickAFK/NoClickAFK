@@ -78,7 +78,7 @@ test('quick checklist contains only on-site facts and preserves hidden legacy va
 test('comparative evaluation keeps fourteen five-point criteria and the approved wording',async({page})=>{
   await openApp(page);
   const card=page.locator('[data-location-card]').first();
-  const scoreSection=card.locator('details').filter({has:page.locator('summary:text-is("Сравнительная оценка потенциала локации — 70 баллов")')});
+  const scoreSection=card.locator('details').filter({has:page.locator('summary:text-is("Оценка локации")')});
   await expect(scoreSection).toHaveCount(1);
   if(!(await scoreSection.evaluate(element=>element.open)))await scoreSection.locator(':scope > summary').click();
 

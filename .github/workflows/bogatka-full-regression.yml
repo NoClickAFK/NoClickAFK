@@ -32,13 +32,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Chromium
+      - name: Install Chromium and WebKit
         run: |
           npm install --no-save --silent @playwright/test@1.52.0
-          npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
+          npx playwright install --with-deps chromium webkit > /tmp/playwright-install.log 2>&1
       - name: Run complete browser regression with one worker
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/playwright-results.json
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
           SERVER_PID=$!
@@ -47,7 +45,7 @@ jobs:
             curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
             sleep 1
           done
-          npx playwright test bogatka-field-8f3c7d/tests --workers=1 --reporter=json
+          npx playwright test bogatka-field-8f3c7d/tests --workers=1 --reporter=json > "$RUNNER_TEMP/playwright-results.json"
       - name: Print regression summary
         if: always()
         run: |

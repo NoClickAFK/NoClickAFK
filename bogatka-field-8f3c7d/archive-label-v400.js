@@ -1,8 +1,220 @@
 (function(){
   if(window.__bogatkaArchiveLabelV400)return;
   window.__bogatkaArchiveLabelV400=true;
-  function canEdit(){return typeof cloudRole==='undefined'||cloudRole!=='viewer'}
+  let guardedArchiveAction=null;
+  let permanentDeleteAction=null;
+  function currentRole(){
+    let lexicalRole=null;
+    try{lexicalRole=typeof cloudRole==='undefined'?null:cloudRole}catch(_){ }
+    const windowRole=window.cloudRole??null;
+    if(lexicalRole==='viewer'||windowRole==='viewer')return 'viewer';
+    return windowRole??lexicalRole;
+  }
+  function canEdit(){return currentRole()!=='viewer'}
+  function guardSuiteAction(suite,name,message){
+    const current=suite?.[name];
+    if(typeof current!=='function'||current.__locationDeletionGuardV400)return;
+    const guarded=async function(...args){
+      if(!canEdit())return deletionError(message);
+      return current.apply(suite,args);
+    };
+    guarded.__locationDeletionGuardV400=true;
+    guarded.__base=current;
+    suite[name]=guarded;
+  }
+  function deletionState(state){
+    state=state&&typeof state==='object'?state:{};
+    state.deletedLocations||={};
+    state.dirtyLocations||=[];
+    state.deletedPhotos||={};
+    state.knownLocationIds||=[];
+    return state;
+  }
+  function deletionError(message){
+    if(typeof alert==='function')alert(message);
+    return false;
+  }
+  function pendingDeletionIds(state=typeof cloudReadState==='function'?cloudReadState():{}){
+    return new Set(Object.keys(deletionState(state).deletedLocations));
+  }
+  function queueLocationDeletion(item,data,photos=[]){
+    if(!item?.id||typeof cloudMutateState!=='function')return null;
+    const now=new Date().toISOString();
+    let tombstone=null;
+    cloudMutateState(state=>{
+      deletionState(state);
+      const current=state.deletedLocations[item.id]||{};
+      tombstone={
+        clientId:item.id,
+        cloudId:data?.cloudId||item.cloudId||current.cloudId||null,
+        deletedAt:current.deletedAt||now,
+        attempts:Number(current.attempts||0),
+        lastAttemptAt:current.lastAttemptAt||null,
+        lastError:current.lastError||'',
+        photoIds:[...new Set([...(current.photoIds||[]),...photos.map(photo=>photo.id).filter(Boolean)])],
+        storagePaths:[...new Set([...(current.storagePaths||[]),...photos.map(photo=>photo.storagePath).filter(Boolean)])],
+      };
+      state.deletedLocations[item.id]=tombstone;
+      state.dirtyLocations=state.dirtyLocations.filter(id=>id!==item.id);
+    });
+    if(typeof cloudScheduleSync==='function')cloudScheduleSync(250);
+    return tombstone;
+  }
+  function supabaseDeletionAdapter(){
+    return {
+      async findLocation(projectId,tombstone){
+        let query=cloudClient.from('locations').select('id,client_id').eq('project_id',projectId).eq('client_id',tombstone.clientId);
+        const result=await query.maybeSingle();
+        if(result.error)throw new Error(result.error.message);
+        if(result.data&&tombstone.cloudId&&result.data.id!==tombstone.cloudId)throw new Error('Облачный идентификатор локации изменился. Удаление остановлено для безопасной проверки.');
+        return result.data||null;
+      },
+      async listPhotos(projectId,locationId){
+        const result=await cloudClient.from('photos').select('id,storage_path').eq('project_id',projectId).eq('location_id',locationId);
+        if(result.error)throw new Error(result.error.message);
+        return result.data||[];
+      },
+      async removeStorage(paths){
+        if(!paths.length)return;
+        const result=await cloudClient.storage.from(BOGATKA_SUPABASE.photoBucket).remove(paths);
+        if(result.error)throw new Error(result.error.message);
+      },
+      async deleteLocation(projectId,row,tombstone){
+        const result=await cloudClient.from('locations').delete().eq('project_id',projectId).eq('client_id',tombstone.clientId).eq('id',row.id).select('id');
+        if(result.error)throw new Error(result.error.message);
+      },
+      async locationExists(projectId,row,tombstone){
+        const result=await cloudClient.from('locations').select('id').eq('project_id',projectId).eq('client_id',tombstone.clientId).eq('id',row.id).maybeSingle();
+        if(result.error)throw new Error(result.error.message);
+        return Boolean(result.data);
+      },
+    };
+  }
+  function persistDeletionFailure(syncState,clientId,tombstone,error){
+    const next={...tombstone,attempts:Number(tombstone.attempts||0)+1,lastAttemptAt:new Date().toISOString(),lastError:error?.message||String(error)};
+    deletionState(syncState).deletedLocations[clientId]=next;
+    cloudMutateState(state=>{deletionState(state);state.deletedLocations[clientId]=next});
+    return next;
+  }
+  function clearDeletion(syncState,clientId,tombstone){
+    const photoIds=new Set(tombstone.photoIds||[]);
+    const clear=state=>{
+      deletionState(state);
+      delete state.deletedLocations[clientId];
+      for(const photoId of photoIds)delete state.deletedPhotos[photoId];
+      state.dirtyPhotos=(state.dirtyPhotos||[]).filter(id=>!photoIds.has(id));
+      state.dirtyLocations=state.dirtyLocations.filter(id=>id!==clientId);
+    };
+    clear(syncState);
+    cloudMutateState(clear);
+  }
+  async function processPendingDeletions(syncState,adapter=supabaseDeletionAdapter()){
+    deletionState(syncState);
+    for(const [clientId,tombstoneValue] of Object.entries({...syncState.deletedLocations})){
+      const tombstone={clientId,...tombstoneValue};
+      try{
+        const row=await adapter.findLocation(cloudProjectId,tombstone);
+        const photoRows=row?await adapter.listPhotos(cloudProjectId,row.id):[];
+        const paths=[...new Set([...(tombstone.storagePaths||[]),...photoRows.map(photo=>photo.storage_path).filter(Boolean)])];
+        await adapter.removeStorage(paths);
+        if(row){
+          await adapter.deleteLocation(cloudProjectId,row,tombstone);
+          if(await adapter.locationExists(cloudProjectId,row,tombstone))throw new Error('Сервер не подтвердил удаление локации. Проверьте права доступа и повторите синхронизацию.');
+          tombstone.photoIds=[...new Set([...(tombstone.photoIds||[]),...photoRows.map(photo=>photo.id).filter(Boolean)])];
+        }
+        clearDeletion(syncState,clientId,tombstone);
+      }catch(error){
+        persistDeletionFailure(syncState,clientId,tombstone,error);
+        throw new Error(`Удаление локации «${clientId}» ожидает повторной синхронизации: ${error?.message||String(error)}`);
+      }
+    }
+  }
+  function installArchiveActionGuard(action){
+    if(typeof action!=='function')return;
+    guardedArchiveAction=action;
+    try{
+      const descriptor=Object.getOwnPropertyDescriptor(window,'deleteCustomLocation');
+      if(!descriptor||descriptor.configurable){
+        Object.defineProperty(window,'deleteCustomLocation',{
+          configurable:true,
+          enumerable:descriptor?.enumerable??true,
+          get(){return guardedArchiveAction},
+          set(){},
+        });
+        return;
+      }
+    }catch(_){ }
+    window.deleteCustomLocation=guardedArchiveAction;
+    try{deleteCustomLocation=guardedArchiveAction}catch(_){ }
+  }
+  function installLocationDeletionLifecycle(){
+    const S=window.BogatkaSuite;
+    if(!S||typeof cloudDeleteRemovedLocations!=='function')return;
+    guardSuiteAction(S,'archiveLocation','Роль наблюдателя не позволяет архивировать локации.');
+    guardSuiteAction(S,'restoreArchivedLocation','Роль наблюдателя не позволяет восстанавливать локации.');
+    if(permanentDeleteAction)S.permanentlyDeleteArchived=permanentDeleteAction;
+    if(S.__locationDeletionLifecycleV400)return;
+    S.__locationDeletionLifecycleV400=true;
+    const baseDeleteRemoved=cloudDeleteRemovedLocations;
+
+    permanentDeleteAction=async function(id){
+      if(!canEdit())return deletionError('Роль наблюдателя не позволяет удалять локации.');
+      const item=locations.find(location=>location.id===id);
+      if(!item)return false;
+      const data=await getLocationData(id);
+      if(!data.archivedAt&&!item.archivedAt)return deletionError('Окончательно удалить можно только локацию из архива.');
+      if(!item.custom)return deletionError('Предустановленную локацию нельзя удалить окончательно.');
+      if(!confirm(`Удалить «${item.title||item.address}» окончательно вместе со всеми фотографиями? Это действие нельзя отменить.`))return false;
+      const photos=(await idbAll(PHOTO_STORE)).filter(photo=>photo.locationId===id);
+      queueLocationDeletion(item,data,photos);
+      await S.withSuppressedHistory(async()=>{
+        for(const photo of photos)await idbDelete(PHOTO_STORE,photo.id);
+        await idbDelete(STORE,`location:${id}`);
+        await idbDelete(STORE,`undo:${id}`);
+        locations=locations.filter(location=>location.id!==id);
+        await saveLocations();
+      });
+      renderLocations();
+      await updateSummary();
+      if(typeof cloudSession!=='undefined'&&cloudSession){
+        const pending='Удаление сохранено на устройстве и будет подтверждено облаком.';
+        if(!navigator.onLine)cloudSetStatus('offline',pending);
+        else cloudSetStatus('syncing',pending);
+      }
+      return true;
+    };
+    permanentDeleteAction.__locationDeletionGuardV400=true;
+    S.permanentlyDeleteArchived=permanentDeleteAction;
+
+    const archiveDelete=async function(){
+      if(!canEdit())return deletionError('Роль наблюдателя не позволяет архивировать локации.');
+      const id=document.querySelector('#editLocationId')?.value||'';
+      if(id)await S.archiveLocation(id);
+      closeLocationModal();
+    };
+    installArchiveActionGuard(archiveDelete);
+
+    cloudDeleteRemovedLocations=async function deleteRemovedLocationsWithTombstones(remoteLocations,syncState){
+      deletionState(syncState);
+      const tombstonedBefore=pendingDeletionIds(syncState);
+      await processPendingDeletions(syncState);
+      return baseDeleteRemoved(remoteLocations.filter(row=>!tombstonedBefore.has(row.client_id||row.id)),syncState);
+    };
+    window.cloudDeleteRemovedLocations=cloudDeleteRemovedLocations;
+    window.BogatkaLocationDeletion={
+      version:'4.0.1',ready:true,deletionState,pendingDeletionIds,queueLocationDeletion,processPendingDeletions,archiveFromModal:archiveDelete,applyViewerState:apply,
+      filterRemote(remoteLocations,remotePhotos,state){
+        const pending=pendingDeletionIds(state);
+        const cloudIds=new Set(Object.values(deletionState(state).deletedLocations).map(item=>item?.cloudId).filter(Boolean));
+        return {
+          remoteLocations:(remoteLocations||[]).filter(row=>!pending.has(row.client_id||row.id)&&!cloudIds.has(row.id)),
+          remotePhotos:(remotePhotos||[]).filter(photo=>!cloudIds.has(photo.location_id)),
+        };
+      },
+    };
+  }
   function apply(){
+    if(guardedArchiveAction)installArchiveActionGuard(guardedArchiveAction);
     const button=document.getElementById('deleteLocationBtn');
     if(button){button.textContent='В архив';button.classList.remove('danger');button.classList.add('warning')}
     document.querySelectorAll('[data-archive-delete]').forEach(action=>{
@@ -190,7 +402,7 @@
       pill.title=failures.length?failures.join(', '):'Базовые программные проверки пройдены';
     }
   }
-  function installAll(){apply();stabilizeLaunchEditing();stabilizeArchiveFilter();installAutoRent();installArchiveAwareClear();installCollaborationMerge()}
+  function installAll(){apply();stabilizeLaunchEditing();stabilizeArchiveFilter();installAutoRent();installArchiveAwareClear();installCollaborationMerge();installLocationDeletionLifecycle()}
   installAll();
   let timer=null;
   new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(installAll,60)}).observe(document.body,{childList:true,subtree:true});

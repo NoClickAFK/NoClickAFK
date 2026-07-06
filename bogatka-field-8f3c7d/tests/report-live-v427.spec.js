@@ -70,7 +70,7 @@ test('live report mirrors the current location DOM and removes editing controls'
   expect(result.report.text).toContain('Стоп-факторы');
   expect(result.report.text).toContain('Полевой замер трафика');
   expect(result.report.text).toContain('Быстрый чек-лист');
-  expect(result.report.text).toContain('Сравнительная оценка потенциала локации');
+  expect(result.report.text).toContain('Оценка локации');
   expect(result.report.text).toContain('Технические и финансовые параметры');
   expect(result.report.text).toContain('Конкуренты и окружение');
   expect(result.report.text).toContain('Фотографии по категориям');

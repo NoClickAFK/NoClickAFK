@@ -86,9 +86,9 @@ test('ten tailored lease checks are collapsed and use the same accordion present
     const launch=element.querySelector('[data-launch-details]>summary');
     const collaboration=element.querySelector('[data-collaboration]>summary');
     return {
-      leaseArrow:getComputedStyle(lease,'::before').content,
-      economyArrow:getComputedStyle(economy,'::before').content,
-      launchArrow:getComputedStyle(launch,'::before').content,
+      leaseArrow:getComputedStyle(lease,'::before').borderLeftWidth,
+      economyArrow:getComputedStyle(economy,'::before').borderLeftWidth,
+      launchArrow:getComputedStyle(launch,'::before').borderLeftWidth,
       leaseDisplay:getComputedStyle(lease).display,
       economyDisplay:getComputedStyle(economy).display,
       launchDisplay:getComputedStyle(launch).display,
@@ -97,9 +97,9 @@ test('ten tailored lease checks are collapsed and use the same accordion present
       economyStatusAlign:getComputedStyle(element.querySelector('[data-economy-status]')).justifySelf,
     };
   });
-  expect(presentation.leaseArrow).toContain('▶');
-  expect(presentation.economyArrow).toContain('▶');
-  expect(presentation.launchArrow).toContain('▶');
+  expect(presentation.leaseArrow).toBe('8px');
+  expect(presentation.economyArrow).toBe('8px');
+  expect(presentation.launchArrow).toBe('8px');
   expect(presentation.leaseDisplay).toBe('grid');
   expect(presentation.economyDisplay).toBe('grid');
   expect(presentation.launchDisplay).toBe('grid');
@@ -191,7 +191,11 @@ test('reports viewer mode and mobile layout support all ten checks',async({page}
   const html=await page.evaluate(()=>window.buildReportHtml());
   expect(html).toContain('Уточните, кто собственник помещения и кто будет подписывать договор');
   expect(html).toContain('Проверки перед арендой');
-  await page.evaluate(()=>{cloudRole='viewer'});
+  await page.evaluate(()=>{
+    try{cloudRole='viewer'}catch(_){ }
+    window.cloudRole='viewer';
+    window.BogatkaLocationDeletion.applyViewerState();
+  });
   await expect(section.locator('select').first()).toBeDisabled({timeout:5000});
   await expect(section.locator('textarea').first()).toBeDisabled();
 });

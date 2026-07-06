@@ -10,7 +10,8 @@ async function openApp(page,width=1440,height=1200){
     window.BogatkaInspectionLayoutV461?.ready&&
     window.BogatkaLocationDataV452?.ready&&
     window.BogatkaStatusNextTaskV447?.ready&&
-    document.querySelector('[data-location-card][data-inspection-layout-v462="1"]')
+    document.querySelector('[data-location-card][data-inspection-layout-v462="1"]')&&
+    document.querySelector('[data-location-card] .next-task-card-v447')
   ),{timeout:30000});
   return page.locator('[data-location-card]').first();
 }

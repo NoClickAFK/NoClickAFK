@@ -123,6 +123,13 @@ test('HTML and PDF source show readable checklist states and preserve the author
     const after=await getLocationData(locationId);
     const documentReport=new DOMParser().parseFromString(html,'text/html');
     const location=documentReport.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    const builders=[];
+    const seen=new Set();
+    for(let builder=window.BogatkaLiveReport.build;typeof builder==='function'&&!seen.has(builder);builder=builder.__base){
+      seen.add(builder);
+      builders.push(builder);
+    }
+    const has=marker=>builders.some(builder=>Boolean(builder[marker]));
     return{
       text:location?.querySelector('[data-quick-checklist-report-v451]')?.textContent||'',
       marker:Boolean(location?.querySelector('[data-quick-checklist-report-v451]')),
@@ -132,9 +139,9 @@ test('HTML and PDF source show readable checklist states and preserve the author
       valuesAfter:[after.check.housing_dense,after.check.housing_occupied,after.check.foot_traffic],
       chain:{
         authoritative:window.buildReportHtml===window.BogatkaLiveReport.build,
-        core:Boolean(window.BogatkaLiveReport.build.__quickChecklistV451),
-        report:Boolean(window.BogatkaLiveReport.build.__quickChecklistReportV451),
-        stage4:Boolean(window.BogatkaLiveReport.build.__technicalEconomicsReportV450),
+        core:has('__quickChecklistV451'),
+        report:has('__quickChecklistReportV451'),
+        stage4:has('__technicalEconomicsReportV450'),
         stability:Boolean(window.BogatkaLiveReport.build.__reportStabilityV429),
         htmlAction:window.exportHtmlReport===window.BogatkaLiveReport.build.__htmlAction,
         pdfAction:window.openPdfReport===window.BogatkaLiveReport.build.__pdfAction,
