@@ -1,4 +1,4 @@
-name: PR73 inspect reviewed regression fixes
+name: PR73 export regression inputs
 
 on:
   pull_request:
@@ -9,24 +9,26 @@ permissions:
   contents: read
 
 jobs:
-  inspect-fixes:
+  export-inputs:
     if: github.event.pull_request.number == 73
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: archive-permanent-delete-tombstones
-          fetch-depth: 0
-      - name: Validate patch and capture details
-        shell: bash
-        run: |
-          set +e
-          git apply --verbose --check .github/pr73-regression-fixes.patch > /tmp/pr73-apply.log 2>&1
-          echo "exit=$?" >> /tmp/pr73-apply.log
-          exit 0
       - uses: actions/upload-artifact@v4
         with:
-          name: pr73-regression-patch-check
-          path: /tmp/pr73-apply.log
+          name: pr73-regression-inputs
+          path: |
+            .github/pr73-regression-fixes.patch
+            bogatka-field-8f3c7d/archive-label-v400.js
+            bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs
+            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs
+            bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs
+            bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs
+            bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs
+            bogatka-field-8f3c7d/tests/location-card-polish-v423.spec.mjs
+            bogatka-field-8f3c7d/tests/quick-checklist-v451.spec.mjs
+            bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs
           if-no-files-found: error
           retention-days: 2
