@@ -1,16 +1,16 @@
 name: PR73 apply baseline patch
 
 on:
-  push:
-    branches: [archive-permanent-delete-tombstones]
-    paths:
-      - '.github/pr73-baseline.patch'
+  pull_request:
+    branches: [main]
+    types: [labeled]
 
 permissions:
   contents: write
 
 jobs:
   apply-patch:
+    if: github.event.pull_request.number == 73 && github.event.label.name == 'apply-baseline'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
