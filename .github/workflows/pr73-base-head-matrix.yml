@@ -16,7 +16,7 @@ jobs:
   compare-failures:
     if: github.event.pull_request.number == 73
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,7 +59,31 @@ jobs:
                 curl --fail --silent "http://127.0.0.1:${port}/bogatka-field-8f3c7d/" >/dev/null && break
                 sleep 1
               done
-              PLAYWRIGHT_JSON_OUTPUT_NAME="$json" "$GITHUB_WORKSPACE/node_modules/.bin/playwright" test "$file" --grep "^${title}$" --workers=1 --reporter=json > "$log" 2>&1
+              PLAYWRIGHT_JSON_OUTPUT_NAME="$json" "$GITHUB_WORKSPACE/node_modules/.bin/playwright" test "$file" --grep "$title" --workers=1 --reporter=json > "$log" 2>&1
+            )
+            rc=$?
+            printf '%s\t%s\t%s\n' "$checkout" "$case_id" "$rc" | tee -a /tmp/pr73-matrix/status.tsv
+            return 0
+          }
+
+          run_file() {
+            local checkout="$1"
+            local case_id="$2"
+            local file="$3"
+            local port=4173
+            local dir="$GITHUB_WORKSPACE/$checkout"
+            local log="/tmp/pr73-matrix/${checkout}-${case_id}.log"
+            local json="/tmp/pr73-matrix/${checkout}-${case_id}.json"
+            (
+              cd "$dir"
+              python3 -m http.server "$port" --bind 127.0.0.1 > "/tmp/pr73-matrix/${checkout}-${case_id}-http.log" 2>&1 &
+              server_pid=$!
+              trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+              for attempt in {1..30}; do
+                curl --fail --silent "http://127.0.0.1:${port}/bogatka-field-8f3c7d/" >/dev/null && break
+                sleep 1
+              done
+              PLAYWRIGHT_JSON_OUTPUT_NAME="$json" "$GITHUB_WORKSPACE/node_modules/.bin/playwright" test "$file" --workers=1 --reporter=json > "$log" 2>&1
             )
             rc=$?
             printf '%s\t%s\t%s\n' "$checkout" "$case_id" "$rc" | tee -a /tmp/pr73-matrix/status.tsv
@@ -84,6 +108,7 @@ jobs:
               IFS='|' read -r case_id file title <<< "$row"
               run_case "$checkout" "$case_id" "$file" "$title"
             done
+            run_file "$checkout" 'traffic-file-order' 'bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs'
           done
 
           python3 - <<'PY'
@@ -107,7 +132,7 @@ jobs:
                                       if result.get('status')=='failed':
                                           msg=(result.get('error') or {}).get('message','')
                                           msg=re.sub(r'\x1b\[[0-9;]*m','',msg)
-                                          errors.append(msg[:1000])
+                                          errors.append(msg[:1400])
                       rows.append({'checkout':checkout,'case':case_id,'stats':stats,'errors':errors})
                   except Exception as exc:
                       rows.append({'checkout':checkout,'case':case_id,'parseError':str(exc)})
