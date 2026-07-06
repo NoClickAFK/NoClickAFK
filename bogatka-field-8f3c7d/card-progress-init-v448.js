@@ -263,7 +263,13 @@
   }
 
   async function enhanceLocation(id,{renderProgress=false}={}){
-    await requestEnhancement({renderProgress});
+    installRuntimePatches();
+    installCanonicalSummaryWrapper();
+    installSaveLocationWrapper();
+    if(renderProgress){
+      normalizeGroups(window.BogatkaDecisionUI?.lastMetrics||[]);
+      await window.BogatkaCardProgressV448?.renderAll?.();
+    }
     const card=document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
     if(card)await enhanceCard(card);
     return card;
@@ -276,7 +282,7 @@
     if(chainHas(current,'__canonicalCardEnhancerV448'))return true;
     const wrapped=async function(...args){
       const result=await current(...args);
-      await requestEnhancement({renderProgress:false});
+      refineAll();
       return result;
     };
     wrapped.__canonicalCardEnhancerV448=true;
@@ -306,8 +312,7 @@
       try{result=await current(...args)}finally{Element.prototype.scrollIntoView=originalScroll}
       const created=locationList().find(item=>!before.has(item.id));
       if(created){
-        if(typeof restoreAllForms==='function')await restoreAllForms();
-        else if(typeof updateSummary==='function')await updateSummary();
+        if(typeof updateSummary==='function')await updateSummary();
         const card=await enhanceLocation(created.id,{renderProgress:true});
         const target=card||deferredScroll?.node;
         if(target?.isConnected)originalScroll.apply(target,deferredScroll?.args||[{behavior:'smooth'}]);
