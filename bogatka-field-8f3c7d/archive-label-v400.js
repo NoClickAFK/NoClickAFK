@@ -2,7 +2,26 @@
   if(window.__bogatkaArchiveLabelV400)return;
   window.__bogatkaArchiveLabelV400=true;
   let guardedArchiveAction=null;
-  function canEdit(){return typeof cloudRole==='undefined'||cloudRole!=='viewer'}
+  let permanentDeleteAction=null;
+  function currentRole(){
+    let lexicalRole=null;
+    try{lexicalRole=typeof cloudRole==='undefined'?null:cloudRole}catch(_){ }
+    const windowRole=window.cloudRole??null;
+    if(lexicalRole==='viewer'||windowRole==='viewer')return 'viewer';
+    return windowRole??lexicalRole;
+  }
+  function canEdit(){return currentRole()!=='viewer'}
+  function guardSuiteAction(suite,name,message){
+    const current=suite?.[name];
+    if(typeof current!=='function'||current.__locationDeletionGuardV400)return;
+    const guarded=async function(...args){
+      if(!canEdit())return deletionError(message);
+      return current.apply(suite,args);
+    };
+    guarded.__locationDeletionGuardV400=true;
+    guarded.__base=current;
+    suite[name]=guarded;
+  }
   function deletionState(state){
     state=state&&typeof state==='object'?state:{};
     state.deletedLocations||={};
@@ -130,21 +149,15 @@
   }
   function installLocationDeletionLifecycle(){
     const S=window.BogatkaSuite;
-    if(!S||S.__locationDeletionLifecycleV400||typeof cloudDeleteRemovedLocations!=='function')return;
+    if(!S||typeof cloudDeleteRemovedLocations!=='function')return;
+    guardSuiteAction(S,'archiveLocation','Роль наблюдателя не позволяет архивировать локации.');
+    guardSuiteAction(S,'restoreArchivedLocation','Роль наблюдателя не позволяет восстанавливать локации.');
+    if(permanentDeleteAction)S.permanentlyDeleteArchived=permanentDeleteAction;
+    if(S.__locationDeletionLifecycleV400)return;
     S.__locationDeletionLifecycleV400=true;
-    const baseArchive=S.archiveLocation.bind(S);
-    const baseRestore=S.restoreArchivedLocation.bind(S);
     const baseDeleteRemoved=cloudDeleteRemovedLocations;
 
-    S.archiveLocation=async function(id){
-      if(!canEdit())return deletionError('Роль наблюдателя не позволяет архивировать локации.');
-      return baseArchive(id);
-    };
-    S.restoreArchivedLocation=async function(id){
-      if(!canEdit())return deletionError('Роль наблюдателя не позволяет восстанавливать локации.');
-      return baseRestore(id);
-    };
-    S.permanentlyDeleteArchived=async function(id){
+    permanentDeleteAction=async function(id){
       if(!canEdit())return deletionError('Роль наблюдателя не позволяет удалять локации.');
       const item=locations.find(location=>location.id===id);
       if(!item)return false;
@@ -170,6 +183,8 @@
       }
       return true;
     };
+    permanentDeleteAction.__locationDeletionGuardV400=true;
+    S.permanentlyDeleteArchived=permanentDeleteAction;
 
     const archiveDelete=async function(){
       if(!canEdit())return deletionError('Роль наблюдателя не позволяет архивировать локации.');
@@ -187,7 +202,7 @@
     };
     window.cloudDeleteRemovedLocations=cloudDeleteRemovedLocations;
     window.BogatkaLocationDeletion={
-      version:'4.0.1',ready:true,deletionState,pendingDeletionIds,queueLocationDeletion,processPendingDeletions,archiveFromModal:archiveDelete,
+      version:'4.0.1',ready:true,deletionState,pendingDeletionIds,queueLocationDeletion,processPendingDeletions,archiveFromModal:archiveDelete,applyViewerState:apply,
       filterRemote(remoteLocations,remotePhotos,state){
         const pending=pendingDeletionIds(state);
         const cloudIds=new Set(Object.values(deletionState(state).deletedLocations).map(item=>item?.cloudId).filter(Boolean));

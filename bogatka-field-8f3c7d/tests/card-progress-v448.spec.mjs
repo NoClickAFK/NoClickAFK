@@ -14,6 +14,7 @@ async function openApp(page){
     window.BogatkaLiveReport.build.__cardProgressReportV448&&
     window.buildReportHtml===window.BogatkaLiveReport.build&&
     document.querySelector('[data-location-card] .location-actions [data-card-recommendation-v448]')&&
+    window.BogatkaCardProgressInitV448?.initialized===true&&
     document.querySelector('[data-location-card] .progress-card-toggle-v462')
   ),{timeout:30000});
   return page.locator('[data-location-card]').first();
@@ -27,6 +28,8 @@ async function saveData(page,id,patch){
     if(next.score)merged.score={...(current.score||{}),...next.score};
     await idbPut(STORE,merged,`location:${locationId}`);
     await updateSummary();
+    await window.BogatkaCardProgressV448.renderAll();
+    window.BogatkaCardProgressInitV448.refineAll();
   },{locationId:id,next:patch});
 }
 
@@ -150,9 +153,10 @@ test('all fill-plan buttons use exact section names and open stable targets',asy
     conclusion:'Предварительное решение по локации',
   };
   await expect(plan.locator('.fill-plan-item-v448')).toHaveCount(7);
-  const descriptions=plan.locator('.fill-plan-copy-v448>span');
+  await expect(plan.locator('.fill-plan-copy-v448>span')).toHaveCount(0);
+  const descriptions=plan.locator('.fill-plan-copy-v448>small');
   await expect(descriptions).toHaveCount(7);
-  expect((await descriptions.allTextContents()).every(text=>text.trim().length>0)).toBe(true);
+  expect((await descriptions.allTextContents()).every(text=>/\S/.test(text)&&/(остал|не хватает|не завершено|статус|контакт|площад|плюс|минус|риск)/i.test(text))).toBe(true);
   await expect(plan).not.toContainText(/Следующий приоритет|Далее/i);
   for(const [target,title] of Object.entries(expected)){
     await expect(plan.locator(`[data-progress-target-v448="${target}"]`).locator('xpath=..').locator('.fill-plan-copy-v448 strong')).toHaveText(title);

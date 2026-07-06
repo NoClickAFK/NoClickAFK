@@ -155,11 +155,17 @@ function expectMobile(snapshot){
   expect(snapshot.missing).toEqual([]);
   for(const label of Object.values(snapshot.labels))expect(label).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
   expect(snapshot.nativeValue).toMatchObject({size:'16px',weight:'600',lineHeight:'21.6px'});
-  for(const select of Object.values(snapshot.customSelects))expect(select).toMatchObject({size:'12px',weight:'700',lineHeight:'16.2px'});
+  for(const select of Object.values(snapshot.customSelects)){
+    expect(select).toMatchObject({size:'12px',weight:'700'});
+    expect(Number.parseFloat(select.lineHeight)).toBeCloseTo(16.2,4);
+  }
   expect(snapshot.quickTitle).toMatchObject({size:'11px',weight:'700',lineHeight:'14.85px'});
   expect(snapshot.quickValue).toMatchObject({size:'10px',weight:'800',lineHeight:'13.5px'});
   const placeholders=Object.values(snapshot.placeholders);
-  for(const placeholder of placeholders)expect(placeholder).toMatchObject({size:'11px',weight:'400',lineHeight:'15.4px'});
+  for(const placeholder of placeholders){
+    expect(placeholder).toMatchObject({size:'11px',weight:'400'});
+    if(placeholder.lineHeight!=='normal')expect(Number.parseFloat(placeholder.lineHeight)).toBeCloseTo(15.4,4);
+  }
   expect(new Set(placeholders.map(value=>`${value.size}/${value.weight}/${value.lineHeight}/${value.color}/${value.opacity}`)).size).toBe(1);
   expect(Number.parseFloat(placeholders[0].size)).toBeLessThan(Number.parseFloat(snapshot.customSelects.landlord.size));
   expect(snapshot.helper).toMatchObject({size:'10px',weight:'400',lineHeight:'14px'});

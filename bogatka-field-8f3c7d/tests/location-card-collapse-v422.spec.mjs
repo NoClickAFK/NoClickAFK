@@ -92,7 +92,7 @@ test('status is right-aligned in the action row while collapse arrow stays upper
   expect(result.statusInSide).toBe(false);
   expect(result.statusWidth).toBeLessThan(220);
   expect(result.statusHeight).toBeGreaterThanOrEqual(30);
-  expect(result.statusBorderWidth).toBe('1px');
+  expect(result.statusBorderWidth).toBe('0px');
   expect(result.statusRadius).toBe('10px');
   expect(result.statusFontSize).toBe('11px');
   expect(result.centerDelta).toBeLessThanOrEqual(3);

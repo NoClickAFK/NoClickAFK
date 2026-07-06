@@ -191,7 +191,11 @@ test('reports viewer mode and mobile layout support all ten checks',async({page}
   const html=await page.evaluate(()=>window.buildReportHtml());
   expect(html).toContain('Уточните, кто собственник помещения и кто будет подписывать договор');
   expect(html).toContain('Проверки перед арендой');
-  await page.evaluate(()=>Reflect.set(window,'cloudRole','viewer'));
+  await page.evaluate(()=>{
+    try{cloudRole='viewer'}catch(_){ }
+    window.cloudRole='viewer';
+    window.BogatkaLocationDeletion.applyViewerState();
+  });
   await expect(section.locator('select').first()).toBeDisabled({timeout:5000});
   await expect(section.locator('textarea').first()).toBeDisabled();
 });

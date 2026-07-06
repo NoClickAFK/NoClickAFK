@@ -263,25 +263,45 @@ test('remote deletion wins over dirty stale client and prevents a second-device 
 
 test('viewer cannot invoke archive APIs and predefined locations cannot be permanently deleted',async({page})=>{
   await openApp(page);
-  const fixture=await createCustom(page,{});
-  await page.waitForTimeout(1600);
-  const result=await page.evaluate(async id=>{
-    cloudRole='viewer';
-    await window.BogatkaSuite.archiveLocation(id);
-    cloudRole='viewer';
-    document.querySelector('#editLocationId').value=id;
-    await window.deleteCustomLocation();
-    const viewerArchived=Boolean((await getLocationData(id)).archivedAt||locations.find(item=>item.id===id)?.archivedAt);
+  const active=await createCustom(page,{});
+  const archived=await createCustom(page,{archived:true});
+  await page.waitForFunction(()=>Boolean(
+    window.BogatkaLocationDeletion?.ready&&
+    window.BogatkaSuite.archiveLocation?.__locationDeletionGuardV400&&
+    window.BogatkaSuite.restoreArchivedLocation?.__locationDeletionGuardV400&&
+    window.BogatkaSuite.permanentlyDeleteArchived?.__locationDeletionGuardV400
+  ));
+  const result=await page.evaluate(async({activeId,archivedId})=>{
+    cloudRole='viewer';window.cloudRole='viewer';
+    const archiveResult=await window.BogatkaSuite.archiveLocation(activeId);
+    const restoreResult=await window.BogatkaSuite.restoreArchivedLocation(archivedId);
+    const deleteResult=await window.BogatkaSuite.permanentlyDeleteArchived(archivedId);
+    document.querySelector('#editLocationId').value=activeId;
+    const modalArchiveResult=await window.deleteCustomLocation();
+    const activeData=await getLocationData(activeId);
+    const archivedData=await getLocationData(archivedId);
 
-    cloudRole='editor';
+    cloudRole='editor';window.cloudRole='editor';
     const predefined=locations.find(item=>!item.custom);
     const now=new Date().toISOString();
     const predefinedData=await getLocationData(predefined.id);
     predefinedData.archivedAt=now;
     predefined.archivedAt=now;
     await idbPut(STORE,predefinedData,`location:${predefined.id}`);
-    const deleted=await window.BogatkaSuite.permanentlyDeleteArchived(predefined.id);
-    return {viewerArchived,deleted,predefinedExists:locations.some(item=>item.id===predefined.id),predefinedData:Boolean(await idbGet(STORE,`location:${predefined.id}`))};
-  },fixture.clientId);
-  expect(result).toEqual({viewerArchived:false,deleted:false,predefinedExists:true,predefinedData:true});
+    const predefinedDeleteResult=await window.BogatkaSuite.permanentlyDeleteArchived(predefined.id);
+    return {
+      archiveResult,restoreResult,deleteResult,modalArchiveResult,
+      activeArchived:Boolean(activeData.archivedAt||locations.find(item=>item.id===activeId)?.archivedAt),
+      archivedStillArchived:Boolean(archivedData.archivedAt&&locations.find(item=>item.id===archivedId)?.archivedAt),
+      archivedExists:locations.some(item=>item.id===archivedId)&&Boolean(await idbGet(STORE,`location:${archivedId}`)),
+      predefinedDeleteResult,
+      predefinedExists:locations.some(item=>item.id===predefined.id),
+      predefinedData:Boolean(await idbGet(STORE,`location:${predefined.id}`)),
+    };
+  },{activeId:active.clientId,archivedId:archived.clientId});
+  expect(result).toEqual({
+    archiveResult:false,restoreResult:false,deleteResult:false,modalArchiveResult:false,
+    activeArchived:false,archivedStillArchived:true,archivedExists:true,
+    predefinedDeleteResult:false,predefinedExists:true,predefinedData:true,
+  });
 });
