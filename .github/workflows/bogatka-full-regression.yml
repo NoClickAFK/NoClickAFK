@@ -32,10 +32,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Chromium
+      - name: Install Chromium and WebKit
         run: |
           npm install --no-save --silent @playwright/test@1.52.0
-          npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
+          npx playwright install --with-deps chromium webkit > /tmp/playwright-install.log 2>&1
       - name: Run complete browser regression with one worker
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/playwright-results.json
