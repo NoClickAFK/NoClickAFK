@@ -164,10 +164,12 @@
     const section=ensureReasonSection(card);
     if(!section)return false;
     const control=reasonControl(card);
-    if(control&&!control.dataset.decisionReasonPersistedV412){
+    if(control){
       const data=typeof getLocationData==='function'?await getLocationData(card.dataset.locationCard):{};
-      if(document.activeElement!==control&&control.dataset.locationDataDirtyV452!=='1')control.value=String(data?.decisionReason||'');
-      setPersisted(control,String(data?.decisionReason||''));
+      const stored=String(data?.decisionReason||'');
+      const safe=document.activeElement!==control&&control.dataset.locationDataDirtyV452!=='1';
+      if(safe&&!control.dataset.decisionReasonPersistedV412)control.value=stored;
+      if(safe&&control.value===stored)setPersisted(control,stored);
     }
     if(filled(decisionValue(card))&&!filled(control?.value)&&section.dataset.initialMissingOpenedV412!=='1'){
       section.dataset.initialMissingOpenedV412='1';
