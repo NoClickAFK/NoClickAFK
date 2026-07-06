@@ -143,7 +143,7 @@
     control.placeholder='Например:\n— подходящий поток и район;\n— приемлемая аренда;\n— требуется письменное подтверждение разгрузки.';
     old.querySelector('.decision-reason-warning-v452')?.remove();
     const section=document.createElement('details');
-    section.className='decision-reason-section-v412';
+    section.className='decision-reason-section-v412 decision-reason-v452';
     section.dataset.decisionReasonV412='1';
     section.innerHTML='<summary class="decision-reason-toggle-v412"><span class="decision-reason-title-v412">Причина решения</span><span class="decision-reason-status-v412" data-decision-reason-status-v412>Не выбрано</span><i class="decision-reason-chevron-v412" aria-hidden="true"></i></summary><div class="decision-reason-body-v412"><p class="decision-reason-helper-v412">Укажите основные причины решения. Если причин несколько, запишите каждую с новой строки.</p><div class="decision-reason-control-v412"></div><div class="decision-reason-actions-v412"><button type="button" class="btn secondary" data-decision-reason-save-v412>Сохранить причину</button><small data-decision-reason-feedback-v412>Причина пока не заполнена</small></div></div>';
     section.querySelector('.decision-reason-control-v412').append(control);
