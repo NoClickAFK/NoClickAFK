@@ -6,7 +6,6 @@
     'Исключить':'не рассматривать дальше',
   };
   const stateKey=id=>`bogatka_decision_reason_open_v412:${id}`;
-  let saveWrapperAttempts=0;
   let observerFrame=0;
   const filled=value=>String(value||'').trim()!=='';
   const currentRole=()=>{
@@ -193,26 +192,6 @@
     if(focus)reasonControl(card)?.focus({preventScroll:true});
     return true;
   }
-  function installSaveWrapper(){
-    saveWrapperAttempts++;
-    if(typeof window.saveField!=='function'&&typeof saveField!=='function')return false;
-    const current=window.saveField||saveField;
-    if(current.__decisionReasonFeedbackV412)return true;
-    const wrapped=async function(element,...args){
-      const result=await current(element,...args);
-      if(element?.dataset?.field==='decisionReason'){
-        setPersisted(element,element.value);
-        const card=element.closest('[data-location-card]');
-        if(card)syncReasonState(card,{validate:true,message:'Причина сохранена'});
-      }
-      return result;
-    };
-    wrapped.__decisionReasonFeedbackV412=true;
-    wrapped.__base=current;
-    window.saveField=wrapped;
-    try{saveField=wrapped}catch(_){ }
-    return true;
-  }
   const observer=new MutationObserver(()=>{
     if(observerFrame)return;
     observerFrame=requestAnimationFrame(()=>{
@@ -223,11 +202,9 @@
   function install(){
     const root=document.getElementById('locations');
     if(!root)return;
-    installSaveWrapper();
     observer.observe(root,{childList:true,subtree:true});
     enhanceAll().catch(console.error);
-    [100,400,1000,2500].forEach(delay=>setTimeout(()=>{installSaveWrapper();enhanceAll().catch(console.error)},delay));
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-  window.BogatkaDecisionPanel={version:'4.1.2',ready:true,enhanceAll,enhanceCard,openReason,flushReason,syncReasonState,installSaveWrapper};
+  window.BogatkaDecisionPanel={version:'4.1.2',ready:true,enhanceAll,enhanceCard,openReason,flushReason,syncReasonState};
 })();
