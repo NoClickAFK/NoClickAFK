@@ -1,4 +1,4 @@
-name: PR73 apply reviewed regression fixes
+name: PR73 inspect reviewed regression fixes
 
 on:
   pull_request:
@@ -6,10 +6,10 @@ on:
     types: [synchronize]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-fixes:
+  inspect-fixes:
     if: github.event.pull_request.number == 73
     runs-on: ubuntu-latest
     steps:
@@ -17,16 +17,16 @@ jobs:
         with:
           ref: archive-permanent-delete-tombstones
           fetch-depth: 0
-      - name: Apply reviewed runtime and test corrections
+      - name: Validate patch and capture details
         shell: bash
         run: |
-          set -euo pipefail
-          git apply --check .github/pr73-regression-fixes.patch
-          git apply .github/pr73-regression-fixes.patch
-          rm .github/pr73-regression-fixes.patch
-          rm .github/workflows/pr73-apply-regression-fixes.yml
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'Fix archive permissions and regression baselines'
-          git push origin HEAD:archive-permanent-delete-tombstones
+          set +e
+          git apply --verbose --check .github/pr73-regression-fixes.patch > /tmp/pr73-apply.log 2>&1
+          echo "exit=$?" >> /tmp/pr73-apply.log
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr73-regression-patch-check
+          path: /tmp/pr73-apply.log
+          if-no-files-found: error
+          retention-days: 2
