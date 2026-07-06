@@ -182,3 +182,93 @@
     get skippedBootstrapRefresh(){return skippedBootstrapRefresh},
   };
 })();
+
+(function(){
+  'use strict';
+  const VERSION='4.6.3';
+  if(window.BogatkaCardEnhancer?.version===VERSION)return;
+  let installAttempts=0;
+  const list=()=>{try{return typeof locations==='undefined'?[]:locations}catch(_){return []}};
+  const has=(fn,marker)=>{const seen=new Set();for(let f=fn;typeof f==='function'&&!seen.has(f);f=f.__base){seen.add(f);if(f[marker])return true}return false};
+  const card=id=>document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
+
+  async function refreshProgress(){
+    const refresh=window.BogatkaDecisionUI?.refresh;
+    if(typeof refresh==='function'){
+      await refresh();
+      await refresh();
+    }
+    await window.BogatkaCardProgressV448?.renderAll?.();
+  }
+
+  async function enhanceCard(node){
+    if(!node?.dataset?.locationCard)return false;
+    await window.BogatkaLocationDataV452?.enhanceCard?.(node);
+    window.BogatkaInspectionLayoutV461?.placeCard?.(node);
+    await window.BogatkaDecisionPanel?.enhanceCard?.(node);
+    window.BogatkaUIRefineV462?.ensureProgressAccordion?.(node);
+    window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
+    window.BogatkaCardProgressInitV448?.refineAll?.();
+    return true;
+  }
+
+  async function enhanceLocation(id,{renderProgress=false}={}){
+    const node=card(id);
+    if(!node)return null;
+    await window.BogatkaLocationDataV452?.enhanceCard?.(node);
+    if(renderProgress)await refreshProgress();
+    await enhanceCard(node);
+    return node;
+  }
+
+  async function enhanceAll({renderProgress=false}={}){
+    if(renderProgress)await refreshProgress();
+    const cards=[...document.querySelectorAll('[data-location-card]')];
+    for(const node of cards)await enhanceCard(node);
+    return cards.length;
+  }
+
+  function installSaveWrapper(){
+    installAttempts+=1;
+    if(typeof window.saveLocationFromModal!=='function'&&typeof saveLocationFromModal!=='function'){
+      if(installAttempts<100)setTimeout(installSaveWrapper,100);
+      return false;
+    }
+    const current=window.saveLocationFromModal||saveLocationFromModal;
+    if(has(current,'__canonicalCardSaveV463'))return true;
+    const wrapped=async function(...args){
+      const before=new Set(list().map(item=>item.id));
+      const original=Element.prototype.scrollIntoView;
+      let deferred=null;
+      Element.prototype.scrollIntoView=function(...scrollArgs){
+        if(this.matches?.('[data-location-card]')&&!before.has(this.dataset.locationCard)){
+          deferred={node:this,args:scrollArgs};
+          return;
+        }
+        return original.apply(this,scrollArgs);
+      };
+      let result;
+      try{result=await current(...args)}finally{Element.prototype.scrollIntoView=original}
+      const created=list().find(item=>!before.has(item.id));
+      if(created){
+        const node=await enhanceLocation(created.id,{renderProgress:true});
+        const target=node||deferred?.node;
+        if(target?.isConnected)original.apply(target,deferred?.args||[{behavior:'smooth'}]);
+      }
+      return result;
+    };
+    wrapped.__canonicalCardSaveV463=true;
+    wrapped.__base=current;
+    window.saveLocationFromModal=wrapped;
+    try{saveLocationFromModal=wrapped}catch(_){ }
+    return true;
+  }
+
+  function install(){
+    installSaveWrapper();
+    [100,400,1000,2500].forEach(delay=>setTimeout(installSaveWrapper,delay));
+  }
+
+  install();
+  window.BogatkaCardEnhancer={version:VERSION,ready:true,enhanceCard,enhanceLocation,enhanceAll};
+})();
