@@ -25,6 +25,7 @@
   let summaryWrapperAttempts=0;
 
   const filled=value=>String(value??'').trim()!=='';
+  const locationList=()=>{try{return typeof locations==='undefined'?[]:locations}catch(_){return []}};
   const chainHas=(fn,marker)=>{
     const seen=new Set();
     for(let current=fn;typeof current==='function'&&!seen.has(current);current=current.__base){
@@ -291,7 +292,7 @@
     const current=window.saveLocationFromModal||saveLocationFromModal;
     if(chainHas(current,'__canonicalCardSaveV448'))return true;
     const wrapped=async function(...args){
-      const before=new Set((window.locations||[]).map(item=>item.id));
+      const before=new Set(locationList().map(item=>item.id));
       const originalScroll=Element.prototype.scrollIntoView;
       let deferredScroll=null;
       Element.prototype.scrollIntoView=function(...scrollArgs){
@@ -303,7 +304,7 @@
       };
       let result;
       try{result=await current(...args)}finally{Element.prototype.scrollIntoView=originalScroll}
-      const created=(window.locations||[]).find(item=>!before.has(item.id));
+      const created=locationList().find(item=>!before.has(item.id));
       if(created){
         if(typeof restoreAllForms==='function')await restoreAllForms();
         else if(typeof updateSummary==='function')await updateSummary();
