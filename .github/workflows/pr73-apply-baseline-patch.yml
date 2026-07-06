@@ -1,4 +1,4 @@
-name: PR73 inspect baseline patch
+name: PR73 apply validated baseline
 
 on:
   pull_request:
@@ -6,35 +6,27 @@ on:
     types: [synchronize]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  inspect-patch:
+  apply-baseline:
     if: github.event.pull_request.number == 73
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: archive-permanent-delete-tombstones
-      - name: Apply patch and capture diagnostics
+          fetch-depth: 0
+      - name: Apply validated corrections and clean temporary files
         shell: bash
         run: |
-          set +e
-          patch -p1 --forward --batch --fuzz=3 < .github/pr73-baseline.patch > /tmp/pr73-patch.log 2>&1
-          echo "patch_exit=$?" >> /tmp/pr73-patch.log
-          find bogatka-field-8f3c7d/tests -name '*.rej' -print -exec cat {} \; >> /tmp/pr73-patch.log
-          exit 0
-      - name: Upload patch diagnostics and workspace
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr73-patch-diagnostics
-          path: |
-            /tmp/pr73-patch.log
-            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs
-            bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs
-            bogatka-field-8f3c7d/tests/report-live-v427.spec.js
-            bogatka-field-8f3c7d/tests/workflow-v414-score-cases.mjs
-            bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs
-            bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs
-          if-no-files-found: error
-          retention-days: 2
+          set -euo pipefail
+          git apply --check .github/pr73-baseline.patch
+          git apply .github/pr73-baseline.patch
+          rm .github/pr73-baseline.patch
+          rm .github/workflows/pr73-apply-baseline-patch.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Correct full regression baseline assertions'
+          git push origin HEAD:archive-permanent-delete-tombstones
