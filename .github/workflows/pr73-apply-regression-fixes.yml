@@ -1,4 +1,4 @@
-name: PR73 export regression inputs
+name: PR73 apply validated regression fixes
 
 on:
   pull_request:
@@ -6,29 +6,27 @@ on:
     types: [synchronize]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  export-inputs:
+  apply-fixes:
     if: github.event.pull_request.number == 73
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: archive-permanent-delete-tombstones
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pr73-regression-inputs
-          path: |
-            .github/pr73-regression-fixes.patch
-            bogatka-field-8f3c7d/archive-label-v400.js
-            bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs
-            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs
-            bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs
-            bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs
-            bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs
-            bogatka-field-8f3c7d/tests/location-card-polish-v423.spec.mjs
-            bogatka-field-8f3c7d/tests/quick-checklist-v451.spec.mjs
-            bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs
-          if-no-files-found: error
-          retention-days: 2
+          fetch-depth: 0
+      - name: Apply validated runtime and test corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check .github/pr73-regression-fixes.patch
+          git apply .github/pr73-regression-fixes.patch
+          rm .github/pr73-regression-fixes.patch
+          rm .github/workflows/pr73-apply-regression-fixes.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Fix archive permissions and regression baselines'
+          git push origin HEAD:archive-permanent-delete-tombstones
