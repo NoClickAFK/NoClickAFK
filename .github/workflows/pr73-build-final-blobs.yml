@@ -1,0 +1,41 @@
+name: PR73 build final corrected blobs
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  build-blobs:
+    if: github.event.pull_request.number == 73
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: archive-permanent-delete-tombstones
+      - name: Apply final test patch in workspace
+        run: git apply .github/pr73-final-fixes.patch
+      - name: Create unreferenced Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > /tmp/pr73-final-blobs.tsv
+          for file in \
+            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
+            bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs \
+            bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs
+          do
+            encoded=$(base64 -w0 "$file")
+            sha=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" -f content="$encoded" -f encoding=base64 --jq .sha)
+            printf '%s\t%s\n' "$file" "$sha" >> /tmp/pr73-final-blobs.tsv
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr73-final-blob-map
+          path: /tmp/pr73-final-blobs.tsv
+          retention-days: 2
