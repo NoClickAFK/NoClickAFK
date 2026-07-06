@@ -1,6 +1,7 @@
 (function(){
   if(window.__bogatkaArchiveLabelV400)return;
   window.__bogatkaArchiveLabelV400=true;
+  let guardedArchiveAction=null;
   function canEdit(){return typeof cloudRole==='undefined'||cloudRole!=='viewer'}
   function deletionState(state){
     state=state&&typeof state==='object'?state:{};
@@ -109,6 +110,24 @@
       }
     }
   }
+  function installArchiveActionGuard(action){
+    if(typeof action!=='function')return;
+    guardedArchiveAction=action;
+    try{
+      const descriptor=Object.getOwnPropertyDescriptor(window,'deleteCustomLocation');
+      if(!descriptor||descriptor.configurable){
+        Object.defineProperty(window,'deleteCustomLocation',{
+          configurable:true,
+          enumerable:descriptor?.enumerable??true,
+          get(){return guardedArchiveAction},
+          set(){},
+        });
+        return;
+      }
+    }catch(_){ }
+    window.deleteCustomLocation=guardedArchiveAction;
+    try{deleteCustomLocation=guardedArchiveAction}catch(_){ }
+  }
   function installLocationDeletionLifecycle(){
     const S=window.BogatkaSuite;
     if(!S||S.__locationDeletionLifecycleV400||typeof cloudDeleteRemovedLocations!=='function')return;
@@ -158,8 +177,7 @@
       if(id)await S.archiveLocation(id);
       closeLocationModal();
     };
-    window.deleteCustomLocation=archiveDelete;
-    try{deleteCustomLocation=archiveDelete}catch(_){}
+    installArchiveActionGuard(archiveDelete);
 
     cloudDeleteRemovedLocations=async function deleteRemovedLocationsWithTombstones(remoteLocations,syncState){
       deletionState(syncState);
@@ -169,7 +187,7 @@
     };
     window.cloudDeleteRemovedLocations=cloudDeleteRemovedLocations;
     window.BogatkaLocationDeletion={
-      version:'4.0.1',ready:true,deletionState,pendingDeletionIds,queueLocationDeletion,processPendingDeletions,
+      version:'4.0.1',ready:true,deletionState,pendingDeletionIds,queueLocationDeletion,processPendingDeletions,archiveFromModal:archiveDelete,
       filterRemote(remoteLocations,remotePhotos,state){
         const pending=pendingDeletionIds(state);
         const cloudIds=new Set(Object.values(deletionState(state).deletedLocations).map(item=>item?.cloudId).filter(Boolean));
@@ -181,6 +199,7 @@
     };
   }
   function apply(){
+    if(guardedArchiveAction)installArchiveActionGuard(guardedArchiveAction);
     const button=document.getElementById('deleteLocationBtn');
     if(button){button.textContent='В архив';button.classList.remove('danger');button.classList.add('warning')}
     document.querySelectorAll('[data-archive-delete]').forEach(action=>{
