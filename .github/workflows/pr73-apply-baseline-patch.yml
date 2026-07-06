@@ -3,14 +3,14 @@ name: PR73 apply baseline patch
 on:
   pull_request:
     branches: [main]
-    types: [labeled]
+    types: [synchronize]
 
 permissions:
   contents: write
 
 jobs:
   apply-patch:
-    if: github.event.pull_request.number == 73 && github.event.label.name == 'apply-baseline'
+    if: github.event.pull_request.number == 73
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
