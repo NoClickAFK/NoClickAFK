@@ -1,0 +1,35 @@
+name: PR73 apply baseline patch
+
+on:
+  push:
+    branches: [archive-permanent-delete-tombstones]
+    paths:
+      - '.github/pr73-baseline.patch'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: archive-permanent-delete-tombstones
+          fetch-depth: 0
+      - name: Apply reviewed baseline corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f .github/pr73-baseline.patch ]; then
+            echo 'Patch already consumed.'
+            exit 0
+          fi
+          git apply --check .github/pr73-baseline.patch
+          git apply .github/pr73-baseline.patch
+          rm .github/pr73-baseline.patch
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Correct full regression baseline assertions'
+          git push origin HEAD:archive-permanent-delete-tombstones
