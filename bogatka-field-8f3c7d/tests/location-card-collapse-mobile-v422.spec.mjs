@@ -162,6 +162,28 @@ test('decision reason is collapsible, explicitly saveable and persists multiline
   await page.waitForFunction(()=>Boolean(window.BogatkaDecisionPanel?.ready&&document.querySelector('.decision-reason-section-v412')));
   const reloaded=page.locator(`[data-location-card="${id}"]`);
   await expect(reloaded.locator('[data-field="decisionReason"]')).toHaveValue(value);
+  const remote=await page.evaluate(async locationId=>{
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    const input=card.querySelector('[data-field="decisionReason"]');
+    input.focus();
+    input.value='Локальная несохранённая причина';
+    input.dataset.locationDataDirtyV452='1';
+    const stored=await getLocationData(locationId);
+    const incoming={...stored,decisionReason:'Причина с другого устройства'};
+    await window.BogatkaSyncIntegrity.hydrateLocationCard(locationId,incoming);
+    const protectedValue=input.value;
+    input.blur();
+    delete input.dataset.locationDataDirtyV452;
+    await idbPut(STORE,incoming,`location:${locationId}`);
+    await window.BogatkaSyncIntegrity.hydrateLocationCard(locationId,incoming);
+    return{
+      protectedValue,
+      hydratedValue:input.value,
+      status:card.querySelector('[data-decision-reason-status-v412]').textContent,
+      saveDisabled:card.querySelector('[data-decision-reason-save-v412]').disabled,
+    };
+  },id);
+  expect(remote).toEqual({protectedValue:'Локальная несохранённая причина',hydratedValue:'Причина с другого устройства',status:'Сохранено',saveDisabled:true});
   await page.evaluate(async locationId=>{
     cloudRole='viewer';window.cloudRole='viewer';
     const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
