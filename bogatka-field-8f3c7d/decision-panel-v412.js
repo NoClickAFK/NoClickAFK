@@ -11,7 +11,9 @@
   const currentRole=()=>{
     let lexical=null;
     try{lexical=typeof cloudRole==='undefined'?null:cloudRole}catch(_){ }
-    return window.cloudRole??lexical;
+    const exposed=window.cloudRole??null;
+    if(lexical==='viewer'||exposed==='viewer')return 'viewer';
+    return exposed??lexical;
   };
   const isViewer=()=>currentRole()==='viewer';
   function refresh(panel){
@@ -69,6 +71,7 @@
     const status=section.querySelector('[data-decision-reason-status-v412]');
     let label='Не выбрано',semantic='empty';
     if(dirty){label='Есть изменения';semantic='dirty';}
+    else if(!filled(decision)){label='Не выбрано';semantic='empty';}
     else if(missing){label='Нужно заполнить';semantic='required';}
     else if(filled(control.value)){label='Сохранено';semantic='saved';}
     if(status){status.textContent=label;status.dataset.state=semantic;}
