@@ -130,6 +130,7 @@
     remoteLocations=filtered.remoteLocations;
     remotePhotos=filtered.remotePhotos;
     const remoteById=new Map(remoteLocations.map(row=>[row.client_id||row.id,row]));
+    const known=new Set(syncState.knownLocationIds||[]);
     let metaChanged=false;
 
     for(const item of [...locations]){
@@ -139,7 +140,7 @@
         continue;
       }
       const row=remoteById.get(item.id)||null;
-      if(!row&&item.cloudId){
+      if(!row&&item.cloudId&&known.has(item.id)){
         await removeLocalLocation(item.id);
         metaChanged=true;
         continue;
