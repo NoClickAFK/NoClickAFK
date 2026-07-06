@@ -14,7 +14,7 @@ async function openApp(page){
     window.BogatkaLiveReport.build.__cardProgressReportV448&&
     window.buildReportHtml===window.BogatkaLiveReport.build&&
     document.querySelector('[data-location-card] .location-actions [data-card-recommendation-v448]')&&
-    window.BogatkaCardProgressInitV448?.initialized===true&&
+    window.BogatkaCardProgressV448?.initialized===true&&
     document.querySelector('[data-location-card] .progress-card-toggle-v462')
   ),{timeout:30000});
   return page.locator('[data-location-card]').first();
