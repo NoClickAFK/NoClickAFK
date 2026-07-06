@@ -5,7 +5,7 @@ test('checklist and score explain different decisions',async({page})=>{
   const card=await openApp(page);
   await expect(card.locator('.checklist-guide-v414')).toContainText('зафиксировать результат проверки');
   await expect(card.locator('.checklist-guide-v414')).toContainText('«Да», «Нет» или «Не требуется»');
-  const score=card.locator('details').filter({hasText:'Сравнительная оценка потенциала локации'});
+  const score=card.locator('details').filter({hasText:'Оценка локации'});
   await expect(score.locator('.score-guide-v414')).toContainText('сравнить локации по спросу, потоку, доступности, заметности и пригодности помещения');
   await expect(score.locator('.score-label-v414')).toHaveCount(14);
   await expect(score.locator('.score-label-v414').first()).toContainText('Плотность жилой застройки');
