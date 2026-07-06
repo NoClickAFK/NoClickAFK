@@ -7,6 +7,7 @@
   };
   const stateKey=id=>`bogatka_decision_reason_open_v412:${id}`;
   let saveWrapperAttempts=0;
+  let observerFrame=0;
   const filled=value=>String(value||'').trim()!=='';
   const currentRole=()=>{
     let lexical=null;
@@ -50,7 +51,8 @@
   function reasonControl(card){return card.querySelector('.decision-reason-section-v412 [data-field="decisionReason"]')}
   function setOpen(section,open,{persist=true}={}){
     if(!section)return;
-    section.open=Boolean(open);
+    const next=Boolean(open);
+    if(section.open!==next)section.open=next;
     const id=section.closest('[data-location-card]')?.dataset.locationCard;
     if(persist&&id)try{localStorage.setItem(stateKey(id),open?'1':'0')}catch(_){ }
   }
@@ -58,7 +60,9 @@
   function setPersisted(control,value){if(control)control.dataset.decisionReasonPersistedV412=String(value??'')}
   function setMessage(section,text,state='idle'){
     const node=section?.querySelector('[data-decision-reason-feedback-v412]');
-    if(node){node.textContent=text;node.dataset.state=state;}
+    if(!node)return;
+    if(node.textContent!==text)node.textContent=text;
+    if(node.dataset.state!==state)node.dataset.state=state;
   }
   function syncReasonState(card,{validate=false,message=''}={}){
     const section=card?.querySelector('.decision-reason-section-v412');
@@ -74,7 +78,10 @@
     else if(!filled(decision)){label='Не выбрано';semantic='empty';}
     else if(missing){label='Нужно заполнить';semantic='required';}
     else if(filled(control.value)){label='Сохранено';semantic='saved';}
-    if(status){status.textContent=label;status.dataset.state=semantic;}
+    if(status){
+      if(status.textContent!==label)status.textContent=label;
+      if(status.dataset.state!==semantic)status.dataset.state=semantic;
+    }
     section.dataset.reasonState=semantic;
     section.dataset.requiredMissing=String(missing&&validate&&!focused);
     control.required=filled(decision);
@@ -206,7 +213,13 @@
     try{saveField=wrapped}catch(_){ }
     return true;
   }
-  const observer=new MutationObserver(()=>requestAnimationFrame(()=>enhanceAll().catch(console.error)));
+  const observer=new MutationObserver(()=>{
+    if(observerFrame)return;
+    observerFrame=requestAnimationFrame(()=>{
+      observerFrame=0;
+      enhanceAll().catch(console.error);
+    });
+  });
   function install(){
     const root=document.getElementById('locations');
     if(!root)return;
