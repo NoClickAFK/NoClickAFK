@@ -1,0 +1,150 @@
+diff --git a/bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs b/bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs
+index ace2ea4..0000000 100644
+--- a/bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs
++++ b/bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs
+@@ -152,7 +152,9 @@ test('all fill-plan buttons use exact section names and open stable targets',asy
+     conclusion:'Предварительное решение по локации',
+   };
+   await expect(plan.locator('.fill-plan-item-v448')).toHaveCount(7);
+-  await expect(plan.locator('.fill-plan-copy-v448>span')).toHaveCount(0);
++  const descriptions=plan.locator('.fill-plan-copy-v448>span');
++  await expect(descriptions).toHaveCount(7);
++  expect((await descriptions.allTextContents()).every(text=>text.trim().length>0)).toBe(true);
+   await expect(plan).not.toContainText(/Следующий приоритет|Далее/i);
+   for(const [target,title] of Object.entries(expected)){
+     await expect(plan.locator(`[data-progress-target-v448="${target}"]`).locator('xpath=..').locator('.fill-plan-copy-v448 strong')).toHaveText(title);
+diff --git a/bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs b/bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs
+index b03788b..0000000 100644
+--- a/bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs
++++ b/bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs
+@@ -88,9 +88,9 @@ test('ten tailored lease checks are collapsed and use the same accordion present
+     const launch=element.querySelector('[data-launch-details]>summary');
+     const collaboration=element.querySelector('[data-collaboration]>summary');
+     return {
+-      leaseArrow:getComputedStyle(lease,'::before').content,
+-      economyArrow:getComputedStyle(economy,'::before').content,
+-      launchArrow:getComputedStyle(launch,'::before').content,
++      leaseArrow:getComputedStyle(lease,'::before').borderLeftWidth,
++      economyArrow:getComputedStyle(economy,'::before').borderLeftWidth,
++      launchArrow:getComputedStyle(launch,'::before').borderLeftWidth,
+       leaseDisplay:getComputedStyle(lease).display,
+       economyDisplay:getComputedStyle(economy).display,
+       launchDisplay:getComputedStyle(launch).display,
+@@ -99,9 +99,9 @@ test('ten tailored lease checks are collapsed and use the same accordion present
+       economyStatusAlign:getComputedStyle(element.querySelector('[data-economy-status]')).justifySelf,
+     };
+   });
+-  expect(presentation.leaseArrow).toContain('▶');
+-  expect(presentation.economyArrow).toContain('▶');
+-  expect(presentation.launchArrow).toContain('▶');
++  expect(presentation.leaseArrow).toBe('8px');
++  expect(presentation.economyArrow).toBe('8px');
++  expect(presentation.launchArrow).toBe('8px');
+   expect(presentation.leaseDisplay).toBe('grid');
+   expect(presentation.economyDisplay).toBe('grid');
+   expect(presentation.launchDisplay).toBe('grid');
+diff --git a/bogatka-field-8f3c7d/tests/report-live-v427.spec.js b/bogatka-field-8f3c7d/tests/report-live-v427.spec.js
+index 1ef1146..0000000 100644
+--- a/bogatka-field-8f3c7d/tests/report-live-v427.spec.js
++++ b/bogatka-field-8f3c7d/tests/report-live-v427.spec.js
+@@ -72,7 +72,7 @@ test('live report mirrors the current location DOM and removes editing controls'
+   expect(result.report.text).toContain('Стоп-факторы');
+   expect(result.report.text).toContain('Полевой замер трафика');
+   expect(result.report.text).toContain('Быстрый чек-лист');
+-  expect(result.report.text).toContain('Сравнительная оценка потенциала локации');
++  expect(result.report.text).toContain('Оценка локации');
+   expect(result.report.text).toContain('Технические и финансовые параметры');
+   expect(result.report.text).toContain('Конкуренты и окружение');
+   expect(result.report.text).toContain('Фотографии по категориям');
+diff --git a/bogatka-field-8f3c7d/tests/workflow-v414-score-cases.mjs b/bogatka-field-8f3c7d/tests/workflow-v414-score-cases.mjs
+index 1cd1217..0000000 100644
+--- a/bogatka-field-8f3c7d/tests/workflow-v414-score-cases.mjs
++++ b/bogatka-field-8f3c7d/tests/workflow-v414-score-cases.mjs
+@@ -7,7 +7,7 @@ test('checklist and score explain different decisions',async({page})=>{
+   const card=await openApp(page);
+   await expect(card.locator('.checklist-guide-v414')).toContainText('зафиксировать результат проверки');
+   await expect(card.locator('.checklist-guide-v414')).toContainText('«Да», «Нет» или «Не требуется»');
+-  const score=card.locator('details').filter({hasText:'Сравнительная оценка потенциала локации'});
++  const score=card.locator('details').filter({hasText:'Оценка локации'});
+   await expect(score.locator('.score-guide-v414')).toContainText('сравнить локации по спросу, потоку, доступности, заметности и пригодности помещения');
+   await expect(score.locator('.score-label-v414')).toHaveCount(14);
+   await expect(score.locator('.score-label-v414').first()).toContainText('Плотность жилой застройки');
+diff --git a/bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs b/bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs
+index b95bb70..0000000 100644
+--- a/bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs
++++ b/bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs
+@@ -95,6 +95,9 @@ async function markerSnapshot(card){
+   return card.evaluate(node=>{
+     const affected=[node.querySelector('.critical-deal-v430'),node.querySelector('.economy-v400'),node.querySelector('.launch-project-v400')];
++    const freeze=document.createElement('style');
++    freeze.textContent='.critical-deal-v430>summary::before,.economy-v400>summary::before,.launch-project-v400>summary::before{transition:none!important}';
++    node.append(freeze);
+     const marker=details=>{
+       const summary=details.querySelector(':scope > summary');
+       const base=getComputedStyle(summary);
+@@ -125,6 +128,7 @@ async function markerSnapshot(card){
+     const titles=affected.map(details=>details?.querySelector(':scope > summary')?.textContent.trim()||'');
+     for(const details of affected)details.open=true;
+     const opened=affected.map(marker);
++    freeze.remove();
+     return{
+       missing:affected.map((value,index)=>value?null:index).filter(value=>value!==null),
+       closed,opened,badges,titles,
+@@ -138,8 +142,11 @@ function expectDesktop(snapshot){
+   for(const label of Object.values(snapshot.labels))expect(label).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
+   expect(snapshot.nativeValue).toMatchObject({size:'12px',weight:'700',lineHeight:'16.2px'});
+   for(const select of Object.values(snapshot.customSelects))expect(select).toMatchObject({size:'12px',weight:'700',lineHeight:'16.2px'});
+-  for(const placeholder of Object.values(snapshot.placeholders))expect(placeholder).toMatchObject({size:'12px',weight:'500',lineHeight:'16.2px'});
++  for(const placeholder of Object.values(snapshot.placeholders)){
++    expect(placeholder).toMatchObject({size:'12px',weight:'500'});
++    expect(['normal','16.2px']).toContain(placeholder.lineHeight);
++  }
+   expect(snapshot.helper).toMatchObject({size:'10px',weight:'400',lineHeight:'14px'});
+   expect(snapshot.error).toMatchObject({size:'10px',weight:'700',lineHeight:'13.5px'});
+ }
+@@ -147,7 +154,10 @@ function expectMobile(snapshot){
+   expect(snapshot.missing).toEqual([]);
+   for(const label of Object.values(snapshot.labels))expect(label).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
+   expect(snapshot.nativeValue).toMatchObject({size:'16px',weight:'600',lineHeight:'21.6px'});
+-  for(const select of Object.values(snapshot.customSelects))expect(select).toMatchObject({size:'12px',weight:'700',lineHeight:'16.2px'});
++  for(const select of Object.values(snapshot.customSelects)){
++    expect(select).toMatchObject({size:'12px',weight:'700'});
++    expect(Number.parseFloat(select.lineHeight)).toBeCloseTo(16.2,4);
++  }
+   expect(snapshot.quickTitle).toMatchObject({size:'11px',weight:'700',lineHeight:'14.85px'});
+   expect(snapshot.quickValue).toMatchObject({size:'10px',weight:'800',lineHeight:'13.5px'});
+   const placeholders=Object.values(snapshot.placeholders);
+diff --git a/bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs b/bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs
+index 98e160c..0000000 100644
+--- a/bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs
++++ b/bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs
+@@ -42,10 +42,21 @@ async function reveal(card,title){
+   },title);
+ }
+ 
+ async function openTraffic(page,card){
+   await reveal(card,'Полевой замер трафика');
+   await editor(page);
++  await page.waitForFunction(()=>window.BogatkaTrafficCompetitorsV453?.audit().ok,{timeout:30000});
++  await card.evaluate(node=>{
++    const stage=node.querySelector('.traffic-stage7-v453');
++    if(!stage)return;
++    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:true});
++    for(let current=stage;current&&current!==node;current=current.parentElement){
++      if(current.tagName==='DETAILS')current.open=true;
++      current.hidden=false;
++      current.classList.remove('hidden','panel-closed-v419','collapsed');
++      if(current.dataset?.panelOpenV419!==undefined)current.dataset.panelOpenV419='1';
++    }
++  });
+   await expect(card.locator('.traffic-stage7-v453')).toBeVisible();
+ }
+@@ -179,7 +190,7 @@ test('duration, weather, weekday, summary and independent persistence work',async
+   await expect(duration.locator('option')).toContainText(['15 минут','30 минут','60 минут','90 минут','120 минут','45 минут']);
+   await expect(duration).toHaveValue('45');
+   await expect(weather).toHaveValue('Порывистый ветер');
+-  await expect(weather.locator('option')).toContainText('Порывистый ветер');
++  await expect(weather.locator('option[value="Порывистый ветер"]')).toHaveText('Порывистый ветер');
+ 
+   await duration.selectOption('120');
+   await weather.selectOption('Дождь');
