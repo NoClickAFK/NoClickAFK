@@ -150,7 +150,9 @@ test('all fill-plan buttons use exact section names and open stable targets',asy
     conclusion:'Предварительное решение по локации',
   };
   await expect(plan.locator('.fill-plan-item-v448')).toHaveCount(7);
-  await expect(plan.locator('.fill-plan-copy-v448>span')).toHaveCount(0);
+  const descriptions=plan.locator('.fill-plan-copy-v448>span');
+  await expect(descriptions).toHaveCount(7);
+  expect((await descriptions.allTextContents()).every(text=>text.trim().length>0)).toBe(true);
   await expect(plan).not.toContainText(/Следующий приоритет|Далее/i);
   for(const [target,title] of Object.entries(expected)){
     await expect(plan.locator(`[data-progress-target-v448="${target}"]`).locator('xpath=..').locator('.fill-plan-copy-v448 strong')).toHaveText(title);

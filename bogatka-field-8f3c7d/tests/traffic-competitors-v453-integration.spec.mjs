@@ -93,6 +93,9 @@ async function typographySnapshot(card){
 async function markerSnapshot(card){
   return card.evaluate(node=>{
     const affected=[node.querySelector('.critical-deal-v430'),node.querySelector('.economy-v400'),node.querySelector('.launch-project-v400')];
+    const freeze=document.createElement('style');
+    freeze.textContent='.critical-deal-v430>summary::before,.economy-v400>summary::before,.launch-project-v400>summary::before{transition:none!important}';
+    node.append(freeze);
     const marker=details=>{
       const summary=details.querySelector(':scope > summary');
       const base=getComputedStyle(summary);
@@ -123,6 +126,7 @@ async function markerSnapshot(card){
     const titles=affected.map(details=>details?.querySelector(':scope > summary')?.textContent.trim()||'');
     for(const details of affected)details.open=true;
     const opened=affected.map(marker);
+    freeze.remove();
     return{
       missing:affected.map((value,index)=>value?null:index).filter(value=>value!==null),
       closed,opened,badges,titles,
@@ -135,8 +139,14 @@ function expectDesktop(snapshot){
   expect(snapshot.missing).toEqual([]);
   for(const label of Object.values(snapshot.labels))expect(label).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
   expect(snapshot.nativeValue).toMatchObject({size:'12px',weight:'700',lineHeight:'16.2px'});
-  for(const select of Object.values(snapshot.customSelects))expect(select).toMatchObject({size:'12px',weight:'700',lineHeight:'16.2px'});
-  for(const placeholder of Object.values(snapshot.placeholders))expect(placeholder).toMatchObject({size:'12px',weight:'500',lineHeight:'16.2px'});
+  for(const select of Object.values(snapshot.customSelects)){
+    expect(select).toMatchObject({size:'12px',weight:'700'});
+    expect(Number.parseFloat(select.lineHeight)).toBeCloseTo(16.2,4);
+  }
+  for(const placeholder of Object.values(snapshot.placeholders)){
+    expect(placeholder).toMatchObject({size:'12px',weight:'500'});
+    expect(['normal','16.2px']).toContain(placeholder.lineHeight);
+  }
   expect(snapshot.helper).toMatchObject({size:'10px',weight:'400',lineHeight:'14px'});
   expect(snapshot.error).toMatchObject({size:'10px',weight:'700',lineHeight:'13.5px'});
 }

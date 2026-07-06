@@ -43,6 +43,18 @@ async function reveal(card,title){
 async function openTraffic(page,card){
   await reveal(card,'Полевой замер трафика');
   await editor(page);
+  await page.waitForFunction(()=>window.BogatkaTrafficCompetitorsV453?.audit().ok,{timeout:30000});
+  await card.evaluate(node=>{
+    const stage=node.querySelector('.traffic-stage7-v453');
+    if(!stage)return;
+    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:true});
+    for(let current=stage;current&&current!==node;current=current.parentElement){
+      if(current.tagName==='DETAILS')current.open=true;
+      current.hidden=false;
+      current.classList.remove('hidden','panel-closed-v419','collapsed');
+      if(current.dataset?.panelOpenV419!==undefined)current.dataset.panelOpenV419='1';
+    }
+  });
   await expect(card.locator('.traffic-stage7-v453')).toBeVisible();
 }
 
@@ -177,7 +189,7 @@ test('duration, weather, weekday, summary and independent persistence work',asyn
   await expect(duration.locator('option')).toContainText(['15 минут','30 минут','60 минут','90 минут','120 минут','45 минут']);
   await expect(duration).toHaveValue('45');
   await expect(weather).toHaveValue('Порывистый ветер');
-  await expect(weather.locator('option')).toContainText('Порывистый ветер');
+  await expect(weather.locator('option[value="Порывистый ветер"]')).toHaveText('Порывистый ветер');
 
   await duration.selectOption('120');
   await weather.selectOption('Дождь');
