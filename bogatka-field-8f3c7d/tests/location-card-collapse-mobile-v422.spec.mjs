@@ -55,12 +55,30 @@ test('mobile action area keeps status without overflow while arrow stays upper-r
   await expect(card.locator('.location-actions [data-card-recommendation-v448]')).toBeVisible();
 });
 
-test('new location receives canonical progress accordions before save action finishes',async({page})=>{
+test('new location receives canonical progress accordions before it is scrolled into view',async({page})=>{
   await openApp(page,1440,1000);
+  await page.evaluate(()=>{
+    const base=Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView=function(...args){
+      if(this.matches?.('[data-location-card]')&&this.textContent.includes('Новая тестовая локация UI')){
+        window.__newCardScrollSnapshot={
+          raw:this.querySelectorAll('.progress-heading-v448').length,
+          progress:this.querySelectorAll('.decision-progress-v448.progress-card-v462').length,
+          toggle:this.querySelectorAll('.progress-card-toggle-v462').length,
+          content:this.querySelectorAll('.progress-card-content-v462').length,
+          fillToggle:this.querySelectorAll('.fill-plan-toggle-v462').length,
+          fillChevron:this.querySelectorAll('.fill-plan-chevron-v462').length,
+        };
+      }
+      return base.apply(this,args);
+    };
+  });
   await page.locator('#addLocationBtn').click();
   await page.locator('#locationTitle').fill('Новая тестовая локация UI');
   await page.locator('#locationAddress').fill('Гродно, тестовый адрес UI');
   await page.locator('#saveLocationBtn').click();
+  await page.waitForFunction(()=>Boolean(window.__newCardScrollSnapshot));
+  expect(await page.evaluate(()=>window.__newCardScrollSnapshot)).toEqual({raw:0,progress:1,toggle:1,content:1,fillToggle:1,fillChevron:1});
   const card=page.locator('[data-location-card]').filter({hasText:'Новая тестовая локация UI'});
   await expect(card).toHaveCount(1);
   await expect(card.locator('.decision-progress-v448.progress-card-v462')).toHaveCount(1);
