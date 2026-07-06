@@ -141,6 +141,7 @@ test('permanent deletion writes tombstone first, removes only related photos and
   const unrelated=await createCustom(page,{withPhoto:true});
 
   const result=await page.evaluate(async({deletedId,unrelatedId,archivedAt})=>{
+    cloudSession={user:{id:'fixture-user'}};
     cloudMutateState(state=>{
       state.knownLocationIds=[...new Set([...(state.knownLocationIds||[]),deletedId])];
       state.knownPhotoIds=[...new Set([...(state.knownPhotoIds||[]),`photo-${deletedId}`])];
@@ -263,9 +264,11 @@ test('remote deletion wins over dirty stale client and prevents a second-device 
 test('viewer cannot invoke archive APIs and predefined locations cannot be permanently deleted',async({page})=>{
   await openApp(page);
   const fixture=await createCustom(page,{});
+  await page.waitForTimeout(1600);
   const result=await page.evaluate(async id=>{
     cloudRole='viewer';
     await window.BogatkaSuite.archiveLocation(id);
+    cloudRole='viewer';
     document.querySelector('#editLocationId').value=id;
     await window.deleteCustomLocation();
     const viewerArchived=Boolean((await getLocationData(id)).archivedAt||locations.find(item=>item.id===id)?.archivedAt);
