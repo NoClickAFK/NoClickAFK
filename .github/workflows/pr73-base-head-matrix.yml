@@ -100,7 +100,7 @@ jobs:
             'webkit-mobile|bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs|WebKit mobile verifies compact forms and direct Safari marker suppression'
             'traffic-legacy|bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs|legacy traffic is hidden without migration and structured controls use exact copy'
             'traffic-persistence|bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs|duration, weather, weekday, summary and independent persistence work'
-            'workflow-score|bogatka-field-8f3c7d/tests/workflow-v414-score-cases.mjs|checklist and score explain different decisions'
+            'workflow-score|bogatka-field-8f3c7d/tests/workflow-v414.spec.mjs|checklist and score explain different decisions'
           )
 
           for checkout in base head; do
