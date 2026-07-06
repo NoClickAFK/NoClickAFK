@@ -1,4 +1,4 @@
-name: PR73 apply baseline patch
+name: PR73 build corrected tests
 
 on:
   pull_request:
@@ -6,30 +6,32 @@ on:
     types: [synchronize]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-patch:
+  build-corrected-tests:
     if: github.event.pull_request.number == 73
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: archive-permanent-delete-tombstones
-          fetch-depth: 0
-      - name: Apply reviewed baseline corrections
+      - name: Apply reviewed baseline corrections in workspace
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f .github/pr73-baseline.patch ]; then
-            echo 'Patch already consumed.'
-            exit 0
-          fi
-          git apply --check .github/pr73-baseline.patch
-          git apply .github/pr73-baseline.patch
-          rm .github/pr73-baseline.patch
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'Correct full regression baseline assertions'
-          git push origin HEAD:archive-permanent-delete-tombstones
+          patch -p1 --forward --batch --fuzz=3 < .github/pr73-baseline.patch
+          test -z "$(find bogatka-field-8f3c7d/tests -name '*.rej' -print -quit)"
+      - name: Upload corrected tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr73-corrected-tests
+          path: |
+            bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs
+            bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs
+            bogatka-field-8f3c7d/tests/report-live-v427.spec.js
+            bogatka-field-8f3c7d/tests/workflow-v414-score-cases.mjs
+            bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs
+            bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs
+          if-no-files-found: error
+          retention-days: 2
