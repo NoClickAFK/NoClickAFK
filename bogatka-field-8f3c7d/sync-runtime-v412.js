@@ -30,6 +30,21 @@
       pending,
     };
   }
+  function lockArchiveModalAction(){
+    const action=window.BogatkaLocationDeletion?.archiveFromModal;
+    if(typeof action!=='function')return false;
+    try{
+      const descriptor=Object.getOwnPropertyDescriptor(window,'deleteCustomLocation');
+      if(!descriptor||descriptor.configurable){
+        Object.defineProperty(window,'deleteCustomLocation',{value:action,writable:false,configurable:false,enumerable:descriptor?.enumerable??true});
+      }else if('writable' in descriptor&&descriptor.writable){
+        Object.defineProperty(window,'deleteCustomLocation',{value:action,writable:false});
+      }else if(descriptor.value!==action){
+        return false;
+      }
+      return window.deleteCustomLocation===action;
+    }catch(_){return false}
+  }
   const remoteData=row=>{
     const data=Merge.clean(row?.form_data||{});
     if(row?.archived_at)data.archivedAt=row.archived_at;
@@ -196,7 +211,10 @@
   window.BogatkaSyncIntegrity={
     version:'4.1.2',ready:true,
     filterDeletedRemote,
+    lockArchiveModalAction,
     get diagnostics(){return {revisionRetries,noOpCloudWrites,mergedRows,localNoOpPuts:State.noOpPuts,contexts:contexts.size,stateKey:State.key()};},
     principle:'three-way-field-merge-with-revision-checked-location-writes-and-deletion-tombstones',
   };
+  lockArchiveModalAction();
+  window.addEventListener('load',lockArchiveModalAction,{once:true});
 })();
