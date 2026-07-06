@@ -96,7 +96,8 @@ test('status aligns with action buttons while collapse button remains upper-righ
   });
   expect(result.statusWidth).toBeLessThan(220);
   expect(result.statusHeight).toBeGreaterThanOrEqual(30);
-  expect(result.statusBorderWidth).toBe('0px');
+  expect(result.statusBorderWidth).toBe('1px');
+  expect(result.statusBorderColor).not.toBe('rgba(0, 0, 0, 0)');
   expect(result.statusRadius).toBe('10px');
   expect(result.statusFontSize).toBe('11px');
   expect(result.statusInActions).toBe(true);
