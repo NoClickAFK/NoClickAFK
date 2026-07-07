@@ -44,17 +44,23 @@ async function openTraffic(page,card){
   await reveal(card,'Полевой замер трафика');
   await editor(page);
   await page.waitForFunction(()=>window.BogatkaTrafficCompetitorsV453?.audit().ok,{timeout:30000});
-  await card.evaluate(node=>{
-    const stage=node.querySelector('.traffic-stage7-v453');
-    if(!stage)return;
+  const id=await card.getAttribute('data-location-card');
+  await page.waitForFunction(async locationId=>{
+    const node=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    const stage=node?.querySelector('.traffic-stage7-v453');
+    if(!node||!stage)return false;
     window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:true});
+    window.BogatkaTrafficCompetitorsV453?.enhanceAll?.();
     for(let current=stage;current&&current!==node;current=current.parentElement){
       if(current.tagName==='DETAILS')current.open=true;
       current.hidden=false;
-      current.classList.remove('hidden','panel-closed-v419','collapsed');
+      current.classList.remove('hidden','panel-closed-v419','collapsed','location-card-collapsed-v422');
       if(current.dataset?.panelOpenV419!==undefined)current.dataset.panelOpenV419='1';
     }
-  });
+    const style=getComputedStyle(stage);
+    const rect=stage.getBoundingClientRect();
+    return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;
+  },id,{timeout:15000});
   await expect(card.locator('.traffic-stage7-v453')).toBeVisible();
 }
 
