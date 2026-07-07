@@ -189,10 +189,26 @@
   if(window.BogatkaCardEnhancer?.version===VERSION)return;
   let installAttempts=0;
   let focusGuardAttempts=0;
+  let saveCaptureBound=false;
+  const intentionalBlur=new WeakMap();
   const list=()=>{try{return typeof locations==='undefined'?[]:locations}catch(_){return []}};
   const has=(fn,marker)=>{const seen=new Set();for(let f=fn;typeof f==='function'&&!seen.has(f);f=f.__base){seen.add(f);if(f[marker])return true}return false};
   const card=id=>document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
   const editorSelector='[data-location][data-field],[data-global]';
+
+  function installBlurIntentTracking(){
+    const current=HTMLElement.prototype.blur;
+    if(current.__intentionalEditorBlurV463)return true;
+    const wrapped=function(...args){
+      intentionalBlur.set(this,(intentionalBlur.get(this)||0)+1);
+      return current.apply(this,args);
+    };
+    Object.assign(wrapped,current);
+    wrapped.__intentionalEditorBlurV463=true;
+    wrapped.__base=current;
+    HTMLElement.prototype.blur=wrapped;
+    return true;
+  }
 
   function captureFocusedEditor(){
     const node=document.activeElement;
@@ -202,12 +218,14 @@
       start:typeof node.selectionStart==='number'?node.selectionStart:null,
       end:typeof node.selectionEnd==='number'?node.selectionEnd:null,
       direction:node.selectionDirection||'none',
+      intentionalBlur:Number(intentionalBlur.get(node)||0),
     };
   }
 
   function restoreFocusedEditor(state){
     const node=state?.node;
     if(!node?.isConnected||node.disabled)return;
+    if(Number(intentionalBlur.get(node)||0)!==state.intentionalBlur)return;
     const active=document.activeElement;
     if(active!==node&&active!==document.body&&active!==document.documentElement)return;
     if(active!==node)node.focus({preventScroll:true});
@@ -223,7 +241,7 @@
       return false;
     }
     const current=window.updateSummary||updateSummary;
-    if(current.__focusedEditorGuardV463)return true;
+    if(has(current,'__focusedEditorGuardV463'))return true;
     const wrapped=async function(...args){
       const state=captureFocusedEditor();
       try{return await current.apply(this,args)}finally{restoreFocusedEditor(state)}
@@ -319,12 +337,55 @@
     return true;
   }
 
+  function guardBoundSaveScroll(){
+    const editId=document.getElementById('editLocationId')?.value||'';
+    const address=document.getElementById('locationAddress')?.value?.trim()||'';
+    if(editId||!address)return;
+    const before=new Set(list().map(item=>item.id));
+    const original=Element.prototype.scrollIntoView;
+    let cleanupTimer=null;
+    const restore=()=>{
+      if(Element.prototype.scrollIntoView===guard)Element.prototype.scrollIntoView=original;
+      clearTimeout(cleanupTimer);
+    };
+    const guard=function(...scrollArgs){
+      if(this.matches?.('[data-location-card]')&&!before.has(this.dataset.locationCard)){
+        const target=this;
+        const id=target.dataset.locationCard;
+        restore();
+        Promise.resolve(enhanceLocation(id,{renderProgress:true})).then(node=>{
+          const finalNode=node||target;
+          if(finalNode?.isConnected)original.apply(finalNode,scrollArgs);
+        }).catch(error=>{
+          console.error(error);
+          if(target?.isConnected)original.apply(target,scrollArgs);
+        });
+        return;
+      }
+      return original.apply(this,scrollArgs);
+    };
+    Element.prototype.scrollIntoView=guard;
+    cleanupTimer=setTimeout(restore,10000);
+  }
+
+  function bindSaveCapture(){
+    const button=document.getElementById('saveLocationBtn');
+    if(!button||saveCaptureBound)return Boolean(button);
+    button.addEventListener('click',guardBoundSaveScroll,true);
+    saveCaptureBound=true;
+    return true;
+  }
+
   function install(){
+    installBlurIntentTracking();
     installSaveWrapper();
     installSummaryFocusGuard();
+    bindSaveCapture();
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindSaveCapture,{once:true});
     [100,400,1000,2500].forEach(delay=>setTimeout(()=>{
       installSaveWrapper();
       installSummaryFocusGuard();
+      bindSaveCapture();
     },delay));
   }
 
