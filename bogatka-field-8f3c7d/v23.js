@@ -1,3 +1,17 @@
+const BOGATKA_STATIC_STYLE_MANIFEST=Object.freeze([
+  'polish-v34.css','insights-v331.css','compare-v332.css','decision-v340.css','critical-deal-v430.css','compare-v340.css','suite-v400.css','visual-v411.css',
+  'decision-panel-v412.css','workflow-v414.css','workflow-fixes-v415.css','workflow-refine-v440.css','location-profile-v416.css','location-overview-v417.css',
+  'location-panels-v419.css','location-card-collapse-v422.css','status-next-task-v447.css','card-progress-v448.css','quick-checklist-v451.css','location-data-v452.css',
+  'traffic-competitors-v453.css','launch-gate-v454.css','opening-project-v455.css',
+]);
+
+function verifyStaticStylesheetManifest(){
+  const loaded=new Set([...document.head.querySelectorAll('link[rel="stylesheet"]')].map(link=>new URL(link.href,location.href).pathname.split('/').pop()));
+  const missing=BOGATKA_STATIC_STYLE_MANIFEST.filter(file=>!loaded.has(file));
+  if(missing.length)console.error(`Не загружены статические стили: ${missing.join(', ')}`);
+  return missing.length===0;
+}
+
 function loadBogatkaPatch(tagName,attributes){
   const marker=attributes.src||attributes.href;
   if(marker&&document.querySelector(`${tagName}[src="${marker}"],${tagName}[href="${marker}"]`))return;
@@ -143,6 +157,7 @@ function installFreshEditorSelectionV463(){
 
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
+  verifyStaticStylesheetManifest();
   const versionLabel=document.getElementById('versionLabel');
   if(versionLabel)versionLabel.textContent='4.0.0';
   const accessButton=document.getElementById('shareAccessBtn');
