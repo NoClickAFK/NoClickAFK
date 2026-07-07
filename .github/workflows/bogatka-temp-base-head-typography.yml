@@ -32,6 +32,7 @@ jobs:
           npx playwright install --with-deps chromium > /tmp/playwright-install.log 2>&1
       - name: Measure clean base and PR head
         run: |
+          set -o pipefail
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/head-http.log 2>&1 &
           HEAD_PID=$!
           python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/bogatka-base > /tmp/base-http.log 2>&1 &
