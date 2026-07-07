@@ -55,8 +55,7 @@ async function measure(page,url){
     for(const [revision,snapshot] of Object.entries({base,head})){
       for(const [name,value] of Object.entries(snapshot)){
         assert.ok(value,`${revision}:${name}:missing label`);
-        const expected={size:'11px',weight:'800',lineHeight:name==='technical'?'16px':'14.85px'};
-        assert.deepEqual({size:value.size,weight:value.weight,lineHeight:value.lineHeight},expected,`${revision}:${name}`);
+        assert.deepEqual({size:value.size,weight:value.weight,lineHeight:value.lineHeight},{size:'11px',weight:'800',lineHeight:'14.85px'},`${revision}:${name}`);
       }
     }
   }finally{await browser.close();}
