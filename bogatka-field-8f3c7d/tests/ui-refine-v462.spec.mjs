@@ -32,6 +32,10 @@ async function openApp(page,width=1600,height=1200){
   return card;
 }
 
+async function ensureExpanded(locator){
+  if(await locator.getAttribute('aria-expanded')!=='true')await locator.click();
+}
+
 test('only the action row shows status and progress header has no placeholder',async({page})=>{
   const card=await openApp(page);
   const status=card.locator('.location-actions [data-card-recommendation-v448]');
@@ -151,8 +155,10 @@ test('progress card styling is restored and both accordion levels work independe
 
 test('accordion state survives reload and mobile layout stays overflow free',async({page})=>{
   const card=await openApp(page,390,900);
-  await card.locator('.progress-card-toggle-v462').click();
-  await card.locator('.fill-plan-toggle-v462').click();
+  const outer=card.locator('.progress-card-toggle-v462');
+  const inner=card.locator('.fill-plan-toggle-v462');
+  await ensureExpanded(outer);
+  await ensureExpanded(inner);
   const id=await card.getAttribute('data-location-card');
   await page.reload({waitUntil:'domcontentloaded'});
   await page.waitForFunction(async locationId=>{
