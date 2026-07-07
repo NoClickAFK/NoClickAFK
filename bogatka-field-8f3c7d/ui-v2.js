@@ -14,7 +14,10 @@ function renderLocations() {
   const root = $("#locations");
   const signature = locationRenderSignature();
   const currentCards = root.querySelectorAll(":scope > [data-location-card]");
-  if (root.dataset.locationRenderSignature === signature && currentCards.length === locations.length) return false;
+  if (root.dataset.locationRenderSignature === signature && currentCards.length === locations.length) {
+    restoreAllForms({preserveActive:true}).catch(showError);
+    return false;
+  }
 
   revokeObjectUrls();
   root.innerHTML = locations.map((locationItem, index) => renderLocationCard(locationItem, index)).join("");
@@ -174,16 +177,20 @@ function updateLocationTotal(id, data) {
   if (target) target.textContent = totalFromData(data);
 }
 
-async function restoreAllForms() {
+async function restoreAllForms({preserveActive=false}={}) {
   const global = await idbGet(STORE, "global") || {};
-  $$('[data-global]').forEach(element => element.value = global[element.dataset.global] || "");
+  $$('[data-global]').forEach(element => {
+    if(preserveActive&&element===document.activeElement)return;
+    element.value = global[element.dataset.global] || "";
+  });
   for (const locationItem of locations) {
     const data = await getLocationData(locationItem.id);
     $$(`[data-location="${locationItem.id}"]`).forEach(element => {
+      if(preserveActive&&(element===document.activeElement||element.dataset.locationDataDirtyV452==='1'))return;
       const value = getNested(data, element.dataset.field);
       if (element.type === "checkbox") element.checked = Boolean(value);
       else if (element.type === "radio") element.checked = element.value === value;
-      else if (value !== undefined) element.value = value;
+      else element.value = value ?? "";
     });
     updateLocationTotal(locationItem.id, data);
     updateGpsLabel(locationItem.id, data);
