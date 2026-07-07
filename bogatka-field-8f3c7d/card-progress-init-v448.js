@@ -90,6 +90,21 @@
     return true;
   }
 
+  function installFillPlanSanitizer(list){
+    if(!list||list.__canonicalFillPlanLabelsV463)return;
+    const descriptor=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+    if(!descriptor?.get||!descriptor?.set)return;
+    Object.defineProperty(list,'innerHTML',{
+      configurable:true,
+      get(){return descriptor.get.call(this)},
+      set(value){
+        const canonical=String(value??'').replace(/<span>(?:Следующий приоритет|Далее)<\/span>/g,'');
+        descriptor.set.call(this,canonical);
+      },
+    });
+    list.__canonicalFillPlanLabelsV463=true;
+  }
+
   function refineCard(card){
     const score=resolveTarget(card,'scores');
     const scoreSummary=score?.querySelector(':scope > summary');
@@ -98,6 +113,8 @@
     const explanation=card.querySelector('.score-explanation-v448 span');
     if(explanation&&explanation.textContent!==EXPLANATION)explanation.textContent=EXPLANATION;
 
+    const list=card.querySelector('[data-fill-plan-list-v448]');
+    installFillPlanSanitizer(list);
     for(const button of card.querySelectorAll('[data-progress-target-v448]')){
       const key=button.dataset.progressTargetV448;
       const definition=TARGETS[key];
