@@ -1,10 +1,28 @@
+function locationRenderSignature() {
+  return JSON.stringify(locations.map((item, index) => ({
+    id: item.id,
+    title: item.title || "",
+    address: item.address || "",
+    note: item.note || "",
+    archivedAt: item.archivedAt || "",
+    custom: Boolean(item.custom),
+    index,
+  })));
+}
+
 function renderLocations() {
-  revokeObjectUrls();
   const root = $("#locations");
+  const signature = locationRenderSignature();
+  const currentCards = root.querySelectorAll(":scope > [data-location-card]");
+  if (root.dataset.locationRenderSignature === signature && currentCards.length === locations.length) return false;
+
+  revokeObjectUrls();
   root.innerHTML = locations.map((locationItem, index) => renderLocationCard(locationItem, index)).join("");
+  root.dataset.locationRenderSignature = signature;
   bindLocationInputs();
   bindLocationActions();
   restoreAllForms().catch(showError);
+  return true;
 }
 
 function renderLocationCard(locationItem, index) {
@@ -33,26 +51,34 @@ function renderLocationCard(locationItem, index) {
       <div class="photos" data-photos="${locationItem.id}:${category}"></div>
     </div>`).join("");
 
+  const bodyId = `location-body-${String(locationItem.id).replace(/[^a-z0-9_-]/gi, "-")}`;
+
   return `
   <section class="location location-card-collapsed-v422" data-location-card="${locationItem.id}">
-    <div class="location-head">
+    <div class="location-head" data-location-header-grid-v422="1">
       <div class="location-title-wrap">
         <span class="rank">Локация ${index + 1}</span>
         <h2>${esc(locationItem.title || locationItem.address)}</h2>
         <p>${esc(locationItem.note || "Дополнительная локация для проверки.")}</p>
         <div class="gps" data-gps-label="${locationItem.id}"></div>
-        <div class="location-actions">
+      </div>
+      <div class="location-head-side-v422">
+        <div class="scorebox card-metric-hidden-v448" hidden aria-hidden="true"><strong data-total="${locationItem.id}">0</strong><small>/ 70</small></div>
+        <button type="button" class="location-collapse-toggle-v422" aria-controls="${bodyId}" aria-expanded="false" aria-label="Развернуть локацию" title="Развернуть локацию"><span class="location-collapse-chevron-v422" aria-hidden="true"></span></button>
+      </div>
+      <div class="location-actions location-header-actions-v422">
+        <div class="location-action-buttons-v448">
           <a class="maplink btn secondary small" href="${mapUrl(locationItem.address)}" target="_blank" rel="noopener">Открыть на карте</a>
           <button class="btn secondary small" data-action="edit-location" data-id="${locationItem.id}">Изменить адрес</button>
           <button class="btn secondary small" data-action="export-location-html" data-id="${locationItem.id}" title="Выгрузить HTML-отчёт по этой локации" aria-label="Выгрузить HTML-отчёт по этой локации">Отчёт HTML</button>
           <button class="btn danger small" data-action="clear-location" data-id="${locationItem.id}">Очистить локацию</button>
           <button class="btn secondary small" data-action="restore-location" data-id="${locationItem.id}">Восстановить</button>
         </div>
+        <div class="decision-head-v340 card-recommendation-head-v448 location-action-status-v448" data-card-progress-v448="1"><strong class="recommendation-status-v448 empty" data-card-recommendation-v448 data-recommendation-class="empty" title="Оценка пока недостаточно надёжна для вывода." aria-label="Текущая рекомендация: Недостаточно оценок">Недостаточно оценок</strong></div>
       </div>
-      <div class="scorebox"><strong data-total="${locationItem.id}">0</strong><small>/ 70</small></div>
     </div>
 
-    <div class="location-body" hidden aria-hidden="true">
+    <div id="${bodyId}" class="location-body" hidden aria-hidden="true">
       <div class="status-row">
         <label class="field">Статус<select data-location="${locationItem.id}" data-field="status"><option value="">Не выбран</option><option>Кандидат</option><option>Осмотрена</option><option>Оставить</option><option>Переговоры</option><option>Исключить</option></select></label>
         <label class="field">Тип объекта<select data-location="${locationItem.id}" data-field="objectType"><option value="">Не выбран</option><option>Торговый центр</option><option>Стрит-ритейл</option><option>Первый этаж жилого дома</option><option>Рынок / павильон</option><option>Отдельное здание</option><option>Другое</option></select></label>
