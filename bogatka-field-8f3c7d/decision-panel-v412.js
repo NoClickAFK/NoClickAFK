@@ -175,6 +175,7 @@
       const stored=String(data?.decisionReason||'');
       const safe=document.activeElement!==control&&control.dataset.locationDataDirtyV452!=='1';
       if(safe){
+        window.BogatkaLocationDataStabilityV452?.acceptAuthoritativeControl?.(control);
         if(control.value!==stored)control.value=stored;
         setPersisted(control,stored);
       }

@@ -40,7 +40,7 @@ async function typographySnapshot(card){
     const visible=control=>control?.nextElementSibling?.classList.contains('premium-select-trigger')?control.nextElementSibling:control;
     const caption=control=>{
       const wrapper=control?.closest('label.field,.stage7-field-v453');
-      return wrapper?.querySelector(':scope > .profile-caption-v416,:scope > .evaluation-caption-v446,:scope > .technical-caption-v450')||wrapper;
+      return wrapper?.querySelector('.profile-caption-v416,.evaluation-caption-v446,.technical-caption-v450')||null;
     };
     const field=name=>[...node.querySelectorAll(`[data-field="${name}"]`)].find(item=>!item.hasAttribute('data-stage6-marker-v461'));
     const style=(element,pseudo='')=>{
@@ -62,15 +62,19 @@ async function typographySnapshot(card){
       decisionHelper:node.querySelector('.decision-reason-helper-v412'),
       quickTrigger:node.querySelector('.quick-checklist-v451 .check-row .premium-select-trigger'),
     };
+    const labels={
+      inspection:caption(controls.inspection),
+      landlord:caption(controls.landlordInput),
+      technical:caption(controls.technical),
+      traffic:caption(controls.trafficInput),
+    };
     const cardStyle=getComputedStyle(node);
     return{
-      missing:Object.entries(controls).filter(([,value])=>!value).map(([key])=>key),
-      labels:{
-        inspection:style(caption(controls.inspection)),
-        landlord:style(caption(controls.landlordInput)),
-        technical:style(caption(controls.technical)),
-        traffic:style(caption(controls.trafficInput)),
-      },
+      missing:[
+        ...Object.entries(controls).filter(([,value])=>!value).map(([key])=>key),
+        ...Object.entries(labels).filter(([,value])=>!value).map(([key])=>`label:${key}`),
+      ],
+      labels:Object.fromEntries(Object.entries(labels).map(([key,value])=>[key,style(value)])),
       decisionAccordion:{
         title:style(controls.decisionTitle),
         helper:style(controls.decisionHelper),
@@ -154,7 +158,7 @@ async function markerSnapshot(card){
 
 function expectDesktop(snapshot){
   expect(snapshot.missing).toEqual([]);
-  for(const label of Object.values(snapshot.labels))expect(label).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
+  for(const [name,label] of Object.entries(snapshot.labels))expect(label,`desktop canonical label: ${name}`).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
   expect(snapshot.decisionAccordion.title).toMatchObject({size:'17px',weight:'800',lineHeight:'21.25px'});
   expect(snapshot.decisionAccordion.helper).toMatchObject({size:'12px',weight:'400',lineHeight:'18px'});
   expect(snapshot.nativeValue).toMatchObject({size:'12px',weight:'700',lineHeight:'16.2px'});
@@ -173,7 +177,7 @@ function expectDesktop(snapshot){
 function expectMobile(snapshot,{allowWebKitPseudoFallback=false}={}){
   expect(snapshot.missing).toEqual([]);
   expect(snapshot.placeholderTokens).toEqual({size:'11px',weight:'400',lineHeight:'1.4'});
-  for(const label of Object.values(snapshot.labels))expect(label).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
+  for(const [name,label] of Object.entries(snapshot.labels))expect(label,`mobile canonical label: ${name}`).toMatchObject({size:'11px',weight:'800',lineHeight:'14.85px'});
   expect(snapshot.decisionAccordion.title).toMatchObject({size:'15px',weight:'800',lineHeight:'18.75px'});
   expect(snapshot.decisionAccordion.helper).toMatchObject({size:'12px',weight:'400',lineHeight:'18px'});
   expect(snapshot.nativeValue).toMatchObject({size:'16px',weight:'600',lineHeight:'21.6px'});
