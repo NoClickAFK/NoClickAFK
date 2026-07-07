@@ -7,7 +7,7 @@
 
   const key=id=>`${STORAGE_PREFIX}${id}`;
   const read=id=>{try{return localStorage.getItem(key(id))==='1'}catch(_){return false}};
-  const write=(id,value)=>{try{localStorage.setItem(key(id),value?'1':'0')}catch(_){}};
+  const write=(id,value)=>{try{localStorage.setItem(key(id),value?'1':'0')}catch(_){} };
 
   function attr(element,name,value){
     if(element.getAttribute(name)!==value)element.setAttribute(name,value);
@@ -72,6 +72,24 @@
     return true;
   }
 
+  function normalizeFillPlanCopy(card){
+    for(const copy of card.querySelectorAll('.fill-plan-copy-v448')){
+      const priority=copy.querySelector(':scope > span');
+      if(priority?.firstChild?.nodeType===Node.TEXT_NODE)priority.firstChild.data='';
+    }
+  }
+
+  function observeFillPlan(card){
+    const list=card.querySelector('.fill-plan-list-v448');
+    if(!list)return false;
+    if(!list._canonicalFillPlanObserverV463){
+      list._canonicalFillPlanObserverV463=new MutationObserver(()=>normalizeFillPlanCopy(card));
+      list._canonicalFillPlanObserverV463.observe(list,{childList:true,subtree:true});
+    }
+    normalizeFillPlanCopy(card);
+    return true;
+  }
+
   function enhanceCard(card){
     const id=card?.dataset?.locationCard;
     const body=card?.querySelector(':scope > .location-body');
@@ -83,6 +101,7 @@
     ensureHeaderGrid(card,side);
     attr(button,'aria-controls',body.id);
     setCollapsed(card,read(id));
+    observeFillPlan(card);
     card.dataset.locationCollapseV422='1';
     return true;
   }
