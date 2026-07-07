@@ -34,7 +34,7 @@ function renderLocationCard(locationItem, index) {
     </div>`).join("");
 
   return `
-  <section class="location" data-location-card="${locationItem.id}">
+  <section class="location location-card-collapsed-v422" data-location-card="${locationItem.id}">
     <div class="location-head">
       <div class="location-title-wrap">
         <span class="rank">Локация ${index + 1}</span>
@@ -44,7 +44,7 @@ function renderLocationCard(locationItem, index) {
         <div class="location-actions">
           <a class="maplink btn secondary small" href="${mapUrl(locationItem.address)}" target="_blank" rel="noopener">Открыть на карте</a>
           <button class="btn secondary small" data-action="edit-location" data-id="${locationItem.id}">Изменить адрес</button>
-          <button class="btn secondary small" data-action="save-gps" data-id="${locationItem.id}">Сохранить GPS</button>
+          <button class="btn secondary small" data-action="export-location-html" data-id="${locationItem.id}" title="Выгрузить HTML-отчёт по этой локации" aria-label="Выгрузить HTML-отчёт по этой локации">Отчёт HTML</button>
           <button class="btn danger small" data-action="clear-location" data-id="${locationItem.id}">Очистить локацию</button>
           <button class="btn secondary small" data-action="restore-location" data-id="${locationItem.id}">Восстановить</button>
         </div>
@@ -52,7 +52,7 @@ function renderLocationCard(locationItem, index) {
       <div class="scorebox"><strong data-total="${locationItem.id}">0</strong><small>/ 70</small></div>
     </div>
 
-    <div class="location-body">
+    <div class="location-body" hidden aria-hidden="true">
       <div class="status-row">
         <label class="field">Статус<select data-location="${locationItem.id}" data-field="status"><option value="">Не выбран</option><option>Кандидат</option><option>Осмотрена</option><option>Оставить</option><option>Переговоры</option><option>Исключить</option></select></label>
         <label class="field">Тип объекта<select data-location="${locationItem.id}" data-field="objectType"><option value="">Не выбран</option><option>Торговый центр</option><option>Стрит-ритейл</option><option>Первый этаж жилого дома</option><option>Рынок / павильон</option><option>Отдельное здание</option><option>Другое</option></select></label>
@@ -110,7 +110,11 @@ function bindLocationInputs() {
 
 function bindLocationActions() {
   $$('[data-action="edit-location"]').forEach(button => button.addEventListener("click", () => openLocationModal(button.dataset.id)));
-  $$('[data-action="save-gps"]').forEach(button => button.addEventListener("click", () => saveGps(button.dataset.id)));
+  $$('[data-action="export-location-html"]').forEach(button => button.addEventListener("click", () => {
+    const exporter=window.exportLocationHtmlReport||window.BogatkaLiveReport?.exportLocationHtmlReport;
+    if(typeof exporter!=="function")return showError(new Error("Функция отчёта по локации ещё не загружена."));
+    Promise.resolve(exporter(button.dataset.id)).catch(showError);
+  }));
   $$('[data-action="clear-location"]').forEach(button => button.addEventListener("click", () => clearLocation(button.dataset.id)));
   $$('[data-action="restore-location"]').forEach(button => button.addEventListener("click", () => restoreLocation(button.dataset.id)));
 }

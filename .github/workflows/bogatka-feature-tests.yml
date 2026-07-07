@@ -32,11 +32,12 @@ jobs:
         run: |
           CHANGED="$(git diff --name-only HEAD^ HEAD | tr '[:upper:]' '[:lower:]')"
           : > /tmp/selected-tests.txt
-          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|progress|recommendation|ui-refine|card-progress|compare'; then
+          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|progress|recommendation|ui-refine|card-progress|compare|decision-panel'; then
             printf '%s\n' \
               bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
               bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
               bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
+              bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs \
               bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'critical-deal|lease'; then
@@ -54,7 +55,7 @@ jobs:
             printf '%s\n' bogatka-field-8f3c7d/tests/launch-gate-v454.spec.mjs bogatka-field-8f3c7d/tests/opening-project-v455.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'report|pdf'; then
-            printf '%s\n' bogatka-field-8f3c7d/tests/browser-report.spec.mjs bogatka-field-8f3c7d/tests/report-live-v427.spec.mjs >> /tmp/selected-tests.txt
+            printf '%s\n' bogatka-field-8f3c7d/tests/browser-workflows.spec.mjs bogatka-field-8f3c7d/tests/report-live-v427.spec.js >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|select'; then
             printf '%s\n' bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs bogatka-field-8f3c7d/tests/sync-field-merge.spec.mjs >> /tmp/selected-tests.txt
