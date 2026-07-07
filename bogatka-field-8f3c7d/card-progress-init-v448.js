@@ -298,11 +298,32 @@
     return true;
   }
 
+  async function hydrateCleanControls(node){
+    const id=node?.dataset?.locationCard;
+    if(!id||typeof getLocationData!=='function')return null;
+    const data=await getLocationData(id);
+    for(const control of node.querySelectorAll(`[data-location="${CSS.escape(id)}"][data-field]`)){
+      if(document.activeElement===control||control.dataset.locationDataDirtyV452==='1')continue;
+      const value=typeof getNested==='function'?getNested(data,control.dataset.field):undefined;
+      if(control.type==='checkbox')control.checked=Boolean(value);
+      else if(control.type==='radio')control.checked=control.value===value;
+      else{
+        const next=value===undefined||value===null?'':String(value);
+        if(control.value!==next)control.value=next;
+        if(control.dataset.field==='decisionReason')control.dataset.decisionReasonPersistedV412=next;
+      }
+      if(control.tagName==='SELECT')window.BogatkaSelectSync?.syncVisibleSelect?.(control);
+    }
+    window.BogatkaDecisionPanel?.syncReasonState?.(node,{validate:false});
+    return data;
+  }
+
   async function enhanceCard(node){
     if(!await enhanceStructure(node))return false;
     window.BogatkaUIRefineV462?.ensureProgressAccordion?.(node);
     window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
     window.BogatkaCardProgressInitV448?.refineAll?.();
+    await hydrateCleanControls(node);
     return true;
   }
 
@@ -314,6 +335,7 @@
     window.BogatkaUIRefineV462?.ensureProgressAccordion?.(node);
     window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
     window.BogatkaCardProgressInitV448?.refineAll?.();
+    await hydrateCleanControls(node);
     return node;
   }
 
