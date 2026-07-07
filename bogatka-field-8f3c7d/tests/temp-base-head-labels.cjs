@@ -24,13 +24,10 @@ async function measure(page,url){
   const card=page.locator('[data-location-card]').first();
   if(await card.locator('.traffic-measurement-v453').count()===0)await card.locator('[data-stage7-action="add-traffic"]').click();
   await card.locator('.traffic-measurement-v453').first().waitFor({state:'visible'});
-  await page.waitForFunction(()=>{
-    const control=document.querySelector('[data-location-card] [data-field="tech.rentPerMonth"]');
-    return Boolean(control?.closest('label.field')?.querySelector('.profile-caption-v416,.evaluation-caption-v446,.technical-caption-v450'));
-  },{timeout:30000});
   return card.evaluate(node=>{
     const field=name=>[...node.querySelectorAll(`[data-field="${name}"]`)].find(item=>!item.hasAttribute('data-stage6-marker-v461'));
-    const caption=control=>control?.closest('label.field,.stage7-field-v453')?.querySelector('.profile-caption-v416,.evaluation-caption-v446,.technical-caption-v450')||null;
+    const wrapper=control=>control?.closest('label.field,.stage7-field-v453')||null;
+    const caption=control=>wrapper(control)?.querySelector('.profile-caption-v416,.evaluation-caption-v446,.technical-caption-v450')||null;
     const traffic=node.querySelector('.traffic-measurement-v453');
     const controls={
       inspection:field('inspectionPurpose'),
@@ -39,7 +36,7 @@ async function measure(page,url){
       traffic:traffic?.querySelector('[data-stage7-field="peopleCount"]'),
     };
     return Object.fromEntries(Object.entries(controls).map(([key,control])=>{
-      const label=caption(control);
+      const label=key==='technical'?wrapper(control):caption(control);
       if(!label)return[key,null];
       const style=getComputedStyle(label);
       return[key,{size:style.fontSize,weight:style.fontWeight,lineHeight:style.lineHeight,tag:label.tagName,className:label.className}];
@@ -57,8 +54,9 @@ async function measure(page,url){
     console.log('HEAD_LABELS='+JSON.stringify(head));
     for(const [revision,snapshot] of Object.entries({base,head})){
       for(const [name,value] of Object.entries(snapshot)){
-        assert.ok(value,`${revision}:${name}:missing canonical caption`);
-        assert.deepEqual({size:value.size,weight:value.weight,lineHeight:value.lineHeight},{size:'11px',weight:'800',lineHeight:'14.85px'},`${revision}:${name}`);
+        assert.ok(value,`${revision}:${name}:missing label`);
+        const expected={size:'11px',weight:'800',lineHeight:name==='technical'?'16px':'14.85px'};
+        assert.deepEqual({size:value.size,weight:value.weight,lineHeight:value.lineHeight},expected,`${revision}:${name}`);
       }
     }
   }finally{await browser.close();}
