@@ -25,6 +25,14 @@
   const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
   const round1=value=>Math.round(Number(value||0)*10)/10;
   const text=(node,value)=>{if(node&&node.textContent!==String(value))node.textContent=String(value)};
+  const attr=(node,name,value)=>{if(node&&node.getAttribute(name)!==String(value))node.setAttribute(name,String(value))};
+  const setHidden=(node,value)=>{if(node&&node.hidden!==Boolean(value))node.hidden=Boolean(value)};
+  const setClass=(node,name,enabled)=>{if(node&&node.classList.contains(name)!==Boolean(enabled))node.classList.toggle(name,Boolean(enabled))};
+  const setStyle=(node,name,value,priority='')=>{
+    if(!node)return;
+    if(node.style.getPropertyValue(name)===String(value)&&node.style.getPropertyPriority(name)===priority)return;
+    node.style.setProperty(name,String(value),priority);
+  };
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 
   function scoreAnalysis(data={},weights={}){
@@ -251,12 +259,36 @@
     return SCORE_BANDS.find(band=>score<=band.max)||SCORE_BANDS.at(-1);
   }
 
+  function normalizedRecommendation(recommendation={}){
+    const semantic=String(recommendation.className||'empty');
+    const label=String(recommendation.label||'Недостаточно данных');
+    const title=String(recommendation.reason||label);
+    return{
+      label,
+      semantic,
+      className:`recommendation-status-v448 ${semantic}`,
+      title,
+      ariaLabel:`Текущая рекомендация: ${label}`,
+    };
+  }
+
   function setRecommendationStatus(node,recommendation={}){
-    if(!node)return;
-    const semantic=recommendation.className||'empty';
-    node.className=`recommendation-status-v448 ${semantic}`;
-    node.dataset.recommendationClass=semantic;
-    text(node,recommendation.label||'Недостаточно данных');
+    if(!node)return false;
+    const next=normalizedRecommendation(recommendation);
+    const same=node.textContent===next.label&&
+      node.className===next.className&&
+      node.dataset.recommendationClass===next.semantic&&
+      node.title===next.title&&
+      node.getAttribute('aria-label')===next.ariaLabel&&
+      !node.hidden;
+    if(same)return false;
+    if(node.className!==next.className)node.className=next.className;
+    if(node.dataset.recommendationClass!==next.semantic)node.dataset.recommendationClass=next.semantic;
+    text(node,next.label);
+    if(node.title!==next.title)node.title=next.title;
+    attr(node,'aria-label',next.ariaLabel);
+    setHidden(node,false);
+    return true;
   }
 
   function compactMissing(group){
@@ -271,18 +303,34 @@
   function ensureHeader(card){
     const scorebox=card.querySelector(':scope > .location-head .scorebox');
     if(scorebox){
-      scorebox.hidden=true;
-      scorebox.setAttribute('aria-hidden','true');
-      scorebox.classList.add('card-metric-hidden-v448');
+      setHidden(scorebox,true);
+      attr(scorebox,'aria-hidden','true');
+      if(!scorebox.classList.contains('card-metric-hidden-v448'))scorebox.classList.add('card-metric-hidden-v448');
     }
     const actions=card.querySelector(':scope > .location-head .location-actions');
     let head=card.querySelector('[data-card-recommendation-v448]')?.closest('.decision-head-v340')||card.querySelector(':scope > .location-head .decision-head-v340');
-    if(!head||!actions)return null;
-    if(head.dataset.cardProgressV448!=='1'){
-      head.dataset.cardProgressV448='1';
-      head.classList.add('card-recommendation-head-v448','location-action-status-v448');
-      head.innerHTML='<strong class="recommendation-status-v448 empty" data-card-recommendation-v448>Недостаточно данных</strong>';
+    if(!actions)return null;
+    if(!head){
+      head=document.createElement('div');
+      head.className='decision-head-v340 card-recommendation-head-v448 location-action-status-v448';
+      actions.appendChild(head);
     }
+    if(head.dataset.cardProgressV448!=='1')head.dataset.cardProgressV448='1';
+    if(!head.classList.contains('card-recommendation-head-v448'))head.classList.add('card-recommendation-head-v448');
+    if(!head.classList.contains('location-action-status-v448'))head.classList.add('location-action-status-v448');
+    let badge=head.querySelector('[data-card-recommendation-v448]');
+    if(!badge){
+      badge=head.querySelector('[data-recommendation]');
+      if(badge)badge.setAttribute('data-card-recommendation-v448','');
+      else{
+        badge=document.createElement('strong');
+        badge.setAttribute('data-card-recommendation-v448','');
+        badge.textContent='Недостаточно данных';
+        head.appendChild(badge);
+      }
+    }
+    for(const child of [...head.children])if(child!==badge)child.remove();
+    if(!badge.classList.contains('recommendation-status-v448'))badge.className='recommendation-status-v448 empty';
     let buttons=actions.querySelector(':scope > .location-action-buttons-v448');
     if(!buttons){
       buttons=document.createElement('div');
@@ -361,16 +409,19 @@
     const groups=Array.isArray(metric.progressGroups)?metric.progressGroups:[];
     const incomplete=groups.filter(group=>group.missingCount>0);
     text(overview.querySelector('[data-fill-plan-summary-v448]'),incomplete.length?`${metric.completedProgressGroups} из ${metric.totalProgressGroups} разделов готовы`:'Все обязательные разделы заполнены');
+    const signature=JSON.stringify(incomplete.map(group=>({key:group.key,title:group.title,target:group.target,percent:group.percent,missingCount:group.missingCount,missingLabels:group.missingLabels,detail:group.detail})));
+    if(list.dataset.fillPlanSignatureV448===signature)return;
     if(!incomplete.length){
       list.innerHTML='<div class="fill-plan-complete-v448"><strong>Карточка заполнена.</strong><span>Можно переходить к итоговому решению и проверке условий аренды.</span></div>';
-      return;
+    }else{
+      list.innerHTML=incomplete.map((group,index)=>`
+        <article class="fill-plan-item-v448${index===0?' active':''}">
+          <div class="fill-plan-copy-v448"><span>${index===0?'Следующий приоритет':'Далее'}</span><strong>${escapeHtml(group.title)}</strong><small>${escapeHtml(compactMissing(group))}</small></div>
+          <div class="fill-plan-progress-v448"><span style="width:${clamp(group.percent,0,100)}%"></span></div>
+          <button type="button" class="btn secondary small" data-progress-target-v448="${escapeHtml(group.target)}">Открыть раздел</button>
+        </article>`).join('');
     }
-    list.innerHTML=incomplete.map((group,index)=>`
-      <article class="fill-plan-item-v448${index===0?' active':''}">
-        <div class="fill-plan-copy-v448"><span>${index===0?'Следующий приоритет':'Далее'}</span><strong>${escapeHtml(group.title)}</strong><small>${escapeHtml(compactMissing(group))}</small></div>
-        <div class="fill-plan-progress-v448"><span style="width:${clamp(group.percent,0,100)}%"></span></div>
-        <button type="button" class="btn secondary small" data-progress-target-v448="${escapeHtml(group.target)}">Открыть раздел</button>
-      </article>`).join('');
+    list.dataset.fillPlanSignatureV448=signature;
   }
 
   function renderMetric(card,metric){
@@ -402,30 +453,31 @@
       :(compactText&&compactText!=='Не проверено'?compactText:'');
     if(checksNote){
       text(checksNote,note);
-      checksNote.hidden=!note;
+      setHidden(checksNote,!note);
     }
 
     const scale=overview.querySelector('[data-quality-scale-v448]');
     if(scale){
-      scale.dataset.qualityBand=band.className;
-      scale.style.setProperty('--quality-position',`${clamp(quality??0,0,100)}%`);
-      scale.classList.toggle('empty',quality===null||quality===undefined);
+      if(scale.dataset.qualityBand!==band.className)scale.dataset.qualityBand=band.className;
+      setStyle(scale,'--quality-position',`${clamp(quality??0,0,100)}%`);
+      setClass(scale,'empty',quality===null||quality===undefined);
     }
     const completionBar=overview.querySelector('[data-progress-completion-bar-v448]');
-    if(completionBar)completionBar.style.width=`${clamp(metric.completion||0,0,100)}%`;
+    if(completionBar)setStyle(completionBar,'width',`${clamp(metric.completion||0,0,100)}%`);
     renderPlan(overview,metric);
 
     const rank=card.querySelector(`[data-auto-rank="${CSS.escape(metric.id)}"]`);
-    if(rank)rank.title='Рейтинг учитывает стоп-факторы, риски, качество и надёжность оценки.';
+    const rankTitle='Рейтинг учитывает стоп-факторы, риски, качество и надёжность оценки.';
+    if(rank&&rank.title!==rankTitle)rank.title=rankTitle;
   }
 
   function patchSortLabel(){
     const select=document.getElementById('locationSortMode');
     if(!select)return;
     const weighted=select.querySelector('option[value="weighted"]');
-    if(weighted)weighted.textContent='По рейтингу оценки';
+    text(weighted,'По рейтингу оценки');
     const raw=select.querySelector('option[value="raw"]');
-    if(raw)raw.textContent='По сумме 70-балльной шкалы';
+    text(raw,'По сумме 70-балльной шкалы');
   }
 
   async function renderAll(){
@@ -506,8 +558,9 @@ const read=key=>{try{return localStorage.getItem(key)}catch(_){return null}};
 const write=(key,value)=>{try{localStorage.setItem(key,value)}catch(_){}};
 
 function setOpen(button,content,open,key){
-  button.setAttribute('aria-expanded',String(open));
-  content.hidden=!open;
+  const value=String(Boolean(open));
+  if(button.getAttribute('aria-expanded')!==value)button.setAttribute('aria-expanded',value);
+  if(content.hidden===Boolean(open))content.hidden=!open;
   if(key)write(key,open?'1':'0');
 }
 
@@ -594,14 +647,20 @@ function ensureProgress(card){
   return true;
 }
 
+function setImportantStyle(node,name,value){
+  if(node.style.getPropertyValue(name)===value&&node.style.getPropertyPriority(name)==='important')return;
+  node.style.setProperty(name,value,'important');
+}
+
 function applyLayoutGuards(card){
   for(const grid of card.querySelectorAll('.inspection-grid-v416,.landlord-grid-v416')){
-    grid.style.setProperty('row-gap','12px','important');
-    grid.style.setProperty('column-gap','14px','important');
+    setImportantStyle(grid,'row-gap','12px');
+    setImportantStyle(grid,'column-gap','14px');
   }
   const selector='.inspection-grid-v416>label.field:not([hidden]):not(.hidden):not(.panel-hidden-v419),.landlord-grid-v416>label.field:not([hidden]):not(.hidden):not(.panel-hidden-v419),.inspection-grid-v416>.next-task-v447';
-  for(const field of card.querySelectorAll(selector))field.style.setProperty('gap','5px','important');
-  card.querySelector('.progress-metrics-v448')?.style.removeProperty('grid-template-columns');
+  for(const field of card.querySelectorAll(selector))setImportantStyle(field,'gap','5px');
+  const metrics=card.querySelector('.progress-metrics-v448');
+  if(metrics?.style.getPropertyValue('grid-template-columns'))metrics.style.removeProperty('grid-template-columns');
 }
 
 async function syncLegacyStatus(card){
@@ -615,9 +674,9 @@ async function syncLegacyStatus(card){
   const trigger=select.nextElementSibling;
   if(trigger?.classList?.contains('premium-select-trigger')){
     const label=trigger.querySelector('.premium-select-value');
-    if(label)label.textContent=select.selectedOptions?.[0]?.textContent||value;
-    trigger.dataset.syncedValue=value;
-    trigger.disabled=select.disabled;
+    if(label&&label.textContent!==(select.selectedOptions?.[0]?.textContent||value))label.textContent=select.selectedOptions?.[0]?.textContent||value;
+    if(trigger.dataset.syncedValue!==value)trigger.dataset.syncedValue=value;
+    if(trigger.disabled!==select.disabled)trigger.disabled=select.disabled;
   }
 }
 
