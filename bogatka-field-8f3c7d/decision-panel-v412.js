@@ -16,8 +16,17 @@
     return exposed??lexical;
   };
   const isViewer=()=>currentRole()==='viewer';
+  const setAttr=(node,name,value)=>{if(node&&node.getAttribute(name)!==String(value))node.setAttribute(name,String(value))};
+  const setData=(node,name,value)=>{if(node&&node.dataset[name]!==String(value))node.dataset[name]=String(value)};
+  const setHidden=(node,value)=>{if(node&&node.hidden!==Boolean(value))node.hidden=Boolean(value)};
+  const setDisabled=(node,value)=>{if(node&&node.disabled!==Boolean(value))node.disabled=Boolean(value)};
+  const setRequired=(node,value)=>{if(node&&node.required!==Boolean(value))node.required=Boolean(value)};
+
   function refresh(panel){
-    panel.querySelectorAll('label[data-decision-value]').forEach(label=>label.classList.toggle('selected',Boolean(label.querySelector('input')?.checked)));
+    panel.querySelectorAll('label[data-decision-value]').forEach(label=>{
+      const selected=Boolean(label.querySelector('input')?.checked);
+      if(label.classList.contains('selected')!==selected)label.classList.toggle('selected',selected);
+    });
   }
   function enhanceDecision(panel){
     if(!panel)return;
@@ -48,50 +57,65 @@
   }
   function decisionValue(card){return card.querySelector('input[type="radio"][data-field="decision"]:checked')?.value||''}
   function reasonControl(card){return card.querySelector('.decision-reason-section-v412 [data-field="decisionReason"]')}
+
+  function syncOpenState(section){
+    if(!section)return;
+    const open=Boolean(section.open);
+    const summary=section.querySelector(':scope > summary');
+    const body=section.querySelector(':scope > .decision-reason-body-v412');
+    setAttr(summary,'aria-expanded',String(open));
+    setHidden(body,!open);
+    setAttr(body,'aria-hidden',String(!open));
+  }
   function setOpen(section,open,{persist=true}={}){
     if(!section)return;
     const next=Boolean(open);
     if(section.open!==next)section.open=next;
+    syncOpenState(section);
     const id=section.closest('[data-location-card]')?.dataset.locationCard;
-    if(persist&&id)try{localStorage.setItem(stateKey(id),open?'1':'0')}catch(_){ }
+    if(persist&&id)try{localStorage.setItem(stateKey(id),next?'1':'0')}catch(_){ }
   }
   function persistedValue(control){return control?.dataset.decisionReasonPersistedV412??''}
-  function setPersisted(control,value){if(control)control.dataset.decisionReasonPersistedV412=String(value??'')}
+  function setPersisted(control,value){setData(control,'decisionReasonPersistedV412',String(value??''))}
   function setMessage(section,text,state='idle'){
     const node=section?.querySelector('[data-decision-reason-feedback-v412]');
     if(!node)return;
     if(node.textContent!==text)node.textContent=text;
-    if(node.dataset.state!==state)node.dataset.state=state;
+    setData(node,'state',state);
+  }
+  function reasonStatusModel(card,control){
+    const decision=decisionValue(card);
+    const current=String(control?.value??'');
+    const persisted=persistedValue(control);
+    const dirty=current!==persisted;
+    if(dirty)return{label:'Есть изменения',semantic:'dirty',dirty,missing:filled(decision)&&!filled(current),decision,current};
+    if(filled(current))return{label:'Сохранено',semantic:'saved',dirty,missing:false,decision,current};
+    if(filled(decision))return{label:'Нужно заполнить',semantic:'required',dirty,missing:true,decision,current};
+    return{label:'Не выбрано',semantic:'empty',dirty,missing:false,decision,current};
   }
   function syncReasonState(card,{validate=false,message=''}={}){
     const section=card?.querySelector('.decision-reason-section-v412');
     const control=reasonControl(card);
     if(!section||!control)return;
-    const decision=decisionValue(card);
-    const dirty=control.value!==persistedValue(control);
-    const missing=filled(decision)&&!filled(control.value);
+    const model=reasonStatusModel(card,control);
     const focused=document.activeElement===control;
     const status=section.querySelector('[data-decision-reason-status-v412]');
-    let label='Не выбрано',semantic='empty';
-    if(dirty){label='Есть изменения';semantic='dirty';}
-    else if(!filled(decision)){label='Не выбрано';semantic='empty';}
-    else if(missing){label='Нужно заполнить';semantic='required';}
-    else if(filled(control.value)){label='Сохранено';semantic='saved';}
     if(status){
-      if(status.textContent!==label)status.textContent=label;
-      if(status.dataset.state!==semantic)status.dataset.state=semantic;
+      if(status.textContent!==model.label)status.textContent=model.label;
+      setData(status,'state',model.semantic);
     }
-    section.dataset.reasonState=semantic;
-    section.dataset.requiredMissing=String(missing&&validate&&!focused);
-    control.required=filled(decision);
-    control.setAttribute('aria-required',String(filled(decision)));
+    setData(section,'reasonState',model.semantic);
+    setData(section,'requiredMissing',String(model.missing&&validate&&!focused));
+    const required=filled(model.decision);
+    setRequired(control,required);
+    setAttr(control,'aria-required',String(required));
     const save=section.querySelector('[data-decision-reason-save-v412]');
-    if(save)save.disabled=isViewer()||!dirty||(missing&&!filled(control.value));
-    control.disabled=isViewer();
-    if(message)setMessage(section,message,semantic);
-    else if(dirty)setMessage(section,'Есть несохранённые изменения','dirty');
-    else if(missing&&validate&&!focused)setMessage(section,'Укажите причину выбранного решения.','error');
-    else if(filled(control.value))setMessage(section,'Причина сохранена','saved');
+    setDisabled(save,isViewer()||!model.dirty||(model.missing&&!filled(model.current)));
+    setDisabled(control,isViewer());
+    if(message)setMessage(section,message,model.semantic);
+    else if(model.dirty)setMessage(section,'Есть несохранённые изменения','dirty');
+    else if(model.missing&&validate&&!focused)setMessage(section,'Укажите причину выбранного решения.','error');
+    else if(model.semantic==='saved')setMessage(section,'Причина сохранена','saved');
     else setMessage(section,'Причина пока не заполнена','idle');
   }
   async function flushReason(card,{explicit=true}={}){
@@ -112,7 +136,7 @@
     control._locationDataSaveTimerV452=null;
     setMessage(section,'Сохраняем…','saving');
     const button=section.querySelector('[data-decision-reason-save-v412]');
-    if(button)button.disabled=true;
+    setDisabled(button,true);
     try{
       if(typeof saveField!=='function')throw new Error('Не найдена функция сохранения поля.');
       await saveField(control);
@@ -122,7 +146,7 @@
     }catch(error){
       setOpen(section,true);
       setMessage(section,error?.message||String(error),'error');
-      if(button)button.disabled=false;
+      setDisabled(button,false);
       if(explicit&&typeof showError==='function')showError(error);
       return false;
     }
@@ -144,11 +168,15 @@
     const section=document.createElement('details');
     section.className='decision-reason-section-v412 decision-reason-v452';
     section.dataset.decisionReasonV412='1';
-    section.innerHTML='<summary class="decision-reason-toggle-v412"><span class="decision-reason-copy-v412"><strong class="decision-reason-title-v412">Причина решения</strong><span class="decision-reason-description-v412">Зафиксируйте ключевые аргументы, которые повлияли на решение по локации.</span></span><span class="decision-reason-status-v412" data-decision-reason-status-v412>Не выбрано</span><i class="decision-reason-chevron-v412" aria-hidden="true"></i></summary><div class="decision-reason-body-v412"><p class="decision-reason-helper-v412">Укажите основные причины решения. Если причин несколько, запишите каждую с новой строки.</p><div class="decision-reason-control-v412"></div><small class="decision-reason-warning-v452" hidden>Укажите причину выбранного решения.</small><div class="decision-reason-actions-v412"><button type="button" class="btn secondary" data-decision-reason-save-v412>Сохранить причину</button><small data-decision-reason-feedback-v412>Причина пока не заполнена</small></div></div>';
+    section.innerHTML='<summary class="decision-reason-toggle-v412" aria-expanded="false"><span class="decision-reason-copy-v412"><strong class="decision-reason-title-v412">Причина решения</strong><span class="decision-reason-description-v412">Зафиксируйте ключевые аргументы, которые повлияли на решение по локации.</span></span><span class="decision-reason-status-v412" data-decision-reason-status-v412>Не выбрано</span><i class="decision-reason-chevron-v412" aria-hidden="true"></i></summary><div class="decision-reason-body-v412" hidden aria-hidden="true"><p class="decision-reason-helper-v412">Укажите основные причины решения. Если причин несколько, запишите каждую с новой строки.</p><div class="decision-reason-control-v412"></div><small class="decision-reason-warning-v452" hidden>Укажите причину выбранного решения.</small><div class="decision-reason-actions-v412"><button type="button" class="btn secondary" data-decision-reason-save-v412>Сохранить причину</button><small data-decision-reason-feedback-v412>Причина пока не заполнена</small></div></div>';
     section.querySelector('.decision-reason-control-v412').append(control);
     old.replaceWith(section);
     try{section.open=localStorage.getItem(stateKey(locationId))==='1'}catch(_){section.open=false}
-    section.addEventListener('toggle',()=>{try{localStorage.setItem(stateKey(locationId),section.open?'1':'0')}catch(_){ }});
+    syncOpenState(section);
+    section.addEventListener('toggle',()=>{
+      syncOpenState(section);
+      try{localStorage.setItem(stateKey(locationId),section.open?'1':'0')}catch(_){ }
+    });
     control.addEventListener('input',()=>syncReasonState(card));
     control.addEventListener('blur',()=>syncReasonState(card,{validate:true}));
     section.querySelector('[data-decision-reason-save-v412]').addEventListener('click',()=>flushReason(card));
@@ -184,6 +212,7 @@
       section.dataset.initialMissingOpenedV412='1';
       setOpen(section,true,{persist:false});
     }
+    syncOpenState(section);
     syncReasonState(card,{validate:false});
     return true;
   }
@@ -209,5 +238,5 @@
     enhanceAll().catch(console.error);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-  window.BogatkaDecisionPanel={version:'4.1.2',ready:true,enhanceAll,enhanceCard,openReason,flushReason,syncReasonState};
+  window.BogatkaDecisionPanel={version:'4.1.2',ready:true,enhanceAll,enhanceCard,openReason,flushReason,syncReasonState,reasonStatusModel};
 })();
