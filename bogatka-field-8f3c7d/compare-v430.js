@@ -58,6 +58,10 @@
     panel.innerHTML=`<summary aria-expanded="false"><span class="comparison-summary-copy"><strong>Таблица сравнения локаций</strong><small>Рейтинг, проверки перед арендой, экономика, задачи и готовность к запуску</small></span><span class="comparison-count-v332" id="comparisonLocationCount">0 локаций</span><span class="comparison-chevron-v332" aria-hidden="true"></span></summary><div class="comparison-body-v332" hidden aria-hidden="true"><div class="comparison-hint-v332">Нажмите на заголовок для сортировки. Нажмите на адрес, чтобы перейти к карточке.</div><div class="comparison-scroll-v332"><table class="comparison-table-v332 comparison-table-v340"><thead></thead><tbody></tbody><tfoot></tfoot></table></div></div>`;
     syncPanelState(panel,false);
     grid.insertAdjacentElement('afterend',panel);
+    const summary=panel.querySelector(':scope > summary');
+    const enableInteractionMotion=()=>panel.classList.add('comparison-interaction-ready-v430');
+    summary.addEventListener('pointerdown',enableInteractionMotion,{once:true});
+    summary.addEventListener('keydown',enableInteractionMotion,{once:true});
     panel.addEventListener('toggle',()=>{
       syncPanelState(panel,panel.open);
       if(panel.open)render().catch(console.error);
