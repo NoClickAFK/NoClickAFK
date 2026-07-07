@@ -205,3 +205,95 @@ test('idle background sync updates visible fields without page reload',async({pa
   expect(result.value).toBe('НОВОЕ С ТЕЛЕФОНА');
   expect(result.stored).toBe('НОВОЕ С ТЕЛЕФОНА');
 });
+
+test('clean idle state does not start network sync or flash the status',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async()=>{
+    const card=document.querySelector('[data-location-card]');
+    const badge=card?.querySelector('[data-card-recommendation-v448]');
+    window.__cleanIdleCard=card;
+    window.__cleanIdleBadge=badge;
+    cloudSession={user:{id:'idle-user'}};
+    window.BogatkaCloudStability.markStartupHandled();
+    cloudWriteState({dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[],knownPhotoIds:[],lastSyncAt:new Date().toISOString(),userId:'idle-user'});
+    cloudSetStatus('ready');
+    const before=window.BogatkaCloudStability.diagnostics;
+    const first=await cloudSyncAll({manual:false});
+    const second=await cloudSyncAll({manual:false});
+    cloudScheduleSync(20);
+    await new Promise(resolve=>setTimeout(resolve,1600));
+    const after=window.BogatkaCloudStability.diagnostics;
+    const currentCard=document.querySelector('[data-location-card]');
+    const currentBadge=currentCard?.querySelector('[data-card-recommendation-v448]');
+    return {
+      first,second,before,after,
+      button:document.querySelector('#cloudSyncBtn')?.textContent||'',
+      pill:document.querySelector('#cloudTopPill')?.textContent||'',
+      sameCard:currentCard===window.__cleanIdleCard,
+      sameBadge:currentBadge===window.__cleanIdleBadge,
+      badgeText:currentBadge?.textContent||'',
+      badgeHidden:Boolean(currentBadge?.hidden),
+    };
+  });
+  expect(result.first.skipped).toBe(true);
+  expect(result.second.skipped).toBe(true);
+  expect(result.after.executedAutomaticRuns).toBe(result.before.executedAutomaticRuns);
+  expect(result.after.skippedIdleRuns).toBeGreaterThanOrEqual(result.before.skippedIdleRuns+2);
+  expect(result.button).toContain('синхронизировано');
+  expect(result.pill).toContain('синхронизировано');
+  expect(result.sameCard).toBe(true);
+  expect(result.sameBadge).toBe(true);
+  expect(result.badgeText.trim()).not.toBe('');
+  expect(result.badgeHidden).toBe(false);
+});
+
+test('a clean location is not pushed again only because its local timestamp is newer',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async()=>{
+    const item=locations[0];
+    locations=[item];
+    const remote={id:'remote-1',project_id:'project-1',client_id:item.id,title:item.title,address:item.address,note:item.note,updated_at:'2026-01-01T00:00:00.000Z',revision:1,archived_at:null};
+    await cloudOriginalIdbPut(STORE,{contact:'UNCHANGED',updatedAt:'2099-01-01T00:00:00.000Z',cloudId:remote.id,cloudRevision:1,cloudUpdatedAt:remote.updated_at},`location:${item.id}`);
+    cloudSession={user:{id:'user-1'}};
+    cloudProjectId='project-1';
+    let databaseCalls=0;
+    cloudClient={from(){databaseCalls++;throw new Error('Unexpected upsert for a clean location')}};
+    const rows=await cloudPushLocations([remote],{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},metaDirty:false,stateDirty:false});
+    return {databaseCalls,rowCount:rows.length};
+  });
+  expect(result.databaseCalls).toBe(0);
+  expect(result.rowCount).toBe(1);
+});
+
+test('multiple realtime notifications are coalesced into one background request',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async()=>{
+    cloudSession={user:{id:'realtime-user'}};
+    window.BogatkaCloudStability.markStartupHandled();
+    cloudWriteState({dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[],knownPhotoIds:[],lastSyncAt:new Date().toISOString(),userId:'realtime-user'});
+    const card=document.querySelector('[data-location-card]');
+    const badge=card?.querySelector('[data-card-recommendation-v448]');
+    let calls=0;
+    const original=cloudSyncAll;
+    cloudSyncAll=async()=>{calls++};
+    for(let index=0;index<8;index++)cloudHandleRealtime({});
+    await new Promise(resolve=>setTimeout(resolve,1300));
+    cloudSyncAll=original;
+    const currentCard=document.querySelector('[data-location-card]');
+    const currentBadge=currentCard?.querySelector('[data-card-recommendation-v448]');
+    return {
+      calls,
+      diagnostics:window.BogatkaCloudStability.diagnostics,
+      sameCard:currentCard===card,
+      sameBadge:currentBadge===badge,
+      badgeText:currentBadge?.textContent||'',
+      badgeHidden:Boolean(currentBadge?.hidden),
+    };
+  });
+  expect(result.calls).toBe(1);
+  expect(result.diagnostics.realtimeSignals).toBeGreaterThanOrEqual(8);
+  expect(result.sameCard).toBe(true);
+  expect(result.sameBadge).toBe(true);
+  expect(result.badgeText.trim()).not.toBe('');
+  expect(result.badgeHidden).toBe(false);
+});
