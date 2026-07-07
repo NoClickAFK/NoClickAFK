@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=462';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=location-report-collapse-v464';
 
 async function openApp(page,width=1440,height=1200){
   await page.setViewportSize({width,height});
@@ -13,7 +13,9 @@ async function openApp(page,width=1440,height=1200){
     document.querySelector('[data-location-card][data-inspection-layout-v462="1"]')&&
     document.querySelector('[data-location-card] .next-task-card-v447')
   ),{timeout:30000});
-  return page.locator('[data-location-card]').first();
+  const card=page.locator('[data-location-card]').first();
+  await card.evaluate(node=>window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:false}));
+  return card;
 }
 
 const visibleField=(card,field)=>card.locator(`[data-field="${field}"]:not([data-stage6-marker-v461])`).first();
