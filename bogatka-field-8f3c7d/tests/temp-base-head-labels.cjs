@@ -9,12 +9,14 @@ async function measure(page,url){
     window.BogatkaInspectionLayoutV461?.ready&&
     window.BogatkaLocationDataV452?.ready&&
     window.BogatkaTrafficCompetitorsV453?.ready&&
+    window.BogatkaTechnicalEconomicsV450?.ready&&
     document.querySelector('[data-location-card]')
   ),{timeout:30000});
   await page.evaluate(async()=>{
     try{cloudRole=null}catch(_){ }
     window.cloudRole=null;
     await window.BogatkaTrafficCompetitorsV453.enhanceAll();
+    await window.BogatkaTechnicalEconomicsV450.enhanceAll();
     const card=document.querySelector('[data-location-card]');
     window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
     for(const details of card.querySelectorAll('details'))details.open=true;
@@ -22,6 +24,10 @@ async function measure(page,url){
   const card=page.locator('[data-location-card]').first();
   if(await card.locator('.traffic-measurement-v453').count()===0)await card.locator('[data-stage7-action="add-traffic"]').click();
   await card.locator('.traffic-measurement-v453').first().waitFor({state:'visible'});
+  await page.waitForFunction(()=>{
+    const control=document.querySelector('[data-location-card] [data-field="tech.rentPerMonth"]');
+    return Boolean(control?.closest('label.field')?.querySelector('.profile-caption-v416,.evaluation-caption-v446,.technical-caption-v450'));
+  },{timeout:30000});
   return card.evaluate(node=>{
     const field=name=>[...node.querySelectorAll(`[data-field="${name}"]`)].find(item=>!item.hasAttribute('data-stage6-marker-v461'));
     const caption=control=>control?.closest('label.field,.stage7-field-v453')?.querySelector('.profile-caption-v416,.evaluation-caption-v446,.technical-caption-v450')||null;
