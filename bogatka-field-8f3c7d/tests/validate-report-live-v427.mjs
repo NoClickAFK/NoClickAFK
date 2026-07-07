@@ -66,7 +66,7 @@ for(const asset of ["'./report-live-v427.js'","'./report-live-fixes-v427.js'"]){
   if(!worker.includes(asset))failures.push(`Service Worker does not cache ${asset}`);
 }
 
-for(const marker of ['Новый динамический раздел','removed UI sections disappear','same premium report engine']){
+for(const marker of ['Новый динамический раздел','removed UI sections disappear','same premium global engine']){
   if(!browserTest.toLowerCase().includes(marker.toLowerCase()))failures.push(`Report browser regression missing ${marker}`);
 }
 
