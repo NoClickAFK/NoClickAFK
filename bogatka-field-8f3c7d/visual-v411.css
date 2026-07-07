@@ -95,7 +95,8 @@
 .comparison-summary-copy strong{font-size:17px!important;color:#174f3a!important}
 .comparison-summary-copy small{color:#725f32!important;font-size:12px!important}
 .comparison-count-v332{min-height:33px!important;border-color:#d8bf78!important;background:rgba(255,255,255,.86)!important;color:#5f4b17!important}
-.comparison-chevron-v332{border-color:#6a541d!important}
+.comparison-chevron-v332::before{transition:none}
+.comparison-panel-v332.comparison-interaction-ready-v430 .comparison-chevron-v332::before{transition:transform .18s ease}
 
 @media(max-width:760px){
   .collaboration-accordion-trigger-v411{grid-template-columns:minmax(0,1fr) auto 16px;gap:10px;padding:13px 14px}
@@ -115,4 +116,5 @@
 
 @media(prefers-reduced-motion:reduce){
   .collaboration-accordion-panel-v411,.collaboration-accordion-chevron-v411{transition:none}
+  .comparison-panel-v332.comparison-interaction-ready-v430 .comparison-chevron-v332::before{transition:none}
 }
