@@ -3,11 +3,63 @@
 
   const VERSION='4.2.2';
   const STORAGE_PREFIX='bogatka.location.collapsed.v422.';
+  const sessionState=new Map();
   let renderHookAttempts=0;
 
   const key=id=>`${STORAGE_PREFIX}${id}`;
-  const read=id=>{try{return localStorage.getItem(key(id))==='1'}catch(_){return false}};
-  const write=(id,value)=>{try{localStorage.setItem(key(id),value?'1':'0')}catch(_){}};
+  const read=id=>{
+    if(!sessionState.has(id))sessionState.set(id,true);
+    return sessionState.get(id);
+  };
+  const write=(id,value)=>sessionState.set(id,Boolean(value));
+
+  function forgetLegacyState(id){
+    try{localStorage.removeItem(key(id))}catch(_){ }
+  }
+
+  function installMobileActionStyle(){
+    if(document.getElementById('locationCardMobileActionsV464'))return;
+    const style=document.createElement('style');
+    style.id='locationCardMobileActionsV464';
+    style.textContent=`
+      @media(max-width:700px){
+        html [data-location-card]>.location-head[data-location-header-grid-v422="1"]>.location-actions.location-header-actions-v422{
+          grid-template-rows:auto auto!important;
+          row-gap:14px!important;
+          column-gap:10px!important;
+        }
+        html [data-location-card]>.location-head[data-location-header-grid-v422="1"] .location-action-buttons-v448{
+          grid-template-columns:repeat(3,minmax(0,1fr))!important;
+          gap:7px!important;
+        }
+        html [data-location-card]>.location-head[data-location-header-grid-v422="1"] .location-action-buttons-v448>*{
+          width:100%!important;
+          min-width:0!important;
+          height:36px!important;
+          min-height:36px!important;
+          max-height:38px!important;
+          padding:5px 4px!important;
+          font-size:11px!important;
+          line-height:1.15!important;
+          white-space:normal!important;
+          text-align:center!important;
+          box-sizing:border-box!important;
+        }
+        html [data-location-card]>.location-head[data-location-header-grid-v422="1"] .card-recommendation-head-v448{
+          grid-column:1!important;
+          grid-row:2!important;
+          justify-self:end!important;
+          align-self:start!important;
+          margin:0!important;
+        }
+      }
+      @media(max-width:360px){
+        html [data-location-card]>.location-head[data-location-header-grid-v422="1"] .location-action-buttons-v448{gap:6px!important}
+        html [data-location-card]>.location-head[data-location-header-grid-v422="1"] .location-action-buttons-v448>*{padding:5px 3px!important;font-size:10.5px!important}
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   function attr(element,name,value){
     if(element.getAttribute(name)!==value)element.setAttribute(name,value);
@@ -18,13 +70,14 @@
     const body=card?.querySelector(':scope > .location-body');
     const button=card?.querySelector(':scope > .location-head .location-collapse-toggle-v422');
     if(!id||!body||!button)return false;
-    if(card.classList.contains('location-card-collapsed-v422')!==collapsed)card.classList.toggle('location-card-collapsed-v422',collapsed);
-    if(body.hidden!==collapsed)body.hidden=collapsed;
-    attr(body,'aria-hidden',String(collapsed));
-    attr(button,'aria-expanded',String(!collapsed));
-    attr(button,'aria-label',collapsed?'Развернуть локацию':'Свернуть локацию');
-    button.title=collapsed?'Развернуть локацию':'Свернуть локацию';
-    if(persist)write(id,collapsed);
+    const next=Boolean(collapsed);
+    if(card.classList.contains('location-card-collapsed-v422')!==next)card.classList.toggle('location-card-collapsed-v422',next);
+    if(body.hidden!==next)body.hidden=next;
+    attr(body,'aria-hidden',String(next));
+    attr(button,'aria-expanded',String(!next));
+    attr(button,'aria-label',next?'Развернуть локацию':'Свернуть локацию');
+    button.title=next?'Развернуть локацию':'Свернуть локацию';
+    if(persist)write(id,next);
     return true;
   }
 
@@ -82,6 +135,7 @@
     if(!button)return false;
     ensureHeaderGrid(card,side);
     attr(button,'aria-controls',body.id);
+    forgetLegacyState(id);
     setCollapsed(card,read(id));
     card.dataset.locationCollapseV422='1';
     return true;
@@ -113,6 +167,7 @@
   }
 
   function install(){
+    installMobileActionStyle();
     installRenderHook();
     enhanceAll();
     window.addEventListener('load',()=>{
@@ -126,6 +181,7 @@
 
   window.BogatkaLocationCardCollapseV422={
     version:VERSION,ready:true,enhanceAll,enhanceCard,setCollapsed,installRenderHook,
+    getSessionState:id=>read(id),
     audit(){
       const failures=[];
       for(const card of document.querySelectorAll('[data-location-card]')){
