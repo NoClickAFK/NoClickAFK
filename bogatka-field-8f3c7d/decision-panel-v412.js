@@ -174,8 +174,10 @@
       const data=typeof getLocationData==='function'?await getLocationData(card.dataset.locationCard):{};
       const stored=String(data?.decisionReason||'');
       const safe=document.activeElement!==control&&control.dataset.locationDataDirtyV452!=='1';
-      if(safe&&!control.dataset.decisionReasonPersistedV412)control.value=stored;
-      if(safe&&control.value===stored)setPersisted(control,stored);
+      if(safe){
+        if(control.value!==stored)control.value=stored;
+        setPersisted(control,stored);
+      }
     }
     if(filled(decisionValue(card))&&!filled(control?.value)&&section.dataset.initialMissingOpenedV412!=='1'){
       section.dataset.initialMissingOpenedV412='1';
