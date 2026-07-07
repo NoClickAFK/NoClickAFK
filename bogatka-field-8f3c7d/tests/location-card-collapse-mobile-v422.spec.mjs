@@ -1,6 +1,6 @@
-import {test,expect} from '@playwright/test';
+import {test,expect,webkit} from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=location-report-collapse-v464';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=final-ui-stability-reason-v465';
 
 async function openApp(page,width=390,height=900){
   await page.setViewportSize({width,height});
@@ -212,4 +212,132 @@ test('new locations receive canonical UI and start collapsed',async({page})=>{
   await expect(card.locator('.decision-reason-section-v412')).toHaveCount(1);
   await expect(card.locator('[data-action="export-location-html"]')).toHaveText('Отчёт HTML');
   await expect(card.locator('[data-action="save-gps"]')).toHaveCount(0);
+});
+
+test('WebKit keeps startup disclosures and recommendation badges stable',async()=>{
+  const browser=await webkit.launch();
+  try{
+    const context=await browser.newContext({viewport:{width:390,height:900}});
+    const page=await context.newPage();
+    await page.addInitScript(()=>{
+      localStorage.setItem('bogatka_access_authorized_v1','1');
+      const probe={comparison:null,buttons:new Map(),badges:new Map(),changes:[],replacements:[]};
+      const state=node=>node?{
+        expanded:node.getAttribute?.('aria-expanded')||'',
+        label:node.getAttribute?.('aria-label')||'',
+        className:String(node.className||''),
+        text:String(node.textContent||''),
+        hidden:Boolean(node.hidden),
+        open:Boolean(node.open),
+      }:null;
+      const scan=()=>{
+        const comparison=document.querySelector('#locationComparisonPanel');
+        if(comparison){
+          const summary=comparison.querySelector(':scope > summary');
+          const next={node:comparison,summary,state:{...state(comparison),summary:state(summary)}};
+          if(!probe.comparison)probe.comparison=next;
+          else{
+            if(probe.comparison.node!==comparison||probe.comparison.summary!==summary)probe.replacements.push('comparison');
+            if(JSON.stringify(probe.comparison.state)!==JSON.stringify(next.state))probe.changes.push({type:'comparison',from:probe.comparison.state,to:next.state});
+          }
+        }
+        for(const card of document.querySelectorAll('[data-location-card]')){
+          const id=card.dataset.locationCard;
+          const button=card.querySelector('.location-collapse-toggle-v422');
+          const badge=card.querySelector('[data-card-recommendation-v448]');
+          if(button){
+            const next=state(button),previous=probe.buttons.get(id);
+            if(!previous)probe.buttons.set(id,{node:button,state:next});
+            else{
+              if(previous.node!==button)probe.replacements.push(`button:${id}`);
+              if(JSON.stringify(previous.state)!==JSON.stringify(next))probe.changes.push({type:`button:${id}`,from:previous.state,to:next});
+            }
+          }
+          if(badge){
+            const next=state(badge),previous=probe.badges.get(id);
+            if(!previous)probe.badges.set(id,{node:badge,state:next});
+            else{
+              if(previous.node!==badge)probe.replacements.push(`badge:${id}`);
+              if(JSON.stringify(previous.state)!==JSON.stringify(next))probe.changes.push({type:`badge:${id}`,from:previous.state,to:next});
+            }
+          }
+        }
+      };
+      const observer=new MutationObserver(scan);
+      observer.observe(document,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['open','aria-expanded','aria-label','class','hidden']});
+      window.__webkitStartupProbe={probe,scan,observer};
+    });
+    await page.goto(APP_URL,{waitUntil:'networkidle'});
+    await page.waitForFunction(()=>Boolean(
+      window.BogatkaCardProgressV448?.initialized&&
+      document.querySelector('#locationComparisonPanel > summary[aria-expanded="false"]')&&
+      document.querySelectorAll('[data-location-card] .location-collapse-toggle-v422[aria-expanded="false"]').length>1&&
+      document.querySelectorAll('[data-card-recommendation-v448]').length>1
+    ),{timeout:30000});
+    const result=await page.evaluate(async()=>{
+      window.__webkitStartupProbe.scan();
+      const cards=[...document.querySelectorAll('[data-location-card]')];
+      const first=cards[0];
+      const comparison=document.querySelector('#locationComparisonPanel');
+      const comparisonSummary=comparison.querySelector(':scope > summary');
+      const buttons=cards.map(card=>card.querySelector('.location-collapse-toggle-v422'));
+      const badges=cards.map(card=>card.querySelector('[data-card-recommendation-v448]'));
+      const identities={comparison,comparisonSummary,buttons:[...buttons],badges:[...badges]};
+      const reason=first.querySelector('.decision-reason-section-v412');
+      const reasonSummary=reason.querySelector(':scope > summary');
+      const progress=first.querySelector('.progress-card-toggle-v462');
+      const reasonRect=reason.getBoundingClientRect();
+      const reasonSummaryRect=reasonSummary.getBoundingClientRect();
+      const closedGeometry={
+        reasonHeight:reasonRect.height,
+        progressHeight:progress.getBoundingClientRect().height,
+        left:Math.abs(reasonRect.left-reasonSummaryRect.left),
+        right:Math.abs(reasonRect.right-reasonSummaryRect.right),
+        top:Math.abs(reasonRect.top-reasonSummaryRect.top),
+        bottom:Math.abs(reasonRect.bottom-reasonSummaryRect.bottom),
+        background:getComputedStyle(reasonSummary).backgroundImage,
+        progressBackground:getComputedStyle(progress).backgroundImage,
+      };
+      for(let index=0;index<4;index++)await updateSummary();
+      window.BogatkaLocationCardCollapseV422.enhanceAll();
+      await cloudSyncAll({manual:false});
+      for(let index=0;index<6;index++)window.cloudHandleRealtime?.({});
+      scrollTo(0,700);
+      const unrelated=first.querySelector('.location-body > details');
+      if(unrelated){unrelated.open=true;unrelated.open=false;}
+      await new Promise(resolve=>setTimeout(resolve,15050));
+      window.__webkitStartupProbe.scan();
+      window.__webkitStartupProbe.observer.disconnect();
+      const currentCards=[...document.querySelectorAll('[data-location-card]')];
+      return{
+        changes:window.__webkitStartupProbe.probe.changes,
+        replacements:window.__webkitStartupProbe.probe.replacements,
+        comparisonSame:document.querySelector('#locationComparisonPanel')===identities.comparison,
+        comparisonSummarySame:document.querySelector('#locationComparisonPanel > summary')===identities.comparisonSummary,
+        buttonsSame:currentCards.every((card,index)=>card.querySelector('.location-collapse-toggle-v422')===identities.buttons[index]),
+        badgesSame:currentCards.every((card,index)=>card.querySelector('[data-card-recommendation-v448]')===identities.badges[index]),
+        comparisonExpanded:comparisonSummary.getAttribute('aria-expanded'),
+        buttonStates:buttons.map(node=>node.getAttribute('aria-expanded')),
+        badgeStates:badges.map(node=>({text:node.textContent.trim(),hidden:node.hidden})),
+        closedGeometry,
+      };
+    });
+    expect(result.replacements).toEqual([]);
+    expect(result.changes).toEqual([]);
+    expect(result.comparisonSame).toBe(true);
+    expect(result.comparisonSummarySame).toBe(true);
+    expect(result.buttonsSame).toBe(true);
+    expect(result.badgesSame).toBe(true);
+    expect(result.comparisonExpanded).toBe('false');
+    expect(result.buttonStates.every(value=>value==='false')).toBe(true);
+    expect(result.badgeStates.every(value=>value.text!==''&&!value.hidden)).toBe(true);
+    expect(result.closedGeometry.background).toBe(result.closedGeometry.progressBackground);
+    expect(Math.abs(result.closedGeometry.reasonHeight-result.closedGeometry.progressHeight)).toBeLessThanOrEqual(2);
+    expect(result.closedGeometry.left).toBeLessThanOrEqual(1);
+    expect(result.closedGeometry.right).toBeLessThanOrEqual(1);
+    expect(result.closedGeometry.top).toBeLessThanOrEqual(1);
+    expect(result.closedGeometry.bottom).toBeLessThanOrEqual(1);
+  }finally{
+    await browser.close();
+  }
 });

@@ -4,6 +4,8 @@
   const VERSION='4.2.2';
   const STORAGE_PREFIX='bogatka.location.collapsed.v422.';
   const sessionState=new Map();
+  const boundButtons=new WeakSet();
+  const forgottenLegacyIds=new Set();
   let renderHookAttempts=0;
 
   const key=id=>`${STORAGE_PREFIX}${id}`;
@@ -14,6 +16,8 @@
   const write=(id,value)=>sessionState.set(id,Boolean(value));
 
   function forgetLegacyState(id){
+    if(forgottenLegacyIds.has(id))return;
+    forgottenLegacyIds.add(id);
     try{localStorage.removeItem(key(id))}catch(_){ }
   }
 
@@ -75,25 +79,30 @@
     if(body.hidden!==next)body.hidden=next;
     attr(body,'aria-hidden',String(next));
     attr(button,'aria-expanded',String(!next));
-    attr(button,'aria-label',next?'Развернуть локацию':'Свернуть локацию');
-    button.title=next?'Развернуть локацию':'Свернуть локацию';
+    const label=next?'Развернуть локацию':'Свернуть локацию';
+    attr(button,'aria-label',label);
+    if(button.title!==label)button.title=label;
     if(persist)write(id,next);
     return true;
   }
 
   function ensureButton(card,side){
     let button=side.querySelector(':scope > .location-collapse-toggle-v422');
-    if(button)return button;
-    button=document.createElement('button');
-    button.type='button';
-    button.className='location-collapse-toggle-v422';
-    button.innerHTML='<span class="location-collapse-chevron-v422" aria-hidden="true"></span>';
-    button.addEventListener('click',event=>{
-      event.preventDefault();
-      event.stopPropagation();
-      setCollapsed(card,!card.classList.contains('location-card-collapsed-v422'),{persist:true});
-    });
-    side.appendChild(button);
+    if(!button){
+      button=document.createElement('button');
+      button.type='button';
+      button.className='location-collapse-toggle-v422';
+      button.innerHTML='<span class="location-collapse-chevron-v422" aria-hidden="true"></span>';
+      side.appendChild(button);
+    }
+    if(!boundButtons.has(button)){
+      boundButtons.add(button);
+      button.addEventListener('click',event=>{
+        event.preventDefault();
+        event.stopPropagation();
+        setCollapsed(card,!card.classList.contains('location-card-collapsed-v422'),{persist:true});
+      });
+    }
     return button;
   }
 
@@ -118,10 +127,10 @@
     const actions=title?.querySelector(':scope > .location-actions')||head?.querySelector(':scope > .location-actions');
     if(!head||!title||!actions||!side)return false;
     if(actions.parentElement!==head)head.insertBefore(actions,side);
-    actions.classList.add('location-header-actions-v422');
+    if(!actions.classList.contains('location-header-actions-v422'))actions.classList.add('location-header-actions-v422');
     const recommendation=side.querySelector(':scope > .decision-head-v340');
     if(recommendation&&recommendation.parentElement!==actions)actions.appendChild(recommendation);
-    head.dataset.locationHeaderGridV422='1';
+    if(head.dataset.locationHeaderGridV422!=='1')head.dataset.locationHeaderGridV422='1';
     return true;
   }
 
@@ -137,7 +146,8 @@
     attr(button,'aria-controls',body.id);
     forgetLegacyState(id);
     setCollapsed(card,read(id));
-    card.dataset.locationCollapseV422='1';
+    if(!card.classList.contains('location-collapse-ready-v422'))card.classList.add('location-collapse-ready-v422');
+    if(card.dataset.locationCollapseV422!=='1')card.dataset.locationCollapseV422='1';
     return true;
   }
 
