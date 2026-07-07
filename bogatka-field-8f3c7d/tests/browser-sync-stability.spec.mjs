@@ -119,9 +119,11 @@ test('textarea accepts a complete word without losing focus after each autosave'
     const id=input.dataset.location;
     input.value='';
     input.focus();
+    input.setSelectionRange(0,0);
     window.__prosNode=input;
     for(const char of 'Стоимость'){
       input.value+=char;
+      input.setSelectionRange(input.value.length,input.value.length);
       input.dispatchEvent(new Event('input',{bubbles:true}));
       await new Promise(resolve=>setTimeout(resolve,380));
     }
@@ -130,6 +132,8 @@ test('textarea accepts a complete word without losing focus after each autosave'
       sameNode:document.querySelector(`[data-location="${id}"][data-field="pros"]`)===window.__prosNode,
       active:document.activeElement===input,
       value:input.value,
+      selectionStart:input.selectionStart,
+      selectionEnd:input.selectionEnd,
       pending:window.BogatkaUIStability.pending,
     };
     input.blur();
@@ -140,6 +144,8 @@ test('textarea accepts a complete word without losing focus after each autosave'
   expect(result.sameNode).toBe(true);
   expect(result.active).toBe(true);
   expect(result.value).toBe('Стоимость');
+  expect(result.selectionStart).toBe('Стоимость'.length);
+  expect(result.selectionEnd).toBe('Стоимость'.length);
   expect(result.pending).toBe(true);
   expect(stored).toBe('Стоимость');
 });
