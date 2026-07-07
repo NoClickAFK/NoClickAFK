@@ -174,6 +174,7 @@ test('decision reason is collapsible, explicitly saveable and persists multiline
     const protectedValue=input.value;
     input.blur();
     delete input.dataset.locationDataDirtyV452;
+    await window.BogatkaDurableFieldsV452.flush();
     await idbPut(STORE,incoming,`location:${locationId}`);
     await window.BogatkaSyncIntegrity.hydrateLocationCard(locationId,incoming);
     return{
