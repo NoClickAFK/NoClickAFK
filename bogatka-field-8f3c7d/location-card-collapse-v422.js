@@ -55,20 +55,32 @@
       head.appendChild(side);
     }
     if(score.parentElement!==side)side.appendChild(score);
-    const decision=head.querySelector('.decision-head-v340');
-    if(decision&&decision.parentElement!==side)side.appendChild(decision);
     ensureButton(card,side);
     return side;
   }
 
+  function ensureHeaderGrid(card,side){
+    const head=card.querySelector(':scope > .location-head');
+    const title=head?.querySelector(':scope > .location-title-wrap');
+    const actions=title?.querySelector(':scope > .location-actions')||head?.querySelector(':scope > .location-actions');
+    if(!head||!title||!actions||!side)return false;
+    if(actions.parentElement!==head)head.insertBefore(actions,side);
+    actions.classList.add('location-header-actions-v422');
+    const recommendation=side.querySelector(':scope > .decision-head-v340');
+    if(recommendation&&recommendation.parentElement!==actions)actions.appendChild(recommendation);
+    head.dataset.locationHeaderGridV422='1';
+    return true;
+  }
+
   function enhanceCard(card){
-    const id=card.dataset.locationCard;
-    const body=card.querySelector(':scope > .location-body');
+    const id=card?.dataset?.locationCard;
+    const body=card?.querySelector(':scope > .location-body');
     if(!id||!body)return false;
     if(!body.id)body.id=`location-body-${id.replace(/[^a-z0-9_-]/gi,'-')}`;
     const side=ensureHeaderSide(card);
     const button=side?.querySelector('.location-collapse-toggle-v422');
     if(!button)return false;
+    ensureHeaderGrid(card,side);
     attr(button,'aria-controls',body.id);
     setCollapsed(card,read(id));
     card.dataset.locationCollapseV422='1';
@@ -96,7 +108,7 @@
     wrapped.__locationCardCollapseV422=true;
     wrapped.__base=current;
     window.renderLocations=wrapped;
-    try{renderLocations=wrapped}catch(_){}
+    try{renderLocations=wrapped}catch(_){ }
     return true;
   }
 
@@ -113,17 +125,19 @@
   else install();
 
   window.BogatkaLocationCardCollapseV422={
-    version:VERSION,ready:true,enhanceAll,setCollapsed,installRenderHook,
+    version:VERSION,ready:true,enhanceAll,enhanceCard,setCollapsed,installRenderHook,
     audit(){
       const failures=[];
       for(const card of document.querySelectorAll('[data-location-card]')){
         const id=card.dataset.locationCard;
         const body=card.querySelector(':scope > .location-body');
         const side=card.querySelector(':scope > .location-head > .location-head-side-v422');
+        const actions=card.querySelector(':scope > .location-head > .location-actions');
         if(!body)failures.push(`${id}:body:missing`);
         if(!side)failures.push(`${id}:side:missing`);
         if(!side?.querySelector(':scope > .scorebox'))failures.push(`${id}:scorebox:missing`);
         if(!side?.querySelector(':scope > .location-collapse-toggle-v422'))failures.push(`${id}:toggle:missing`);
+        if(!actions)failures.push(`${id}:actions:grid-missing`);
       }
       return {ok:failures.length===0,failures};
     },

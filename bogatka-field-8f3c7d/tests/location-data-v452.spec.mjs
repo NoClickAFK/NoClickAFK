@@ -174,6 +174,7 @@ test('live HTML report contains v452 data and explicit checklist states',async({
   await selectAndWait(page,card.locator('[data-field="objectSource"]'),id,'objectSource','Рекомендация');
   await fillAndWait(page,card.locator('[data-field="inspectionPurpose"]'),id,'inspectionPurpose','Проверка перед переговорами');
   await fillAndWait(page,card.locator('[data-field="inspectionResult"]'),id,'inspectionResult','Можно продолжать работу');
+  await openSection(card,'Причина решения');
   await fillAndWait(page,card.locator('[data-field="decisionReason"]'),id,'decisionReason','Хороший вход и приемлемая аренда');
   await selectAndWait(page,card.locator('[data-field="check.housing_dense"]'),id,'check.housing_dense','no');
   await selectAndWait(page,card.locator('[data-field="check.housing_occupied"]'),id,'check.housing_occupied','not_applicable');

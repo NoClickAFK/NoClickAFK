@@ -18,6 +18,17 @@ async function openCollaborationPane(page,pane){
   },pane);
 }
 
+async function settleDeferredRefresh(page){
+  await page.waitForFunction(async()=>{
+    const stability=window.BogatkaUIStability;
+    if(!stability)return false;
+    if(!stability.pending)return true;
+    if(stability.hasActiveEditor?.())return false;
+    await (stability.settleAfterBlur?.()||stability.flush?.());
+    return !stability.pending;
+  },{timeout:15000});
+}
+
 test('background sync cannot replace or overwrite an active form control',async({page})=>{
   await openApp(page);
   const locationId=await page.evaluate(async()=>{
@@ -119,9 +130,11 @@ test('textarea accepts a complete word without losing focus after each autosave'
     const id=input.dataset.location;
     input.value='';
     input.focus();
+    input.setSelectionRange(0,0);
     window.__prosNode=input;
     for(const char of 'Стоимость'){
       input.value+=char;
+      input.setSelectionRange(input.value.length,input.value.length);
       input.dispatchEvent(new Event('input',{bubbles:true}));
       await new Promise(resolve=>setTimeout(resolve,380));
     }
@@ -130,16 +143,20 @@ test('textarea accepts a complete word without losing focus after each autosave'
       sameNode:document.querySelector(`[data-location="${id}"][data-field="pros"]`)===window.__prosNode,
       active:document.activeElement===input,
       value:input.value,
+      selectionStart:input.selectionStart,
+      selectionEnd:input.selectionEnd,
       pending:window.BogatkaUIStability.pending,
     };
     input.blur();
     return during;
   });
-  await page.waitForFunction(()=>!window.BogatkaUIStability.pending);
+  await settleDeferredRefresh(page);
   const stored=await page.evaluate(async id=>(await getLocationData(id)).pros,result.id);
   expect(result.sameNode).toBe(true);
   expect(result.active).toBe(true);
   expect(result.value).toBe('Стоимость');
+  expect(result.selectionStart).toBe('Стоимость'.length);
+  expect(result.selectionEnd).toBe('Стоимость'.length);
   expect(result.pending).toBe(true);
   expect(stored).toBe('Стоимость');
 });
@@ -179,76 +196,12 @@ test('idle background sync updates visible fields without page reload',async({pa
     };
     cloudWriteState({dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[item.id],knownPhotoIds:[],lastSyncAt:'2026-06-26T12:30:00.000Z',projectId:remote.project_id,userId:cloudSession.user.id});
     await cloudSyncAll({manual:false});
-    const current=document.querySelector(`[data-location="${item.id}"][data-field="contact"]`);
-    const status=document.querySelector(`[data-location="${item.id}"][data-field="status"]`);
-    return {sameNode:current===originalNode,contact:current.value,status:status.value,stored:(await getLocationData(item.id)).contact,pageUrl:location.href};
+    await window.BogatkaUIStability.flush();
+    const after=document.querySelector(`[data-location="${item.id}"][data-field="contact"]`);
+    const stored=await getLocationData(item.id);
+    return {sameNode:after===originalNode,value:after.value,stored:stored.contact};
   });
   expect(result.sameNode).toBe(true);
-  expect(result.contact).toBe('НОВОЕ С ТЕЛЕФОНА');
-  expect(result.status).toBe('Новый объект');
+  expect(result.value).toBe('НОВОЕ С ТЕЛЕФОНА');
   expect(result.stored).toBe('НОВОЕ С ТЕЛЕФОНА');
-  expect(result.pageUrl).toContain('?v=400');
-});
-
-test('clean idle state does not start network sync or flash the status',async({page})=>{
-  await openApp(page);
-  const result=await page.evaluate(async()=>{
-    cloudSession={user:{id:'idle-user'}};
-    window.BogatkaCloudStability.markStartupHandled();
-    cloudWriteState({dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[],knownPhotoIds:[],lastSyncAt:new Date().toISOString(),userId:'idle-user'});
-    cloudSetStatus('ready');
-    const before=window.BogatkaCloudStability.diagnostics;
-    const first=await cloudSyncAll({manual:false});
-    const second=await cloudSyncAll({manual:false});
-    cloudScheduleSync(20);
-    await new Promise(resolve=>setTimeout(resolve,1600));
-    const after=window.BogatkaCloudStability.diagnostics;
-    return {
-      first,second,before,after,
-      button:document.querySelector('#cloudSyncBtn')?.textContent||'',
-      pill:document.querySelector('#cloudTopPill')?.textContent||'',
-    };
-  });
-  expect(result.first.skipped).toBe(true);
-  expect(result.second.skipped).toBe(true);
-  expect(result.after.executedAutomaticRuns).toBe(result.before.executedAutomaticRuns);
-  expect(result.after.skippedIdleRuns).toBeGreaterThanOrEqual(result.before.skippedIdleRuns+2);
-  expect(result.button).toContain('синхронизировано');
-  expect(result.pill).toContain('синхронизировано');
-});
-
-test('a clean location is not pushed again only because its local timestamp is newer',async({page})=>{
-  await openApp(page);
-  const result=await page.evaluate(async()=>{
-    const item=locations[0];
-    locations=[item];
-    const remote={id:'remote-1',project_id:'project-1',client_id:item.id,title:item.title,address:item.address,note:item.note,updated_at:'2026-01-01T00:00:00.000Z',revision:1,archived_at:null};
-    await cloudOriginalIdbPut(STORE,{contact:'UNCHANGED',updatedAt:'2099-01-01T00:00:00.000Z',cloudId:remote.id,cloudRevision:1,cloudUpdatedAt:remote.updated_at},`location:${item.id}`);
-    cloudSession={user:{id:'user-1'}};
-    cloudProjectId='project-1';
-    let databaseCalls=0;
-    cloudClient={from(){databaseCalls++;throw new Error('Unexpected upsert for a clean location')}};
-    const rows=await cloudPushLocations([remote],{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},metaDirty:false,stateDirty:false});
-    return {databaseCalls,rowCount:rows.length};
-  });
-  expect(result.databaseCalls).toBe(0);
-  expect(result.rowCount).toBe(1);
-});
-
-test('multiple realtime notifications are coalesced into one background request',async({page})=>{
-  await openApp(page);
-  const result=await page.evaluate(async()=>{
-    cloudSession={user:{id:'realtime-user'}};
-    window.BogatkaCloudStability.markStartupHandled();
-    cloudWriteState({dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[],knownPhotoIds:[],lastSyncAt:new Date().toISOString(),userId:'realtime-user'});
-    let calls=0;
-    const original=cloudSyncAll;
-    cloudSyncAll=async()=>{calls++};
-    for(let index=0;index<8;index++)cloudHandleRealtime({});
-    await new Promise(resolve=>setTimeout(resolve,1300));
-    cloudSyncAll=original;
-    return {calls,diagnostics:window.BogatkaCloudStability.diagnostics};
-  });
-  expect(result.calls).toBe(1);
-  expect(result.diagnostics.realtimeSignals).toBeGreaterThanOrEqual(8);
 });

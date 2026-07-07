@@ -5,6 +5,7 @@
   const baseApplyRemote=cloudApplyRemote;
   const contexts=new Map();
   let revisionRetries=0,noOpCloudWrites=0,mergedRows=0;
+  let lastApply={structural:false,dataChanged:[],photoChanged:[],rendered:false};
 
   function pendingReset(id){
     try{
@@ -68,14 +69,21 @@
     };
   }
   async function saveBase(id,row){
-    if(!row||isPending(id))return;
-    await State.writeBase(id,{revision:Number(row.revision||0),updatedAt:row.updated_at||'',formData:remoteData(row),meta:rowMeta(row)});
+    if(!row||isPending(id))return false;
+    const next={revision:Number(row.revision||0),updatedAt:row.updated_at||'',formData:remoteData(row),meta:rowMeta(row)};
+    const current=await State.readBase(id);
+    if(current&&Merge.same(current,next))return false;
+    await State.writeBase(id,next);
+    return true;
   }
-  async function saveLocal(id,data,row){
-    if(isPending(id))return;
+  async function saveLocal(id,data,row,currentValue=null){
+    if(isPending(id))return false;
     const value={...Merge.clean(data)};
     if(row){value.cloudId=row.id;value.cloudRevision=row.revision;value.cloudUpdatedAt=row.updated_at;}
+    const current=currentValue||await getLocationData(id);
+    if(current&&Merge.same(current,value))return false;
     await State.rawPut()(STORE,value,`location:${id}`);
+    return true;
   }
   async function removeLocalLocation(id){
     const photos=(await idbAll(PHOTO_STORE)).filter(photo=>photo.locationId===id);
@@ -88,14 +96,15 @@
     return Merge.merge(base?.meta,localMeta(item,index),row?rowMeta(row):undefined,{preferLocal,explicitReset:false});
   }
   async function buildContext(item,index,row,syncState){
-    const local=Merge.clean(await getLocationData(item.id));
+    const local=await getLocationData(item.id);
+    const cleanLocal=Merge.clean(local);
     const base=await State.readBase(item.id)||null;
     const dirty=(syncState.dirtyLocations||[]).includes(item.id);
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
-    const merged=Merge.merge(base?.formData,local,row?remoteData(row):undefined,options);
+    const merged=Merge.merge(base?.formData,cleanLocal,row?remoteData(row):undefined,options);
     const meta=chooseMeta(base,item,row,index,Boolean(syncState.metaDirty)||dirty);
     const nextPayload=payload(item,index,merged,meta);
-    return {id:item.id,item,index,row,base,merged,meta,payload:nextPayload,dirty,needsPush:!row||!Merge.same(comparable(nextPayload),comparable(row))};
+    return {id:item.id,item,index,row,base,local,merged,meta,payload:nextPayload,dirty,needsPush:!row||!Merge.same(comparable(nextPayload),comparable(row))};
   }
   async function fetchRow(clientId){
     if(isPending(clientId))return null;
@@ -121,7 +130,7 @@
       if(isPending(context.id))return null;
       if(!context.needsPush){
         noOpCloudWrites++;
-        await saveLocal(context.id,context.merged,context.row);
+        await saveLocal(context.id,context.merged,context.row,context.local);
         await saveBase(context.id,context.row);
         return isPending(context.id)?null:context.row;
       }
@@ -129,7 +138,7 @@
       if(isPending(context.id))return null;
       if(!row)row=await fetchRow(context.id);
       if(row&&Merge.same(comparable(context.payload),comparable(row))){
-        await saveLocal(context.id,remoteData(row),row);
+        await saveLocal(context.id,remoteData(row),row,context.local);
         await saveBase(context.id,row);
         return isPending(context.id)?null:row;
       }
@@ -139,6 +148,35 @@
     throw new Error(`Конфликт синхронизации локации «${context.item.title||context.id}». Повторите синхронизацию.`);
   }
 
+  const photoComparable=photo=>photo?{
+    id:photo.id||'',locationId:photo.locationId||'',category:photo.category||'other',caption:photo.caption||'',storagePath:photo.storagePath||'',
+    cloudLocationId:photo.cloudLocationId||'',cloudSyncedAt:photo.cloudSyncedAt||'',originalName:photo.originalName||'',
+    width:Number(photo.width||0),height:Number(photo.height||0),size:Number(photo.size||0),createdAt:photo.createdAt||'',
+  }:null;
+  function recordPhotoChange(changes,photo){
+    if(!photo?.locationId)return;
+    const categories=changes.get(photo.locationId)||new Set();
+    categories.add(photo.category||'other');
+    changes.set(photo.locationId,categories);
+  }
+  async function hydrateLocationCard(id,data){
+    const card=document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
+    if(!card)return false;
+    for(const control of card.querySelectorAll(`[data-location="${CSS.escape(id)}"][data-field]`)){
+      if(document.activeElement===control||control.dataset.locationDataDirtyV452==='1')continue;
+      const value=typeof getNested==='function'?getNested(data,control.dataset.field):undefined;
+      if(control.type==='checkbox')control.checked=Boolean(value);
+      else if(control.type==='radio')control.checked=control.value===value;
+      else if(value!==undefined&&control.value!==String(value??''))control.value=String(value??'');
+      if(control.tagName==='SELECT')window.BogatkaSelectSync?.syncVisibleSelect?.(control);
+    }
+    if(typeof updateLocationTotal==='function')updateLocationTotal(id,data);
+    if(typeof updateGpsLabel==='function')updateGpsLabel(id,data);
+    if(typeof updateUndoState==='function')await updateUndoState(id);
+    await window.BogatkaCardEnhancer?.enhanceLocation?.(id,{renderProgress:false});
+    return true;
+  }
+
   cloudApplyRemote=async function integrityApplyRemote(remoteLocations,remotePhotos,remoteState,syncState){
     contexts.clear();
     const filtered=filterDeletedRemote(remoteLocations,remotePhotos,syncState);
@@ -146,27 +184,35 @@
     remotePhotos=filtered.remotePhotos;
     const remoteById=new Map(remoteLocations.map(row=>[row.client_id||row.id,row]));
     const known=new Set(syncState.knownLocationIds||[]);
+    const dataChanged=new Set();
+    const photoChanges=new Map();
     let metaChanged=false;
+    let structuralChanged=false;
 
     for(const item of [...locations]){
       if(filtered.pending.has(item.id)){
         await removeLocalLocation(item.id);
         metaChanged=true;
+        structuralChanged=true;
         continue;
       }
       const row=remoteById.get(item.id)||null;
       if(!row&&item.cloudId&&known.has(item.id)){
         await removeLocalLocation(item.id);
         metaChanged=true;
+        structuralChanged=true;
         continue;
       }
       const index=locations.indexOf(item);
+      const beforeMeta=localMeta(item,index);
       const context=await buildContext(item,index,row,syncState);
       contexts.set(item.id,context);
-      await saveLocal(item.id,context.merged,row);
+      if(!Merge.same(Merge.clean(context.local),Merge.clean(context.merged)))dataChanged.add(item.id);
+      await saveLocal(item.id,context.merged,row,context.local);
       if(row){
         item.cloudId=row.id;item.title=context.meta.title||item.title;item.address=context.meta.address||'';item.note=context.meta.note||'';
         if(context.meta.archivedAt)item.archivedAt=context.meta.archivedAt;else delete item.archivedAt;
+        if(!Merge.same(beforeMeta,localMeta(item,index))){metaChanged=true;structuralChanged=true;}
       }
       if(context.needsPush)mergedRows++;
     }
@@ -178,16 +224,65 @@
       locations.push(item);
       const context=await buildContext(item,locations.length-1,row,syncState);
       contexts.set(id,context);
-      await saveLocal(id,context.merged,row);
+      await saveLocal(id,context.merged,row,context.local);
+      dataChanged.add(id);
       metaChanged=true;
+      structuralChanged=true;
     }
-    if(metaChanged||remoteLocations.length)await State.rawPut()(STORE,locations,'meta:locations');
+    if(metaChanged)await State.rawPut()(STORE,locations,'meta:locations');
     const safeState={
       ...syncState,
       dirtyLocations:[...new Set([...contexts.keys(),...remoteLocations.map(row=>row.client_id||row.id)])].filter(id=>!filtered.pending.has(id)),
       knownLocationIds:[],
     };
-    await baseApplyRemote(remoteLocations,remotePhotos,remoteState,safeState);
+
+    const originalRender=window.renderLocations||renderLocations;
+    const originalRestore=window.restoreAllForms||restoreAllForms;
+    const originalRawPut=cloudOriginalIdbPut;
+    const originalRawDelete=cloudOriginalIdbDelete;
+    const blockedRender=()=>{};
+    const blockedRestore=async()=>{};
+    window.renderLocations=blockedRender;
+    window.restoreAllForms=blockedRestore;
+    try{renderLocations=blockedRender;restoreAllForms=blockedRestore}catch(_){ }
+    cloudOriginalIdbPut=async function trackedRemotePut(store,value,key){
+      if(store===PHOTO_STORE){
+        const existing=await idbGet(PHOTO_STORE,key||value?.id);
+        if(existing&&Merge.same(photoComparable(existing),photoComparable(value)))return;
+        recordPhotoChange(photoChanges,existing);
+        recordPhotoChange(photoChanges,value);
+      }
+      return originalRawPut(store,value,key);
+    };
+    cloudOriginalIdbDelete=async function trackedRemoteDelete(store,key){
+      if(store===PHOTO_STORE)recordPhotoChange(photoChanges,await idbGet(PHOTO_STORE,key));
+      return originalRawDelete(store,key);
+    };
+    try{
+      await baseApplyRemote(remoteLocations,remotePhotos,remoteState,safeState);
+    }finally{
+      cloudOriginalIdbPut=originalRawPut;
+      cloudOriginalIdbDelete=originalRawDelete;
+      window.renderLocations=originalRender;
+      window.restoreAllForms=originalRestore;
+      try{renderLocations=originalRender;restoreAllForms=originalRestore}catch(_){ }
+    }
+
+    if(structuralChanged){
+      originalRender();
+      await originalRestore();
+      await window.BogatkaCardEnhancer?.enhanceAll?.({renderProgress:true});
+    }else{
+      for(const id of dataChanged)await hydrateLocationCard(id,await getLocationData(id));
+      for(const [id,categories] of photoChanges){
+        for(const category of categories)if(typeof renderPhotoCategory==='function')await renderPhotoCategory(id,category);
+      }
+      if(dataChanged.size||photoChanges.size){
+        if(typeof updateSummary==='function')await updateSummary();
+        else await window.BogatkaCardEnhancer?.enhanceAll?.({renderProgress:true});
+      }
+    }
+    lastApply={structural:structuralChanged,dataChanged:[...dataChanged],photoChanged:[...photoChanges.keys()],rendered:structuralChanged};
     for(const context of contexts.values())if(!context.needsPush&&context.row&&!isPending(context.id))await saveBase(context.id,context.row);
   };
 
@@ -212,6 +307,8 @@
     version:'4.1.2',ready:true,
     filterDeletedRemote,
     lockArchiveModalAction,
+    hydrateLocationCard,
+    get lastApply(){return structuredClone(lastApply);},
     get diagnostics(){return {revisionRetries,noOpCloudWrites,mergedRows,localNoOpPuts:State.noOpPuts,contexts:contexts.size,stateKey:State.key()};},
     principle:'three-way-field-merge-with-revision-checked-location-writes-and-deletion-tombstones',
   };

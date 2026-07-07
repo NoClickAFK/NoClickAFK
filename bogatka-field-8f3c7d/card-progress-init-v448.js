@@ -17,6 +17,15 @@
   let attempts=0;
   let navigationBound=false;
 
+  const chainHas=(fn,marker)=>{
+    const seen=new Set();
+    for(let current=fn;typeof current==='function'&&!seen.has(current);current=current.__base){
+      seen.add(current);
+      if(current[marker])return true;
+    }
+    return false;
+  };
+
   function installBootstrapGate(){
     if(window.__bogatkaCardProgressBootstrapGateV448)return true;
     if(typeof window.updateSummary!=='function'&&typeof updateSummary!=='function')return false;
@@ -81,6 +90,21 @@
     return true;
   }
 
+  function installFillPlanSanitizer(list){
+    if(!list||list.__canonicalFillPlanLabelsV463)return;
+    const descriptor=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+    if(!descriptor?.get||!descriptor?.set)return;
+    Object.defineProperty(list,'innerHTML',{
+      configurable:true,
+      get(){return descriptor.get.call(this)},
+      set(value){
+        const canonical=String(value??'').replace(/<span>(?:Следующий приоритет|Далее)<\/span>/g,'');
+        descriptor.set.call(this,canonical);
+      },
+    });
+    list.__canonicalFillPlanLabelsV463=true;
+  }
+
   function refineCard(card){
     const score=resolveTarget(card,'scores');
     const scoreSummary=score?.querySelector(':scope > summary');
@@ -89,6 +113,8 @@
     const explanation=card.querySelector('.score-explanation-v448 span');
     if(explanation&&explanation.textContent!==EXPLANATION)explanation.textContent=EXPLANATION;
 
+    const list=card.querySelector('[data-fill-plan-list-v448]');
+    installFillPlanSanitizer(list);
     for(const button of card.querySelectorAll('[data-progress-target-v448]')){
       const key=button.dataset.progressTargetV448;
       const definition=TARGETS[key];
@@ -142,6 +168,16 @@
       wrapped.__base=base;
       api.renderAll=wrapped;
     }
+    const engine=window.BogatkaDecisionEngine;
+    const current=engine?.computeAll;
+    if(typeof current==='function'&&!chainHas(current,'__canonicalProgressGroupsV448')){
+      const base=current.bind(engine);
+      const wrapped=async function(...args){return normalizeGroups(await base(...args))};
+      Object.assign(wrapped,current);
+      wrapped.__canonicalProgressGroupsV448=true;
+      wrapped.__base=current;
+      engine.computeAll=wrapped;
+    }
     api.TARGETS=TARGETS;
     api.openCanonicalTarget=openTarget;
     bindNavigation();
@@ -178,7 +214,245 @@
     ready:true,
     TARGETS,
     openTarget,
+    normalizeGroups,
+    installRuntimePatches,
     refineAll,
     get skippedBootstrapRefresh(){return skippedBootstrapRefresh},
   };
+})();
+
+(function(){
+  'use strict';
+  const VERSION='4.6.3';
+  if(window.BogatkaCardEnhancer?.version===VERSION)return;
+  let installAttempts=0;
+  let focusGuardAttempts=0;
+  let saveCaptureBound=false;
+  const intentionalBlur=new WeakMap();
+  const list=()=>{try{return typeof locations==='undefined'?[]:locations}catch(_){return []}};
+  const has=(fn,marker)=>{const seen=new Set();for(let f=fn;typeof f==='function'&&!seen.has(f);f=f.__base){seen.add(f);if(f[marker])return true}return false};
+  const card=id=>document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
+  const editorSelector='[data-location][data-field],[data-global]';
+
+  function installBlurIntentTracking(){
+    const current=HTMLElement.prototype.blur;
+    if(current.__intentionalEditorBlurV463)return true;
+    const wrapped=function(...args){
+      intentionalBlur.set(this,(intentionalBlur.get(this)||0)+1);
+      return current.apply(this,args);
+    };
+    Object.assign(wrapped,current);
+    wrapped.__intentionalEditorBlurV463=true;
+    wrapped.__base=current;
+    HTMLElement.prototype.blur=wrapped;
+    return true;
+  }
+
+  function captureFocusedEditor(){
+    const node=document.activeElement;
+    if(!node?.matches?.(editorSelector))return null;
+    return{
+      node,
+      start:typeof node.selectionStart==='number'?node.selectionStart:null,
+      end:typeof node.selectionEnd==='number'?node.selectionEnd:null,
+      direction:node.selectionDirection||'none',
+      intentionalBlur:Number(intentionalBlur.get(node)||0),
+    };
+  }
+
+  function restoreFocusedEditor(state){
+    const node=state?.node;
+    if(!node?.isConnected||node.disabled)return;
+    if(Number(intentionalBlur.get(node)||0)!==state.intentionalBlur)return;
+    const active=document.activeElement;
+    if(active!==node&&active!==document.body&&active!==document.documentElement)return;
+    if(active!==node)node.focus({preventScroll:true});
+    if(state.start!==null&&typeof node.setSelectionRange==='function'){
+      try{node.setSelectionRange(state.start,state.end,state.direction)}catch(_){ }
+    }
+  }
+
+  function installSummaryFocusGuard(){
+    focusGuardAttempts+=1;
+    if(typeof window.updateSummary!=='function'&&typeof updateSummary!=='function'){
+      if(focusGuardAttempts<100)setTimeout(installSummaryFocusGuard,100);
+      return false;
+    }
+    const current=window.updateSummary||updateSummary;
+    if(has(current,'__focusedEditorGuardV463'))return true;
+    const wrapped=async function(...args){
+      const state=captureFocusedEditor();
+      try{return await current.apply(this,args)}finally{restoreFocusedEditor(state)}
+    };
+    Object.assign(wrapped,current);
+    wrapped.__focusedEditorGuardV463=true;
+    wrapped.__base=current;
+    window.updateSummary=wrapped;
+    try{updateSummary=wrapped}catch(_){ }
+    return true;
+  }
+
+  async function refreshProgress(id){
+    window.BogatkaCardProgressInitV448?.installRuntimePatches?.();
+    const summary=window.updateSummary||(()=>{try{return updateSummary}catch(_){return null}})();
+    if(typeof summary==='function')await summary();
+    let node=id?card(id):null;
+    if(id&&node&&!node.querySelector('.decision-progress-v448')){
+      await window.BogatkaDecisionUI?.refresh?.();
+      window.BogatkaCardProgressInitV448?.normalizeGroups?.(window.BogatkaDecisionUI?.lastMetrics||[]);
+      await window.BogatkaCardProgressV448?.renderAll?.();
+      node=card(id)||node;
+    }
+    return node;
+  }
+
+  async function enhanceStructure(node){
+    if(!node?.dataset?.locationCard)return false;
+    await window.BogatkaLocationDataV452?.enhanceCard?.(node);
+    window.BogatkaInspectionLayoutV461?.placeCard?.(node);
+    await window.BogatkaDecisionPanel?.enhanceCard?.(node);
+    window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
+    return true;
+  }
+
+  async function hydrateCleanControls(node){
+    const id=node?.dataset?.locationCard;
+    if(!id||typeof getLocationData!=='function')return null;
+    const data=await getLocationData(id);
+    for(const control of node.querySelectorAll(`[data-location="${CSS.escape(id)}"][data-field]`)){
+      if(document.activeElement===control||control.dataset.locationDataDirtyV452==='1')continue;
+      const value=typeof getNested==='function'?getNested(data,control.dataset.field):undefined;
+      if(control.type==='checkbox')control.checked=Boolean(value);
+      else if(control.type==='radio')control.checked=control.value===value;
+      else{
+        const next=value===undefined||value===null?'':String(value);
+        if(control.value!==next)control.value=next;
+        if(control.dataset.field==='decisionReason')control.dataset.decisionReasonPersistedV412=next;
+      }
+      if(control.tagName==='SELECT')window.BogatkaSelectSync?.syncVisibleSelect?.(control);
+    }
+    window.BogatkaDecisionPanel?.syncReasonState?.(node,{validate:false});
+    return data;
+  }
+
+  async function enhanceCard(node){
+    if(!await enhanceStructure(node))return false;
+    window.BogatkaUIRefineV462?.ensureProgressAccordion?.(node);
+    window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
+    window.BogatkaCardProgressInitV448?.refineAll?.();
+    await hydrateCleanControls(node);
+    return true;
+  }
+
+  async function enhanceLocation(id,{renderProgress=false}={}){
+    let node=card(id);
+    if(!node)return null;
+    await enhanceStructure(node);
+    if(renderProgress)node=await refreshProgress(id)||node;
+    window.BogatkaUIRefineV462?.ensureProgressAccordion?.(node);
+    window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
+    window.BogatkaCardProgressInitV448?.refineAll?.();
+    await hydrateCleanControls(node);
+    return node;
+  }
+
+  async function enhanceAll({renderProgress=false}={}){
+    if(renderProgress)await refreshProgress();
+    const cards=[...document.querySelectorAll('[data-location-card]')];
+    for(const node of cards)await enhanceCard(node);
+    return cards.length;
+  }
+
+  function installSaveWrapper(){
+    installAttempts+=1;
+    if(typeof window.saveLocationFromModal!=='function'&&typeof saveLocationFromModal!=='function'){
+      if(installAttempts<100)setTimeout(installSaveWrapper,100);
+      return false;
+    }
+    const current=window.saveLocationFromModal||saveLocationFromModal;
+    if(has(current,'__canonicalCardSaveV463'))return true;
+    const wrapped=async function(...args){
+      const before=new Set(list().map(item=>item.id));
+      const original=Element.prototype.scrollIntoView;
+      let deferred=null;
+      Element.prototype.scrollIntoView=function(...scrollArgs){
+        if(this.matches?.('[data-location-card]')&&!before.has(this.dataset.locationCard)){
+          deferred={node:this,args:scrollArgs};
+          return;
+        }
+        return original.apply(this,scrollArgs);
+      };
+      let result;
+      try{result=await current(...args)}finally{Element.prototype.scrollIntoView=original}
+      const created=list().find(item=>!before.has(item.id));
+      if(created){
+        const node=await enhanceLocation(created.id,{renderProgress:true});
+        const target=node||deferred?.node;
+        if(target?.isConnected)original.apply(target,deferred?.args||[{behavior:'smooth'}]);
+      }
+      return result;
+    };
+    wrapped.__canonicalCardSaveV463=true;
+    wrapped.__base=current;
+    window.saveLocationFromModal=wrapped;
+    try{saveLocationFromModal=wrapped}catch(_){ }
+    return true;
+  }
+
+  function guardBoundSaveScroll(){
+    const editId=document.getElementById('editLocationId')?.value||'';
+    const address=document.getElementById('locationAddress')?.value?.trim()||'';
+    if(editId||!address)return;
+    const before=new Set(list().map(item=>item.id));
+    const original=Element.prototype.scrollIntoView;
+    let cleanupTimer=null;
+    const restore=()=>{
+      if(Element.prototype.scrollIntoView===guard)Element.prototype.scrollIntoView=original;
+      clearTimeout(cleanupTimer);
+    };
+    const guard=function(...scrollArgs){
+      if(this.matches?.('[data-location-card]')&&!before.has(this.dataset.locationCard)){
+        const target=this;
+        const id=target.dataset.locationCard;
+        restore();
+        Promise.resolve(enhanceLocation(id,{renderProgress:true})).then(node=>{
+          const finalNode=node||target;
+          if(finalNode?.isConnected)original.apply(finalNode,scrollArgs);
+        }).catch(error=>{
+          console.error(error);
+          if(target?.isConnected)original.apply(target,scrollArgs);
+        });
+        return;
+      }
+      return original.apply(this,scrollArgs);
+    };
+    Element.prototype.scrollIntoView=guard;
+    cleanupTimer=setTimeout(restore,10000);
+  }
+
+  function bindSaveCapture(){
+    const button=document.getElementById('saveLocationBtn');
+    if(!button||saveCaptureBound)return Boolean(button);
+    button.addEventListener('click',guardBoundSaveScroll,true);
+    saveCaptureBound=true;
+    return true;
+  }
+
+  function install(){
+    installBlurIntentTracking();
+    window.BogatkaCardProgressInitV448?.installRuntimePatches?.();
+    installSaveWrapper();
+    installSummaryFocusGuard();
+    bindSaveCapture();
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindSaveCapture,{once:true});
+    [100,400,1000,2500].forEach(delay=>setTimeout(()=>{
+      window.BogatkaCardProgressInitV448?.installRuntimePatches?.();
+      installSaveWrapper();
+      installSummaryFocusGuard();
+      bindSaveCapture();
+    },delay));
+  }
+
+  install();
+  window.BogatkaCardEnhancer={version:VERSION,ready:true,enhanceCard,enhanceLocation,enhanceAll};
 })();

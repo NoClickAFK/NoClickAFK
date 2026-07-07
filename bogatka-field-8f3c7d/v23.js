@@ -84,6 +84,59 @@ function ensureWorkflowEnhancements(){
   [250,700,1500,3000].forEach(delay=>setTimeout(run,delay));
 }
 
+function installFreshEditorSelectionV463(){
+  if(window.__bogatkaFreshEditorSelectionV463)return;
+  window.__bogatkaFreshEditorSelectionV463=true;
+  const selector='[data-location][data-field],[data-global]';
+  const states=new WeakMap();
+  const capture=(control,focused=document.activeElement===control)=>{
+    if(!control?.matches?.(selector))return;
+    states.set(control,{
+      value:'value' in control?String(control.value??''):'',
+      start:typeof control.selectionStart==='number'?control.selectionStart:null,
+      end:typeof control.selectionEnd==='number'?control.selectionEnd:null,
+      direction:control.selectionDirection||'none',
+      focused:Boolean(focused),
+    });
+  };
+  const root=document.getElementById('locations')||document.body;
+  root.addEventListener('input',event=>capture(event.target,true),true);
+  root.addEventListener('change',event=>capture(event.target,document.activeElement===event.target),true);
+  root.addEventListener('blur',event=>capture(event.target,false),true);
+  let attempts=0;
+  const wrap=()=>{
+    attempts+=1;
+    const current=window.updateSummary||((typeof updateSummary==='function')?updateSummary:null);
+    if(typeof current!=='function'){
+      if(attempts<120)setTimeout(wrap,80);
+      return;
+    }
+    if(current.__freshEditorSelectionV463)return;
+    const wrapped=async function(...args){
+      const node=document.activeElement?.matches?.(selector)?document.activeElement:null;
+      if(node&&!states.has(node))capture(node,true);
+      try{return await current.apply(this,args)}finally{
+        const latest=node&&states.get(node);
+        if(!latest?.focused||!node.isConnected||node.disabled)return;
+        if('value' in node&&String(node.value??'')!==latest.value)return;
+        const active=document.activeElement;
+        if(active!==node&&active!==document.body&&active!==document.documentElement)return;
+        if(active!==node)node.focus({preventScroll:true});
+        if(latest.start!==null&&typeof node.setSelectionRange==='function'){
+          try{node.setSelectionRange(latest.start,latest.end,latest.direction)}catch(_){ }
+        }
+      }
+    };
+    Object.assign(wrapped,current);
+    wrapped.__freshEditorSelectionV463=true;
+    wrapped.__base=current;
+    window.updateSummary=wrapped;
+    try{updateSummary=wrapped}catch(_){}
+  };
+  wrap();
+  [100,400,1000,2500].forEach(delay=>setTimeout(wrap,delay));
+}
+
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   const versionLabel=document.getElementById('versionLabel');
@@ -171,6 +224,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-data-stability-v452.js'});
   loadBogatkaPatch('script',{src:'./durable-fields-v452.js'});
   ensureWorkflowEnhancements();
+  installFreshEditorSelectionV463();
 
   document.addEventListener('keydown',event=>{
     const target=event.target;

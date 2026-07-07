@@ -25,6 +25,21 @@
     return !control||control===document.activeElement||control.dataset.locationDataDirtyV452==='1'||pendingLocation(locationId);
   }
 
+  function durableKey(control){
+    const locationId=control?.dataset?.location;
+    const field=control?.dataset?.field;
+    return locationId&&DURABLE_FIELDS.has(field)?`${locationId}:${field}`:'';
+  }
+
+  function acceptAuthoritativeControl(control){
+    const key=durableKey(control);
+    if(!key)return false;
+    clearTimeout(durableTimers.get(key));
+    durableTimers.delete(key);
+    durableRevisions.set(key,Number(durableRevisions.get(key)||0)+1);
+    return true;
+  }
+
   function number(value){
     if(typeof value==='number')return Number.isFinite(value)?value:null;
     if(typeof value!=='string')return null;
@@ -115,13 +130,18 @@
     }
   }
 
-  async function persistSnapshot(locationId,field,value){
+  async function persistSnapshot(locationId,field,value,revision=null){
     if(!locationId||!field||typeof getLocationData!=='function'||typeof idbPut!=='function'||typeof setNested!=='function')return false;
+    const key=`${locationId}:${field}`;
+    if(revision!==null&&durableRevisions.get(key)!==revision)return false;
     await waitForBaseQueue(locationId);
+    if(revision!==null&&durableRevisions.get(key)!==revision)return false;
     const data=await getLocationData(locationId);
+    if(revision!==null&&durableRevisions.get(key)!==revision)return false;
     if(String(getNested(data,field)??'')===String(value??''))return true;
     setNested(data,field,value);
     data.updatedAt=new Date().toISOString();
+    if(revision!==null&&durableRevisions.get(key)!==revision)return false;
     await idbPut(STORE,data,`location:${locationId}`);
     return true;
   }
@@ -139,14 +159,15 @@
     durableTimers.set(key,setTimeout(async()=>{
       durableTimers.delete(key);
       try{
-        await persistSnapshot(locationId,field,value);
+        const persisted=await persistSnapshot(locationId,field,value,revision);
+        if(!persisted||durableRevisions.get(key)!==revision)return;
         const card=target.closest?.('[data-location-card]');
         if(card)await hydrateCard(card);
         setTimeout(async()=>{
           if(durableRevisions.get(key)!==revision)return;
           try{
-            await persistSnapshot(locationId,field,value);
-            if(card)await hydrateCard(card);
+            await persistSnapshot(locationId,field,value,revision);
+            if(durableRevisions.get(key)===revision&&card)await hydrateCard(card);
           }catch(error){console.error(error)}
         },520);
       }catch(error){console.error(error)}
@@ -283,6 +304,7 @@
     hydrateCard,
     hydrateExistingCards,
     persistSnapshot,
+    acceptAuthoritativeControl,
     renderStoredPowerBalance,
     installRenderHook,
     get attempts(){return attempts},

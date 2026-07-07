@@ -83,7 +83,7 @@ jobs:
             curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
             sleep 1
           done
-          npx playwright test $(cat /tmp/selected-tests.txt) --workers=1 --reporter=line | tee /tmp/bogatka-feature-tests.log
+          xargs -a /tmp/selected-tests.txt npx playwright test --workers=1 --reporter=line | tee /tmp/bogatka-feature-tests.log
 
       - name: No mapped feature tests
         if: steps.select.outputs.count == '0'
