@@ -17,6 +17,15 @@
   let attempts=0;
   let navigationBound=false;
 
+  const chainHas=(fn,marker)=>{
+    const seen=new Set();
+    for(let current=fn;typeof current==='function'&&!seen.has(current);current=current.__base){
+      seen.add(current);
+      if(current[marker])return true;
+    }
+    return false;
+  };
+
   function installBootstrapGate(){
     if(window.__bogatkaCardProgressBootstrapGateV448)return true;
     if(typeof window.updateSummary!=='function'&&typeof updateSummary!=='function')return false;
@@ -142,6 +151,16 @@
       wrapped.__base=base;
       api.renderAll=wrapped;
     }
+    const engine=window.BogatkaDecisionEngine;
+    const current=engine?.computeAll;
+    if(typeof current==='function'&&!chainHas(current,'__canonicalProgressGroupsV448')){
+      const base=current.bind(engine);
+      const wrapped=async function(...args){return normalizeGroups(await base(...args))};
+      Object.assign(wrapped,current);
+      wrapped.__canonicalProgressGroupsV448=true;
+      wrapped.__base=current;
+      engine.computeAll=wrapped;
+    }
     api.TARGETS=TARGETS;
     api.openCanonicalTarget=openTarget;
     bindNavigation();
@@ -178,6 +197,8 @@
     ready:true,
     TARGETS,
     openTarget,
+    normalizeGroups,
+    installRuntimePatches,
     refineAll,
     get skippedBootstrapRefresh(){return skippedBootstrapRefresh},
   };
@@ -255,11 +276,13 @@
   }
 
   async function refreshProgress(id){
+    window.BogatkaCardProgressInitV448?.installRuntimePatches?.();
     const summary=window.updateSummary||(()=>{try{return updateSummary}catch(_){return null}})();
     if(typeof summary==='function')await summary();
     let node=id?card(id):null;
     if(id&&node&&!node.querySelector('.decision-progress-v448')){
       await window.BogatkaDecisionUI?.refresh?.();
+      window.BogatkaCardProgressInitV448?.normalizeGroups?.(window.BogatkaDecisionUI?.lastMetrics||[]);
       await window.BogatkaCardProgressV448?.renderAll?.();
       node=card(id)||node;
     }
@@ -378,11 +401,13 @@
 
   function install(){
     installBlurIntentTracking();
+    window.BogatkaCardProgressInitV448?.installRuntimePatches?.();
     installSaveWrapper();
     installSummaryFocusGuard();
     bindSaveCapture();
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindSaveCapture,{once:true});
     [100,400,1000,2500].forEach(delay=>setTimeout(()=>{
+      window.BogatkaCardProgressInitV448?.installRuntimePatches?.();
       installSaveWrapper();
       installSummaryFocusGuard();
       bindSaveCapture();
