@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=progress-navigation-hotfix';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=location-report-collapse-v464';
 
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -17,7 +17,9 @@ async function openApp(page){
     window.BogatkaCardProgressV448?.initialized===true&&
     document.querySelector('[data-location-card] .progress-card-toggle-v462')
   ),{timeout:30000});
-  return page.locator('[data-location-card]').first();
+  const card=page.locator('[data-location-card]').first();
+  await card.evaluate(node=>window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:false}));
+  return card;
 }
 
 async function saveData(page,id,patch){
@@ -26,7 +28,7 @@ async function saveData(page,id,patch){
     const merged={...current,...next};
     if(next.tech)merged.tech={...(current.tech||{}),...next.tech};
     if(next.score)merged.score={...(current.score||{}),...next.score};
-    await idbPut(STORE,merged,`location:${locationId}`);
+    await idbPut(STORE,merged,`location:${id}`);
     await updateSummary();
     await window.BogatkaCardProgressV448.renderAll();
     window.BogatkaCardProgressInitV448.refineAll();
