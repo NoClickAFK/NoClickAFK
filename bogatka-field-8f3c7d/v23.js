@@ -1,6 +1,24 @@
+const BOGATKA_STATIC_STYLE_MANIFEST=Object.freeze([
+  'polish-v34.css','insights-v331.css','compare-v332.css','decision-v340.css','critical-deal-v430.css','compare-v340.css','suite-v400.css','visual-v411.css',
+  'decision-panel-v412.css','workflow-v414.css','workflow-fixes-v415.css','workflow-refine-v440.css','location-profile-v416.css','location-overview-v417.css',
+  'location-panels-v419.css','location-card-collapse-v422.css','status-next-task-v447.css','card-progress-v448.css','quick-checklist-v451.css','location-data-v452.css',
+  'traffic-competitors-v453.css','launch-gate-v454.css','opening-project-v455.css',
+]);
+
+function verifyStaticStylesheetManifest(){
+  const loaded=new Set([...document.head.querySelectorAll('link[rel="stylesheet"]')].map(link=>new URL(link.href,location.href).pathname.split('/').pop()));
+  const missing=BOGATKA_STATIC_STYLE_MANIFEST.filter(file=>!loaded.has(file));
+  if(missing.length)console.error(`Не загружены статические стили: ${missing.join(', ')}`);
+  return missing.length===0;
+}
+
 function loadBogatkaPatch(tagName,attributes){
   const marker=attributes.src||attributes.href;
   if(marker&&document.querySelector(`${tagName}[src="${marker}"],${tagName}[href="${marker}"]`))return;
+  if(tagName==='link'&&attributes.rel==='stylesheet'){
+    console.error(`Активный stylesheet должен быть объявлен статически в index.html: ${marker||'unknown'}`);
+    return;
+  }
   const element=document.createElement(tagName);
   if(tagName==='script')element.async=false;
   Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,value));
@@ -139,6 +157,7 @@ function installFreshEditorSelectionV463(){
 
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
+  verifyStaticStylesheetManifest();
   const versionLabel=document.getElementById('versionLabel');
   if(versionLabel)versionLabel.textContent='4.0.0';
   const accessButton=document.getElementById('shareAccessBtn');
@@ -147,30 +166,6 @@ function applyVersion23Enhancements(){
   installSyncIntegrityGate();
   installLegacyRentMigrationV425();
 
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./auth-v31.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./members-v32.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./stability-v33.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./polish-v34.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./insights-v331.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./compare-v332.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./decision-v340.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./critical-deal-v430.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./compare-v340.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./suite-v400.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./visual-v411.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./decision-panel-v412.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-v414.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-fixes-v415.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./workflow-refine-v440.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-profile-v416.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-overview-v417.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-panels-v419.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-card-collapse-v422.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./status-next-task-v447.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./inspection-layout-v461.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./card-progress-v448.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./quick-checklist-v451.css'});
-  loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-data-v452.css'});
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -237,6 +232,5 @@ function applyVersion23Enhancements(){
   });
 }
 
-loadBogatkaPatch('link',{rel:'stylesheet',href:'./location-card-collapse-v422.css'});
 loadBogatkaPatch('script',{src:'./location-card-collapse-v422.js'});
 window.addEventListener('load',applyVersion23Enhancements);

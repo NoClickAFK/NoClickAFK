@@ -16,11 +16,7 @@
 
 .comparison-panel-v332{
   margin:14px 0 0!important;
-  border:1px solid #cbdcd2!important;
-  border-radius:14px!important;
-  background:#fff!important;
   overflow:hidden;
-  box-shadow:0 5px 18px rgba(24,79,58,.05);
 }
 .comparison-panel-v332 > summary{
   min-height:68px;
@@ -30,15 +26,10 @@
   gap:14px;
   padding:13px 16px!important;
   list-style:none;
-  background:linear-gradient(180deg,#f8fbf9,#f0f7f3);
   cursor:pointer;
   user-select:none;
 }
 .comparison-panel-v332 > summary::-webkit-details-marker{display:none}
-.comparison-panel-v332[open] > summary{
-  border-bottom:1px solid #d3e1d8;
-  background:linear-gradient(180deg,#f2f9f5,#eaf4ee);
-}
 .comparison-summary-copy{
   min-width:0;
   display:flex;
@@ -67,17 +58,6 @@
   font-size:12px;
   font-weight:800;
   white-space:nowrap;
-}
-.comparison-chevron-v332{
-  width:11px;
-  height:11px;
-  border-right:2px solid #15543b;
-  border-bottom:2px solid #15543b;
-  transform:rotate(45deg) translateY(-3px);
-  transition:transform .18s ease;
-}
-.comparison-panel-v332[open] .comparison-chevron-v332{
-  transform:rotate(225deg) translate(-2px,-2px);
 }
 .comparison-body-v332{
   padding:13px 14px 15px;
@@ -182,21 +162,13 @@
   font-weight:500;
 }
 .compare-status-v332{
-  display:inline-flex;
-  align-items:center;
-  min-height:27px;
-  padding:4px 8px;
-  border-radius:999px;
   background:#eef3f0;
-  color:#627168;
-  font-weight:800;
-  white-space:nowrap;
 }
-.compare-status-v332.candidate{background:#edf4ff;color:#285f99}
-.compare-status-v332.inspected{background:#eef4f1;color:#426052}
-.compare-status-v332.keep{background:#e1f3e8;color:#15623d}
-.compare-status-v332.negotiation{background:#fff3d9;color:#8a5a11}
-.compare-status-v332.excluded{background:#fde8e8;color:#943a3a}
+.compare-status-v332.candidate{background:#edf4ff}
+.compare-status-v332.inspected{background:#eef4f1}
+.compare-status-v332.keep{background:#e1f3e8}
+.compare-status-v332.negotiation{background:#fff3d9}
+.compare-status-v332.excluded{background:#fde8e8}
 .compare-score-total-v332 strong{
   color:#174f3a;
   font-size:16px;
@@ -243,10 +215,6 @@
     grid-column:1/-1;
     grid-row:2;
     justify-self:start;
-  }
-  .comparison-chevron-v332{
-    grid-column:2;
-    grid-row:1;
   }
   .comparison-body-v332{padding:10px}
   .comparison-table-v332{min-width:1380px}

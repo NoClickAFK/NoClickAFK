@@ -1,12 +1,38 @@
+:root{
+  --semantic-status-pill-font-family:var(--form-font-family,Arial,Helvetica,sans-serif);
+  --semantic-status-pill-min-height:28px;
+  --semantic-status-pill-padding:4px 9px;
+  --semantic-status-pill-radius:999px;
+  --semantic-status-pill-font-size:11px;
+  --semantic-status-pill-font-weight:800;
+  --semantic-status-pill-line-height:1.2;
+  --semantic-status-pill-text:#1c2933;
+}
+:is(.recommendation-status-v448,.critical-summary-badge-v430,.economy-status-v400,.launch-progress-label-v400,.decision-reason-status-v412,.compare-rec-v340,.compare-stop-v340,.compare-complete-v340,.compare-status-v332,.stop-summary-badge-v340){
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:var(--semantic-status-pill-min-height)!important;
+  padding:var(--semantic-status-pill-padding)!important;
+  border:1px solid transparent;
+  border-radius:var(--semantic-status-pill-radius)!important;
+  color:var(--semantic-status-pill-text)!important;
+  font-family:var(--semantic-status-pill-font-family)!important;
+  font-size:var(--semantic-status-pill-font-size)!important;
+  font-weight:var(--semantic-status-pill-font-weight)!important;
+  line-height:var(--semantic-status-pill-line-height)!important;
+  white-space:nowrap;
+  box-sizing:border-box!important;
+}
 .card-metric-hidden-v448{display:none!important}
 .card-recommendation-head-v448{display:flex!important;align-items:center!important;justify-content:flex-end!important;width:auto!important;max-width:100%!important;margin-left:auto!important;align-self:center!important}
-.recommendation-status-v448{display:inline-flex;align-items:center;justify-content:center;width:max-content;max-width:220px;min-height:32px;padding:6px 10px;border:1px solid transparent;border-radius:10px;font-size:11px;font-weight:700;line-height:1.2;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
-.recommendation-status-v448.empty{border-color:#e5bcbc;background:#fff1f1;color:#8a3f3f}
-.recommendation-status-v448.weak{border-color:#dda9a9;background:#fbe9e9;color:#873333}
-.recommendation-status-v448.medium,.recommendation-status-v448.risk{border-color:#dfbd68;background:#fff3d4;color:#745009}
-.recommendation-status-v448.good{border-color:#afd2bd;background:#edf8f1;color:#236646}
-.recommendation-status-v448.priority{border-color:#176342;background:#176342;color:#fff}
-.recommendation-status-v448.stop{border-color:#8f2f2f;background:#8f2f2f;color:#fff}
+.recommendation-status-v448{width:max-content;max-width:220px;text-align:center;overflow:hidden;text-overflow:ellipsis}
+.recommendation-status-v448.empty{border-color:#e5bcbc;background:#fff1f1}
+.recommendation-status-v448.weak{border-color:#dda9a9;background:#fbe9e9}
+.recommendation-status-v448.medium,.recommendation-status-v448.risk{border-color:#dfbd68;background:#fff3d4}
+.recommendation-status-v448.good{border-color:#afd2bd;background:#edf8f1}
+.recommendation-status-v448.priority{border-color:#8fc8a6;background:#d9f2e3}
+.recommendation-status-v448.stop{border-color:#e2a2a2;background:#fee5e5}
 html [data-location-card] .location-actions{display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:7px!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
 .location-action-buttons-v448{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-width:0;max-width:100%}
 html [data-location-card] .location-actions>.card-recommendation-head-v448{flex:0 0 auto!important;margin-left:auto!important}
@@ -140,8 +166,29 @@ html .progress-card-toggle-v462[aria-expanded="true"]{
   border-radius:17px 17px 0 0!important;
 }
 html .progress-card-toggle-copy-v462{display:grid!important;gap:3px!important;min-width:0!important}
-html .progress-card-toggle-copy-v462 strong{font-size:17px!important;line-height:1.25!important;overflow-wrap:anywhere!important}
-html .progress-card-toggle-copy-v462 span{color:#6d7b73!important;font-size:12px!important;line-height:1.4!important;overflow-wrap:anywhere!important}
+html .progress-card-toggle-copy-v462 strong,
+html .decision-reason-title-v412{
+  font-family:var(--form-font-family)!important;
+  font-size:17px!important;
+  font-weight:700!important;
+  line-height:1.25!important;
+  letter-spacing:normal!important;
+  font-kerning:auto!important;
+  text-rendering:auto;
+  overflow-wrap:anywhere!important;
+}
+html .progress-card-toggle-copy-v462 span,
+html .decision-reason-description-v412{
+  color:#6d7b73!important;
+  font-family:var(--form-font-family)!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  line-height:1.4!important;
+  letter-spacing:normal!important;
+  font-kerning:auto!important;
+  text-rendering:auto;
+  overflow-wrap:anywhere!important;
+}
 html .progress-card-chevron-v462,
 html .fill-plan-chevron-v462{
   width:11px!important;

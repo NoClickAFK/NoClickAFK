@@ -32,8 +32,9 @@ jobs:
         run: |
           CHANGED="$(git diff --name-only HEAD^ HEAD | tr '[:upper:]' '[:lower:]')"
           : > /tmp/selected-tests.txt
-          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|progress|recommendation|ui-refine|card-progress|compare|decision-panel'; then
+          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|progress|recommendation|ui-refine|card-progress|compare|decision-panel|first-paint'; then
             printf '%s\n' \
+              bogatka-field-8f3c7d/tests/first-paint-style-stability-v466.spec.mjs \
               bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
               bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
               bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
