@@ -14,6 +14,7 @@ async function openPreparedCard(page,width=1440,height=1000){
     window.BogatkaInspectionLayoutV461?.ready&&
     window.BogatkaLocationDataV452?.ready&&
     window.BogatkaTrafficCompetitorsV453?.ready&&
+    window.BogatkaTechnicalEconomicsV450?.ready&&
     window.BogatkaQuickChecklistV451?.ready&&
     document.querySelector('[data-location-card]')&&
     document.querySelector('.critical-deal-v430')&&
@@ -24,6 +25,7 @@ async function openPreparedCard(page,width=1440,height=1000){
     try{cloudRole=null}catch(_){ }
     window.cloudRole=null;
     await window.BogatkaTrafficCompetitorsV453.enhanceAll();
+    await window.BogatkaTechnicalEconomicsV450.enhanceAll();
     const card=document.querySelector('[data-location-card]');
     window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
     for(const details of card.querySelectorAll('details'))details.open=true;
@@ -38,9 +40,9 @@ async function openPreparedCard(page,width=1440,height=1000){
 async function typographySnapshot(card){
   return card.evaluate(node=>{
     const visible=control=>control?.nextElementSibling?.classList.contains('premium-select-trigger')?control.nextElementSibling:control;
-    const caption=control=>{
+    const labelNode=control=>{
       const wrapper=control?.closest('label.field,.stage7-field-v453');
-      return wrapper?.querySelector('.profile-caption-v416,.evaluation-caption-v446,.technical-caption-v450')||null;
+      return wrapper?.querySelector('.profile-caption-v416,.evaluation-caption-v446,.technical-caption-v450')||wrapper||null;
     };
     const field=name=>[...node.querySelectorAll(`[data-field="${name}"]`)].find(item=>!item.hasAttribute('data-stage6-marker-v461'));
     const style=(element,pseudo='')=>{
@@ -63,10 +65,10 @@ async function typographySnapshot(card){
       quickTrigger:node.querySelector('.quick-checklist-v451 .check-row .premium-select-trigger'),
     };
     const labels={
-      inspection:caption(controls.inspection),
-      landlord:caption(controls.landlordInput),
-      technical:caption(controls.technical),
-      traffic:caption(controls.trafficInput),
+      inspection:labelNode(controls.inspection),
+      landlord:labelNode(controls.landlordInput),
+      technical:labelNode(controls.technical),
+      traffic:labelNode(controls.trafficInput),
     };
     const cardStyle=getComputedStyle(node);
     return{
