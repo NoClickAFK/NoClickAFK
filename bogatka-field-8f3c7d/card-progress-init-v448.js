@@ -188,24 +188,77 @@
   const VERSION='4.6.3';
   if(window.BogatkaCardEnhancer?.version===VERSION)return;
   let installAttempts=0;
+  let focusGuardAttempts=0;
   const list=()=>{try{return typeof locations==='undefined'?[]:locations}catch(_){return []}};
   const has=(fn,marker)=>{const seen=new Set();for(let f=fn;typeof f==='function'&&!seen.has(f);f=f.__base){seen.add(f);if(f[marker])return true}return false};
   const card=id=>document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
+  const editorSelector='[data-location][data-field],[data-global]';
 
-  async function refreshProgress(){
-    const refresh=window.BogatkaDecisionUI?.refresh;
-    if(typeof refresh==='function'){
-      await refresh();
-      await refresh();
-    }
-    await window.BogatkaCardProgressV448?.renderAll?.();
+  function captureFocusedEditor(){
+    const node=document.activeElement;
+    if(!node?.matches?.(editorSelector))return null;
+    return{
+      node,
+      start:typeof node.selectionStart==='number'?node.selectionStart:null,
+      end:typeof node.selectionEnd==='number'?node.selectionEnd:null,
+      direction:node.selectionDirection||'none',
+    };
   }
 
-  async function enhanceCard(node){
+  function restoreFocusedEditor(state){
+    const node=state?.node;
+    if(!node?.isConnected||node.disabled)return;
+    const active=document.activeElement;
+    if(active!==node&&active!==document.body&&active!==document.documentElement)return;
+    if(active!==node)node.focus({preventScroll:true});
+    if(state.start!==null&&typeof node.setSelectionRange==='function'){
+      try{node.setSelectionRange(state.start,state.end,state.direction)}catch(_){ }
+    }
+  }
+
+  function installSummaryFocusGuard(){
+    focusGuardAttempts+=1;
+    if(typeof window.updateSummary!=='function'&&typeof updateSummary!=='function'){
+      if(focusGuardAttempts<100)setTimeout(installSummaryFocusGuard,100);
+      return false;
+    }
+    const current=window.updateSummary||updateSummary;
+    if(current.__focusedEditorGuardV463)return true;
+    const wrapped=async function(...args){
+      const state=captureFocusedEditor();
+      try{return await current.apply(this,args)}finally{restoreFocusedEditor(state)}
+    };
+    Object.assign(wrapped,current);
+    wrapped.__focusedEditorGuardV463=true;
+    wrapped.__base=current;
+    window.updateSummary=wrapped;
+    try{updateSummary=wrapped}catch(_){ }
+    return true;
+  }
+
+  async function refreshProgress(id){
+    const summary=window.updateSummary||(()=>{try{return updateSummary}catch(_){return null}})();
+    if(typeof summary==='function')await summary();
+    let node=id?card(id):null;
+    if(id&&node&&!node.querySelector('.decision-progress-v448')){
+      await window.BogatkaDecisionUI?.refresh?.();
+      await window.BogatkaCardProgressV448?.renderAll?.();
+      node=card(id)||node;
+    }
+    return node;
+  }
+
+  async function enhanceStructure(node){
     if(!node?.dataset?.locationCard)return false;
     await window.BogatkaLocationDataV452?.enhanceCard?.(node);
     window.BogatkaInspectionLayoutV461?.placeCard?.(node);
     await window.BogatkaDecisionPanel?.enhanceCard?.(node);
+    window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
+    return true;
+  }
+
+  async function enhanceCard(node){
+    if(!await enhanceStructure(node))return false;
     window.BogatkaUIRefineV462?.ensureProgressAccordion?.(node);
     window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
     window.BogatkaCardProgressInitV448?.refineAll?.();
@@ -213,11 +266,13 @@
   }
 
   async function enhanceLocation(id,{renderProgress=false}={}){
-    const node=card(id);
+    let node=card(id);
     if(!node)return null;
-    await window.BogatkaLocationDataV452?.enhanceCard?.(node);
-    if(renderProgress)await refreshProgress();
-    await enhanceCard(node);
+    await enhanceStructure(node);
+    if(renderProgress)node=await refreshProgress(id)||node;
+    window.BogatkaUIRefineV462?.ensureProgressAccordion?.(node);
+    window.BogatkaLocationCardCollapseV422?.enhanceCard?.(node);
+    window.BogatkaCardProgressInitV448?.refineAll?.();
     return node;
   }
 
@@ -266,7 +321,11 @@
 
   function install(){
     installSaveWrapper();
-    [100,400,1000,2500].forEach(delay=>setTimeout(installSaveWrapper,delay));
+    installSummaryFocusGuard();
+    [100,400,1000,2500].forEach(delay=>setTimeout(()=>{
+      installSaveWrapper();
+      installSummaryFocusGuard();
+    },delay));
   }
 
   install();
