@@ -1,10 +1,11 @@
 const VERSION_CACHE_KEY='bogatka_build_meta_v426';
-const FALLBACK_BUILD=Object.freeze({
-  version:'4.2.5',
-  versionToken:'425',
-  sourceCommit:'d3d86f22ce9d260b07efa8550594038537871e52',
-  fallback:true,
+const CURRENT_BUILD=Object.freeze({
+  version:'4.3.0',
+  versionToken:'430',
+  sourceCommit:'3a1f7ab24ed19e09583442b5f465792d187c4749',
+  source:'repository',
 });
+const FALLBACK_BUILD=CURRENT_BUILD;
 let versionObserver=null;
 let versionClient=null;
 
@@ -13,6 +14,15 @@ function cachedBuild(){
     const value=JSON.parse(localStorage.getItem(VERSION_CACHE_KEY)||'null');
     return value?.version?value:null;
   }catch(_){return null}
+}
+
+function versionRank(version){
+  return String(version||'0.0.0').split('.').map(part=>Number(part)||0).reduce((sum,value,index)=>sum+value*Math.pow(1000,2-index),0);
+}
+
+function chooseBuild(candidate){
+  if(!candidate?.version)return CURRENT_BUILD;
+  return versionRank(candidate.version)>=versionRank(CURRENT_BUILD.version)?candidate:{...CURRENT_BUILD,remoteIgnored:candidate.version};
 }
 
 function appUrl(accessToken=null){
@@ -49,12 +59,13 @@ function protectLegacyVersionWriters(){
 }
 
 function applyBuild(build){
-  if(!build?.version)return;
-  window.BOGATKA_BUILD=Object.freeze({...build});
+  const selected=chooseBuild(build);
+  if(!selected?.version)return;
+  window.BOGATKA_BUILD=Object.freeze({...selected});
   window.BogatkaVersion=Object.freeze({
     build:window.BOGATKA_BUILD,
-    version:build.version,
-    token:build.versionToken,
+    version:selected.version,
+    token:selected.versionToken,
     apply:()=>applyBuild(window.BOGATKA_BUILD),
     makeAppUrl:appUrl,
     getAccessLinkData:token=>({url:appUrl(token),hasFullKey:Boolean(token)}),
@@ -65,10 +76,10 @@ function applyBuild(build){
   try{getAccessLinkData=window.getAccessLinkData}catch(_){}
   const label=document.getElementById('versionLabel');
   if(label){
-    if(label.textContent!==build.version)label.textContent=build.version;
-    label.dataset.buildVersion=build.version;
-    label.dataset.buildCommit=build.sourceCommit||'';
-    label.title=`Сборка ${build.version} · ${String(build.sourceCommit||'').slice(0,7)}`;
+    if(label.textContent!==selected.version)label.textContent=selected.version;
+    label.dataset.buildVersion=selected.version;
+    label.dataset.buildCommit=selected.sourceCommit||'';
+    label.title=`Сборка ${selected.version} · ${String(selected.sourceCommit||'').slice(0,7)}`;
     if(!versionObserver){
       versionObserver=new MutationObserver(()=>{
         const current=window.BOGATKA_BUILD?.version;
@@ -82,7 +93,7 @@ function applyBuild(build){
 
 async function registerVersionedWorker(build){
   if(!('serviceWorker' in navigator))return;
-  const token=build?.versionToken||'425';
+  const token=chooseBuild(build)?.versionToken||CURRENT_BUILD.versionToken;
   try{await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(token)}`,{updateViaCache:'none'})}
   catch(error){console.warn('Versioned Service Worker registration failed.',error)}
 }
@@ -101,7 +112,7 @@ function installVersionedBackup(){
       copy.blob=await blobToDataURL(photo.blob);
       photos.push(copy);
     }
-    const payload={format:'bogatka-location-backup',version:4,appVersion:window.BOGATKA_BUILD?.version||FALLBACK_BUILD.version,createdAt:new Date().toISOString(),records,photos};
+    const payload={format:'bogatka-location-backup',version:4,appVersion:window.BOGATKA_BUILD?.version||CURRENT_BUILD.version,createdAt:new Date().toISOString(),records,photos};
     downloadBlob(new Blob([JSON.stringify(payload)],{type:'application/json'}),`bogatka-backup-${new Date().toISOString().slice(0,10)}.json`);
     records.global.lastBackupAt=new Date().toISOString();
     await idbPut(STORE,records.global,'global');
@@ -121,13 +132,13 @@ async function resolveRemoteBuild(){
   const {data,error}=await versionClient.functions.invoke('bogatka-version');
   if(error)throw error;
   if(!data?.version||!/^\d+\.\d+\.\d+$/.test(data.version))throw new Error('Invalid version response.');
-  const build={...data,cachedAt:Date.now()};
+  const build=chooseBuild({...data,cachedAt:Date.now()});
   localStorage.setItem(VERSION_CACHE_KEY,JSON.stringify(build));
   return build;
 }
 
 export async function installVersionAuthority(){
-  const initial=cachedBuild()||FALLBACK_BUILD;
+  const initial=chooseBuild(cachedBuild()||FALLBACK_BUILD);
   applyBuild(initial);
   await registerVersionedWorker(initial);
   setTimeout(installVersionedBackup,500);
