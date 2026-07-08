@@ -1,3 +1,4 @@
+/* global cloudInit, cloudReplaceButtons, cloudSetStatus, cloudWaitForDb, cloudInstallTracking, cloudClient, cloudSession, cloudEnsureProject, cloudRenderModal, cloudSyncAll, cloudHandleError, cloudProjectId, cloudRole, cloudPublishReport, cloudApplyRemote, cloudFetchRemote, cloudHandleRealtime, BOGATKA_SUPABASE */
 (function(){
   'use strict';
   const VERSION='4.6.8';
