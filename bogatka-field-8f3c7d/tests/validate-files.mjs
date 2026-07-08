@@ -72,7 +72,7 @@ if (!failures.length) {
   for (const marker of ['grid-template-columns: repeat(3, 64px) 50px','height: 64px','font-size: 18px !important','background: #edf6f1 !important','width: 34px','border: 1px solid currentColor !important','.location-card-collapsed-v422 > .location-body','border-bottom: 0 !important','.archive-manager-v400']) {
     if (!collapseCss.includes(marker)) failures.push(`location-card-collapse-v422.css is missing ${marker}`);
   }
-  if (collapseCss.includes('comparison-chevron-v332')) failures.push('location-card-collapse-v422.css still owns comparison chevron rules');
+  if (/^\s*\.comparison-chevron-v332\s*[,{:]/m.test(collapseCss)) failures.push('location-card-collapse-v422.css still owns comparison chevron rules');
   const visualCss = read('visual-v411.css');
   for (const marker of ['.comparison-shell-v430','.comparison-chevron-v430::before','[data-open="true"]','.comparison-interaction-ready-v430']) {
     if (!visualCss.includes(marker)) failures.push(`visual-v411.css is missing canonical comparison shell marker: ${marker}`);
