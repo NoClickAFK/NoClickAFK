@@ -10,12 +10,114 @@ let locations = [];
 let installPrompt = null;
 let saveTimer = null;
 const objectUrls = new Set();
+let bogatkaAuthorized = false;
+let bogatkaAppRevealed = false;
 
 const $ = (selector, root=document) => root.querySelector(selector);
 const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
 const esc = (value="") => String(value).replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
 const mapUrl = address => `https://yandex.by/maps/10274/grodno/search/${encodeURIComponent(address || "Гродно")}`;
 const gpsMapUrl = (lat, lon) => `https://yandex.by/maps/10274/grodno/?ll=${encodeURIComponent(lon)},${encodeURIComponent(lat)}&z=17`;
+
+function setAuthorizedShell(allowed, {reveal=false} = {}) {
+  bogatkaAuthorized = Boolean(allowed);
+  const lock = $("#lock");
+  const app = $("#app");
+  if (lock) lock.classList.toggle("hidden", bogatkaAuthorized);
+  if (app) app.classList.toggle("hidden", !(bogatkaAuthorized && reveal));
+  if (bogatkaAuthorized && reveal) bogatkaAppRevealed = true;
+}
+
+function revealAuthorizedApp() {
+  if (!bogatkaAuthorized) return false;
+  setAuthorizedShell(true, {reveal:true});
+  window.dispatchEvent(new CustomEvent("bogatka:app-visible", {detail:{source:"critical-ui-ready"}}));
+  return true;
+}
+
+const BOGATKA_CRITICAL_STARTUP_SCRIPTS = [
+  "./decision-core-v340.js",
+  "./suite-core-v400.js",
+  "./decision-ui-v340.js",
+  "./compare-v430.js",
+  "./location-card-collapse-v422.js",
+  "./status-next-task-v447.js",
+  "./card-progress-init-v448.js",
+  "./card-progress-v448.js",
+];
+
+function bogatkaStartupScriptExists(src) {
+  const target = new URL(src, location.href).href;
+  return [...document.scripts].some(script => script.src === target || script.getAttribute("src") === src);
+}
+
+function bogatkaLoadStartupScript(src) {
+  if (bogatkaStartupScriptExists(src)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.dataset.criticalStartupV467 = "1";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Не удалось загрузить критический модуль запуска: ${src}`));
+    document.head.appendChild(script);
+  });
+}
+
+function bogatkaWaitFor(predicate, label, timeoutMs = 9000) {
+  const started = performance.now();
+  return new Promise((resolve, reject) => {
+    const tick = () => {
+      let ok = false;
+      try { ok = Boolean(predicate()); } catch (_) { ok = false; }
+      if (ok) return resolve(true);
+      if (performance.now() - started > timeoutMs) return reject(new Error(`Не дождались готовности критического UI: ${label}`));
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+async function bogatkaPrepareCriticalUi() {
+  const root = document.getElementById("locations");
+  if (!root?.querySelector("[data-location-card]")) throw new Error("Карточки локаций ещё не отрисованы.");
+  for (const src of BOGATKA_CRITICAL_STARTUP_SCRIPTS) await bogatkaLoadStartupScript(src);
+
+  await window.BogatkaDecisionUI?.refresh?.();
+  const metrics = window.BogatkaDecisionUI?.lastMetrics;
+  if (Array.isArray(metrics) && metrics.length && window.BogatkaCardProgressV448?.transformMetrics) {
+    window.BogatkaCardProgressV448.transformMetrics(metrics);
+  }
+  await window.BogatkaCardProgressV448?.renderAll?.();
+  await window.BogatkaCardEnhancer?.enhanceAll?.({renderProgress:false});
+  window.BogatkaLocationCardCollapseV422?.enhanceAll?.();
+
+  await bogatkaWaitFor(() => {
+    const panel = document.getElementById("locationComparisonPanel");
+    const cards = [...document.querySelectorAll("[data-location-card]")];
+    if (!panel || panel.open || panel.querySelector(":scope > summary")?.getAttribute("aria-expanded") !== "false") return false;
+    if (!cards.length) return false;
+    return cards.every(card => {
+      const badges = [...card.querySelectorAll("[data-card-recommendation-v448]")].filter(node => {
+        const style = getComputedStyle(node);
+        return !node.hidden && style.display !== "none" && style.visibility !== "hidden";
+      });
+      if (badges.length !== 1) return false;
+      const badge = badges[0];
+      return Boolean(badge.textContent.trim() && badge.dataset.recommendationClass && badge.classList.contains("recommendation-status-v448"));
+    });
+  }, "comparison panel and authoritative location recommendations");
+
+  window.dispatchEvent(new CustomEvent("bogatka:critical-ui-ready", {detail:{version:"4.6.7"}}));
+}
+
+window.BogatkaStartup = {
+  version:"4.6.7",
+  prepareCriticalUi:bogatkaPrepareCriticalUi,
+  revealApp:revealAuthorizedApp,
+  isRevealed:() => bogatkaAppRevealed,
+  criticalScripts:BOGATKA_CRITICAL_STARTUP_SCRIPTS,
+};
 
 async function sha256Hex(text) {
   const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -33,8 +135,9 @@ async function unlockWithPin() {
   }
   localStorage.setItem(AUTH_KEY, "1");
   if (error) error.textContent = "";
-  $("#lock").classList.add("hidden");
-  $("#app").classList.remove("hidden");
+  $("#lock")?.classList.add("hidden");
+  $("#app")?.classList.add("hidden");
+  setTimeout(() => location.reload(), 30);
   return true;
 }
 
@@ -47,8 +150,7 @@ async function authorize() {
     history.replaceState(null, "", location.pathname + location.search);
   }
   const allowed = localStorage.getItem(AUTH_KEY) === "1";
-  $("#lock").classList.toggle("hidden", allowed);
-  $("#app").classList.toggle("hidden", !allowed);
+  setAuthorizedShell(allowed, {reveal:false});
   if (!allowed) {
     $("#unlockBtn")?.addEventListener("click", unlockWithPin, {once:false});
     $("#accessPin")?.addEventListener("keydown", event => {
