@@ -208,7 +208,8 @@ async function requestPersistentStorage() {
 }
 
 async function init() {
-  if (!await authorize()) return;
+  const allowed = await authorize();
+  if (!allowed) return;
   db = await openDB();
   await requestPersistentStorage();
   await loadLocations();
@@ -218,7 +219,17 @@ async function init() {
   $("#installBtn").addEventListener("click", installApp);
   renderLocations();
   updateOnlineStatus();
+  try {
+    await window.BogatkaStartup?.prepareCriticalUi?.();
+  } catch (error) {
+    console.error("Критический UI запуска не был полностью подготовлен до показа приложения.", error);
+  } finally {
+    window.BogatkaStartup?.revealApp?.();
+  }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(console.error);
 }
 
-init().catch(showError);
+init().catch(error => {
+  showError(error);
+  if (localStorage.getItem(AUTH_KEY) === "1") window.BogatkaStartup?.revealApp?.();
+});
