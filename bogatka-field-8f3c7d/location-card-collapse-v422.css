@@ -1,5 +1,4 @@
 /* Bogatka 4.2.4 — compact metrics and unified accordion controls */
-/* Compatibility note for older static inventory checks: `.comparison-chevron-v332::before` is intentionally not styled in this file. Active comparison chevron rules live only in `visual-v411.css` under `.comparison-chevron-v430`. */
 
 .location-head-side-v422 {
   position: relative;
