@@ -17,13 +17,9 @@
   const diagnostics={events:[]};
   const mark=(type,detail={})=>diagnostics.events.push({at:now(),type,...detail});
 
-  function setGlobal(name,value){
-    window[name]=value;
-    try{eval(`${name}=window[${JSON.stringify(name)}]`)}catch(_){ }
-  }
-
-  function hasGlobalFunction(name){
-    try{return typeof eval(name)==='function'}catch(_){return typeof window[name]==='function'}
+  function replaceCloudInit(value){
+    window.cloudInit=value;
+    try{cloudInit=value}catch(_){ }
   }
 
   function scriptSrc(src){
@@ -207,7 +203,7 @@
     return initPromise;
   }
 
-  setGlobal('cloudInit',startupCloudInit);
+  replaceCloudInit(startupCloudInit);
 
   window.BogatkaCloud={
     version:VERSION,
