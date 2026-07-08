@@ -45,6 +45,7 @@ const BOGATKA_CRITICAL_STARTUP_SCRIPTS = [
   "./card-progress-init-v448.js",
   "./card-progress-v448.js",
 ];
+const BOGATKA_CLOUD_STARTUP_SCRIPT = "./startup-cloud-v468.js";
 
 function bogatkaStartupScriptExists(src) {
   const target = new URL(src, location.href).href;
@@ -57,7 +58,7 @@ function bogatkaLoadStartupScript(src) {
     const script = document.createElement("script");
     script.src = src;
     script.async = false;
-    script.dataset.criticalStartupV467 = "1";
+    script.dataset.criticalStartupV468 = "1";
     script.onload = () => resolve();
     script.onerror = () => reject(new Error(`Не удалось загрузить критический модуль запуска: ${src}`));
     document.head.appendChild(script);
@@ -78,11 +79,7 @@ function bogatkaWaitFor(predicate, label, timeoutMs = 9000) {
   });
 }
 
-async function bogatkaPrepareCriticalUi() {
-  const root = document.getElementById("locations");
-  if (!root?.querySelector("[data-location-card]")) throw new Error("Карточки локаций ещё не отрисованы.");
-  for (const src of BOGATKA_CRITICAL_STARTUP_SCRIPTS) await bogatkaLoadStartupScript(src);
-
+async function bogatkaRefreshCriticalUi() {
   await window.BogatkaDecisionUI?.refresh?.();
   const metrics = window.BogatkaDecisionUI?.lastMetrics;
   if (Array.isArray(metrics) && metrics.length && window.BogatkaCardProgressV448?.transformMetrics) {
@@ -91,7 +88,9 @@ async function bogatkaPrepareCriticalUi() {
   await window.BogatkaCardProgressV448?.renderAll?.();
   await window.BogatkaCardEnhancer?.enhanceAll?.({renderProgress:false});
   window.BogatkaLocationCardCollapseV422?.enhanceAll?.();
+}
 
+async function bogatkaWaitForStableCriticalUi() {
   await bogatkaWaitFor(() => {
     const panel = document.getElementById("locationComparisonPanel");
     const cards = [...document.querySelectorAll("[data-location-card]")];
@@ -107,13 +106,39 @@ async function bogatkaPrepareCriticalUi() {
       return Boolean(badge.textContent.trim() && badge.dataset.recommendationClass && badge.classList.contains("recommendation-status-v448"));
     });
   }, "comparison panel and authoritative location recommendations");
+}
 
-  window.dispatchEvent(new CustomEvent("bogatka:critical-ui-ready", {detail:{version:"4.6.7"}}));
+async function bogatkaPrepareCloudBeforeReveal() {
+  try {
+    await bogatkaWaitFor(() => typeof window.cloudInit === "function" || typeof cloudInit === "function", "cloud module executed", 3500);
+  } catch (error) {
+    console.warn("Cloud module was not ready before local reveal.", error);
+    return {status:"cloud-module-missing"};
+  }
+  await bogatkaLoadStartupScript(BOGATKA_CLOUD_STARTUP_SCRIPT);
+  if (!window.BogatkaCloud?.init) return {status:"cloud-startup-api-missing"};
+  return await window.BogatkaCloud.init({preReveal:true, timeoutMs:14000});
+}
+
+async function bogatkaPrepareCriticalUi() {
+  const root = document.getElementById("locations");
+  if (!root?.querySelector("[data-location-card]")) throw new Error("Карточки локаций ещё не отрисованы.");
+  for (const src of BOGATKA_CRITICAL_STARTUP_SCRIPTS) await bogatkaLoadStartupScript(src);
+
+  await bogatkaRefreshCriticalUi();
+  await bogatkaWaitForStableCriticalUi();
+  const cloud = await bogatkaPrepareCloudBeforeReveal();
+  await bogatkaRefreshCriticalUi();
+  await bogatkaWaitForStableCriticalUi();
+
+  window.dispatchEvent(new CustomEvent("bogatka:critical-ui-ready", {detail:{version:"4.6.8", cloud}}));
 }
 
 window.BogatkaStartup = {
-  version:"4.6.7",
+  version:"4.6.8",
   prepareCriticalUi:bogatkaPrepareCriticalUi,
+  prepareCloudBeforeReveal:bogatkaPrepareCloudBeforeReveal,
+  refreshCriticalUi:bogatkaRefreshCriticalUi,
   revealApp:revealAuthorizedApp,
   isRevealed:() => bogatkaAppRevealed,
   criticalScripts:BOGATKA_CRITICAL_STARTUP_SCRIPTS,
