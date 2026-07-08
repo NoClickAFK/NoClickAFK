@@ -116,7 +116,12 @@ async function bogatkaPrepareCloudBeforeReveal() {
     return {status:"cloud-module-missing"};
   }
   await bogatkaLoadStartupScript(BOGATKA_CLOUD_STARTUP_SCRIPT);
-  if (!window.BogatkaCloud?.init) return {status:"cloud-startup-api-missing"};
+  try {
+    await bogatkaWaitFor(() => Boolean(window.BogatkaCloud?.init), "cloud startup controller executed", 3500);
+  } catch (error) {
+    console.warn("Cloud startup controller was not ready before local reveal.", error);
+    return {status:"cloud-startup-api-missing"};
+  }
   return await window.BogatkaCloud.init({preReveal:true, timeoutMs:14000});
 }
 
