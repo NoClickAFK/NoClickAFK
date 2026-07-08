@@ -4,6 +4,7 @@ const BOGATKA_STATIC_STYLE_MANIFEST=Object.freeze([
   'location-panels-v419.css','location-card-collapse-v422.css','status-next-task-v447.css','card-progress-v448.css','quick-checklist-v451.css','location-data-v452.css',
   'traffic-competitors-v453.css','launch-gate-v454.css','opening-project-v455.css',
 ]);
+const BOGATKA_VISIBLE_VERSION='4.3.0';
 
 function verifyStaticStylesheetManifest(){
   const loaded=new Set([...document.head.querySelectorAll('link[rel="stylesheet"]')].map(link=>new URL(link.href,location.href).pathname.split('/').pop()));
@@ -109,13 +110,7 @@ function installFreshEditorSelectionV463(){
   const states=new WeakMap();
   const capture=(control,focused=document.activeElement===control)=>{
     if(!control?.matches?.(selector))return;
-    states.set(control,{
-      value:'value' in control?String(control.value??''):'',
-      start:typeof control.selectionStart==='number'?control.selectionStart:null,
-      end:typeof control.selectionEnd==='number'?control.selectionEnd:null,
-      direction:control.selectionDirection||'none',
-      focused:Boolean(focused),
-    });
+    states.set(control,{value:'value' in control?String(control.value??''):'',start:typeof control.selectionStart==='number'?control.selectionStart:null,end:typeof control.selectionEnd==='number'?control.selectionEnd:null,direction:control.selectionDirection||'none',focused:Boolean(focused)});
   };
   const root=document.getElementById('locations')||document.body;
   root.addEventListener('input',event=>capture(event.target,true),true);
@@ -159,68 +154,15 @@ function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   verifyStaticStylesheetManifest();
   const versionLabel=document.getElementById('versionLabel');
-  if(versionLabel)versionLabel.textContent='4.0.0';
+  if(versionLabel)versionLabel.textContent=BOGATKA_VISIBLE_VERSION;
   const accessButton=document.getElementById('shareAccessBtn');
   if(accessButton)accessButton.textContent='Пригласить участника';
   upgradeAccessScreen();
   installSyncIntegrityGate();
   installLegacyRentMigrationV425();
-
-  loadBogatkaPatch('script',{src:'./auth-v31.js'});
-  loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
-  loadBogatkaPatch('script',{src:'./members-v32.js'});
-  loadBogatkaPatch('script',{src:'./invites-v408.js'});
-  loadBogatkaPatch('script',{src:'./stability-v33.js'});
-  loadBogatkaPatch('script',{src:'./stability-v331.js'});
-  loadBogatkaPatch('script',{src:'./polish-v34.js'});
-  loadBogatkaPatch('script',{src:'./account-v34.js'});
-  loadBogatkaPatch('script',{src:'./insights-v331.js'});
-  loadBogatkaPatch('script',{src:'./version-guard-v340.js'});
-  loadBogatkaPatch('script',{src:'./critical-deal-schema-v430.js'});
-  loadBogatkaPatch('script',{src:'./decision-core-v340.js'});
-  loadBogatkaPatch('script',{src:'./suite-core-v400.js'});
-  loadBogatkaPatch('script',{src:'./decision-ui-v340.js'});
-  loadBogatkaPatch('script',{src:'./compare-v430.js'});
-  loadBogatkaPatch('script',{src:'./suite-ui-v400.js'});
-  loadBogatkaPatch('script',{src:'./archive-label-v400.js'});
-  loadBogatkaPatch('script',{src:'./backup-v400.js'});
-  loadBogatkaPatch('script',{src:'./report-v400.js'});
-  loadBogatkaPatch('script',{src:'./access-version-v400.js'});
-  loadBogatkaPatch('script',{src:'./visual-v411.js'});
-  loadBogatkaPatch('script',{src:'./decision-panel-v412.js'});
-  loadBogatkaPatch('script',{src:'./workflow-v414.js'});
-  loadBogatkaPatch('script',{src:'./workflow-fixes-v415.js'});
-  loadBogatkaPatch('script',{src:'./workflow-refine-v440.js'});
-  loadBogatkaPatch('script',{src:'./score-guide-fix-v415.js'});
-  loadBogatkaPatch('script',{src:'./sync-field-compat-v416.js'});
-  loadBogatkaPatch('script',{src:'./field-integrity-v416.js'});
-  loadBogatkaPatch('script',{src:'./object-type-normalize-v416.js'});
-  loadBogatkaPatch('script',{src:'./location-profile-v416.js'});
-  loadBogatkaPatch('script',{src:'./location-evaluation-refine-v446.js'});
-  loadBogatkaPatch('script',{src:'./location-overview-v417.js'});
-  loadBogatkaPatch('script',{src:'./location-overview-init-v417.js'});
-  loadBogatkaPatch('script',{src:'./location-panels-v419.js'});
-  loadBogatkaPatch('script',{src:'./location-panels-render-v419.js'});
-  loadBogatkaPatch('script',{src:'./location-card-collapse-v422.js'});
-  loadBogatkaPatch('script',{src:'./report-live-v427.js'});
-  loadBogatkaPatch('script',{src:'./report-live-fixes-v427.js'});
-  loadBogatkaPatch('script',{src:'./report-polish-v428.js'});
-  loadBogatkaPatch('script',{src:'./report-authority-v428.js'});
-  loadBogatkaPatch('script',{src:'./status-next-task-v447.js'});
-  loadBogatkaPatch('script',{src:'./card-progress-init-v448.js'});
-  loadBogatkaPatch('script',{src:'./card-progress-v448.js'});
-  loadBogatkaPatch('script',{src:'./card-progress-report-v448.js'});
-  loadBogatkaPatch('script',{src:'./landlord-conditions-v449.js'});
-  loadBogatkaPatch('script',{src:'./technical-economics-v450.js'});
-  loadBogatkaPatch('script',{src:'./technical-economics-report-v450.js'});
-  loadBogatkaPatch('script',{src:'./quick-checklist-v451.js'});
-  loadBogatkaPatch('script',{src:'./quick-checklist-report-v451.js'});
-  loadBogatkaPatch('script',{src:'./location-data-v452.js'});
-  loadBogatkaPatch('script',{src:'./location-data-stability-v452.js'});
-  loadBogatkaPatch('script',{src:'./durable-fields-v452.js'});
+  ['auth-v31.js','auth-signup-fix-v31.js','members-v32.js','invites-v408.js','stability-v33.js','stability-v331.js','polish-v34.js','account-v34.js','insights-v331.js','version-guard-v340.js','critical-deal-schema-v430.js','decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v430.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','visual-v411.js','decision-panel-v412.js','workflow-v414.js','workflow-fixes-v415.js','workflow-refine-v440.js','score-guide-fix-v415.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-evaluation-refine-v446.js','location-overview-v417.js','location-overview-init-v417.js','location-panels-v419.js','location-panels-render-v419.js','location-card-collapse-v422.js','report-live-v427.js','report-live-fixes-v427.js','report-polish-v428.js','report-authority-v428.js','status-next-task-v447.js','card-progress-init-v448.js','card-progress-v448.js','card-progress-report-v448.js','landlord-conditions-v449.js','technical-economics-v450.js','technical-economics-report-v450.js','quick-checklist-v451.js','quick-checklist-report-v451.js','location-data-v452.js','location-data-stability-v452.js','durable-fields-v452.js','selftest-v400.js'].forEach(src=>loadBogatkaPatch('script',{src:`./${src}`}));
   ensureWorkflowEnhancements();
   installFreshEditorSelectionV463();
-
   document.addEventListener('keydown',event=>{
     const target=event.target;
     if(event.key!=='Enter')return;
