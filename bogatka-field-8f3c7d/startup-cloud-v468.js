@@ -1,4 +1,4 @@
-/* global cloudInit, cloudReplaceButtons, cloudSetStatus, cloudWaitForDb, cloudInstallTracking, cloudClient, cloudSession, cloudEnsureProject, cloudRenderModal, cloudSyncAll, cloudHandleError, cloudProjectId, cloudRole, cloudPublishReport, cloudApplyRemote, cloudFetchRemote, cloudHandleRealtime, BOGATKA_SUPABASE */
+/* global cloudInit, cloudReplaceButtons, cloudSetStatus, cloudWaitForDb, cloudInstallTracking, cloudClient, cloudSession, cloudEnsureProject, cloudRenderModal, cloudSyncAll, cloudHandleError, cloudProjectId, cloudRole, cloudPublishReport, cloudApplyRemote, cloudFetchRemote, cloudHandleRealtime, cloudSyncing, BOGATKA_SUPABASE */
 (function(){
   'use strict';
   const VERSION='4.6.8';
@@ -115,6 +115,17 @@
     });
   }
 
+  async function runCloudSyncForStartup(preReveal,timeoutMs){
+    let result=await cloudSyncAll({manual:false,preReveal,startup:true});
+    if(result?.deferred){
+      mark('first-sync-deferred',{preReveal});
+      await waitFor(()=>!cloudSyncing,'existing cloud sync to finish before reveal',timeoutMs);
+      result=await cloudSyncAll({manual:false,preReveal,startup:true,afterDeferred:true});
+      if(result?.deferred)throw new Error('Первичная облачная синхронизация осталась отложенной.');
+    }
+    return result;
+  }
+
   async function runFirstSync({preReveal=false,timeoutMs=14000}={}){
     if(!cloudSession){
       lastFirstSyncResult={status:'no-session',preReveal};
@@ -131,7 +142,7 @@
       mark('first-sync-start',{preReveal});
       await cloudEnsureProject();
       cloudRenderModal();
-      const result=await cloudSyncAll({manual:false,preReveal,startup:true});
+      const result=await runCloudSyncForStartup(preReveal,timeoutMs);
       firstSyncCompleted=true;
       lastFirstSyncResult={status:'synced',preReveal,result};
       mark('first-sync-ready',{preReveal});
