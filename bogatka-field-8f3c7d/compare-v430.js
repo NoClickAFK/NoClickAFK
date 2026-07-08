@@ -31,15 +31,44 @@
     }
   }
 
+  function isPanelOpen(panel){return panel?.dataset.open==='true'}
+
   function syncPanelState(panel,open){
-    const summary=panel?.querySelector(':scope > summary');
-    const body=panel?.querySelector(':scope > .comparison-body-v332');
+    if(!panel)return;
+    const toggle=panel.querySelector('[data-comparison-toggle-v430]');
+    const body=panel.querySelector(':scope > .comparison-body-v332');
     const next=Boolean(open);
-    setAttr(summary,'aria-expanded',String(next));
+    panel.dataset.open=String(next);
+    setAttr(panel,'aria-expanded',String(next));
+    setAttr(toggle,'aria-expanded',String(next));
     if(body){
       if(body.hidden===next)body.hidden=!next;
       setAttr(body,'aria-hidden',String(!next));
     }
+  }
+
+  function createPanel(){
+    const panel=document.createElement('section');
+    panel.id='locationComparisonPanel';
+    panel.className='comparison-panel-v332 comparison-panel-v340 comparison-shell-v430 comparison-stable-v430';
+    panel.dataset.open='false';
+    panel.setAttribute('aria-expanded','false');
+    panel.innerHTML=`<button type="button" class="comparison-toggle-v430" data-comparison-toggle-v430 aria-expanded="false" aria-controls="comparisonBodyV430"><span class="comparison-summary-copy"><strong>Таблица сравнения локаций</strong><small>Рейтинг, проверки перед арендой, экономика, задачи и готовность к запуску</small></span><span class="comparison-count-v332" id="comparisonLocationCount">0 локаций</span><span class="comparison-chevron-v430" aria-hidden="true"></span></button><div class="comparison-body-v332" id="comparisonBodyV430" hidden aria-hidden="true"><div class="comparison-hint-v332">Нажмите на заголовок для сортировки. Нажмите на адрес, чтобы перейти к карточке.</div><div class="comparison-scroll-v332"><table class="comparison-table-v332 comparison-table-v340"><thead></thead><tbody></tbody><tfoot></tfoot></table></div></div>`;
+    syncPanelState(panel,false);
+    const toggle=panel.querySelector('[data-comparison-toggle-v430]');
+    const enableInteractionMotion=()=>panel.classList.add('comparison-interaction-ready-v430');
+    const userToggle=()=>{
+      enableInteractionMotion();
+      const next=!isPanelOpen(panel);
+      syncPanelState(panel,next);
+      if(next)render().catch(console.error);
+    };
+    toggle.addEventListener('pointerdown',enableInteractionMotion,{once:true});
+    toggle.addEventListener('keydown',event=>{
+      if(event.key==='Enter'||event.key===' '||event.key==='Spacebar')enableInteractionMotion();
+    },{once:true});
+    toggle.addEventListener('click',userToggle);
+    return panel;
   }
 
   function ensurePanel(){
@@ -47,25 +76,18 @@
     const grid=card?.querySelector('.summary-grid');
     if(!card||!grid)return null;
     let panel=document.getElementById('locationComparisonPanel');
+    if(panel?.tagName==='DETAILS'){
+      const replacement=createPanel();
+      panel.replaceWith(replacement);
+      panel=replacement;
+    }
     if(panel){
-      syncPanelState(panel,panel.open);
+      if(!panel.classList.contains('comparison-shell-v430'))panel.classList.add('comparison-shell-v430');
+      if(!panel.dataset.open)syncPanelState(panel,false);
       return panel;
     }
-    panel=document.createElement('details');
-    panel.id='locationComparisonPanel';
-    panel.className='comparison-panel-v332 comparison-panel-v340 comparison-stable-v430';
-    panel.open=false;
-    panel.innerHTML=`<summary aria-expanded="false"><span class="comparison-summary-copy"><strong>Таблица сравнения локаций</strong><small>Рейтинг, проверки перед арендой, экономика, задачи и готовность к запуску</small></span><span class="comparison-count-v332" id="comparisonLocationCount">0 локаций</span><span class="comparison-chevron-v332" aria-hidden="true"></span></summary><div class="comparison-body-v332" hidden aria-hidden="true"><div class="comparison-hint-v332">Нажмите на заголовок для сортировки. Нажмите на адрес, чтобы перейти к карточке.</div><div class="comparison-scroll-v332"><table class="comparison-table-v332 comparison-table-v340"><thead></thead><tbody></tbody><tfoot></tfoot></table></div></div>`;
-    syncPanelState(panel,false);
+    panel=createPanel();
     grid.insertAdjacentElement('afterend',panel);
-    const summary=panel.querySelector(':scope > summary');
-    const enableInteractionMotion=()=>panel.classList.add('comparison-interaction-ready-v430');
-    summary.addEventListener('pointerdown',enableInteractionMotion,{once:true});
-    summary.addEventListener('keydown',enableInteractionMotion,{once:true});
-    panel.addEventListener('toggle',()=>{
-      syncPanelState(panel,panel.open);
-      if(panel.open)render().catch(console.error);
-    });
     return panel;
   }
 
@@ -186,6 +208,7 @@
 
   window.updateSummary=updateSummaryV430Compare;
   try{updateSummary=updateSummaryV430Compare}catch(_){ }
+  window.BogatkaComparisonV430={version:'4.3.0',ensurePanel,render,syncPanelState,isOpen:isPanelOpen};
   setVersion();
   arrange();
   ensurePanel();
