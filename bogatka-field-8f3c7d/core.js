@@ -12,6 +12,15 @@ let saveTimer = null;
 const objectUrls = new Set();
 let bogatkaAuthorized = false;
 let bogatkaAppRevealed = false;
+let bogatkaCloudInitPromise = null;
+let bogatkaCloudFirstSyncReady = Promise.resolve({status:"not-started"});
+let bogatkaCloudFirstSyncCompleted = false;
+let bogatkaCloudAuthListenerInstalled = false;
+let bogatkaCloudWindowHooksInstalled = false;
+let bogatkaCloudPrepared = false;
+let bogatkaCloudLastInitResult = null;
+let bogatkaCloudLastFirstSyncResult = null;
+let bogatkaCloudSyncModuleError = null;
 
 const $ = (selector, root=document) => root.querySelector(selector);
 const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
@@ -45,7 +54,14 @@ const BOGATKA_CRITICAL_STARTUP_SCRIPTS = [
   "./card-progress-init-v448.js",
   "./card-progress-v448.js",
 ];
-const BOGATKA_CLOUD_STARTUP_SCRIPT = "./startup-cloud-v468.js";
+const BOGATKA_CLOUD_SYNC_SCRIPTS = [
+  ["./sync-merge-v412.js", () => window.BogatkaSyncMerge?.merge, "sync merge"],
+  ["./sync-state-v412.js", () => window.BogatkaSyncState?.ready, "sync state"],
+  ["./cloud-stability-v401.js", () => window.BogatkaCloudStability?.version, "cloud stability"],
+  ["./sync-field-compat-v416.js", () => window.BogatkaSyncFieldCompatV416?.ready, "sync field compatibility"],
+  ["./sync-runtime-v412.js", () => window.BogatkaSyncIntegrity?.ready, "sync integrity"],
+  ["./sync-ui-v412.js", () => window.BogatkaSyncCompatibility?.ready, "sync UI compatibility"],
+];
 
 function bogatkaStartupScriptExists(src) {
   const target = new URL(src, location.href).href;
@@ -108,21 +124,173 @@ async function bogatkaWaitForStableCriticalUi() {
   }, "comparison panel and authoritative location recommendations");
 }
 
+async function bogatkaLoadCloudSyncModules() {
+  if (window.BogatkaSyncIntegrity?.ready && window.BogatkaSyncCompatibility?.ready && window.BogatkaSyncFieldCompatV416?.ready) return {status:"already-ready"};
+  for (const [src, predicate, label] of BOGATKA_CLOUD_SYNC_SCRIPTS) {
+    await bogatkaLoadStartupScript(src);
+    await bogatkaWaitFor(predicate, `${label} ready`, 7000);
+  }
+  return {status:"ready"};
+}
+
+function bogatkaInstallCloudInitOverride() {
+  if (typeof cloudInit !== "function" || cloudInit.__bogatkaCloudStartupV468) return;
+  const wrapped = bogatkaInitCloudBeforeReveal;
+  wrapped.__bogatkaCloudStartupV468 = true;
+  wrapped.__base = cloudInit;
+  window.cloudInit = wrapped;
+  try { cloudInit = wrapped; } catch (_) {}
+}
+
+function bogatkaEnsureCloudTopPill() {
+  const statusbar = document.querySelector(".statusbar");
+  if (statusbar && !document.querySelector("#cloudTopPill")) {
+    const pill = document.createElement("span");
+    pill.id = "cloudTopPill";
+    pill.className = "pill cloud-sync-pill signed_out";
+    pill.textContent = "Облако: вход не выполнен";
+    statusbar.appendChild(pill);
+  }
+}
+
+function bogatkaInstallCloudWindowHooks() {
+  if (bogatkaCloudWindowHooksInstalled) return;
+  bogatkaCloudWindowHooksInstalled = true;
+  window.addEventListener("online", () => cloudSyncAll().catch(cloudHandleError));
+  window.addEventListener("offline", () => cloudSetStatus("offline"));
+}
+
+function bogatkaInstallCloudAuthListener() {
+  if (bogatkaCloudAuthListenerInstalled || !cloudClient?.auth?.onAuthStateChange) return;
+  bogatkaCloudAuthListenerInstalled = true;
+  cloudClient.auth.onAuthStateChange((event, session) => {
+    cloudSession = session;
+    if (event === "INITIAL_SESSION") return;
+    setTimeout(async () => {
+      if (session) {
+        try {
+          await cloudEnsureProject();
+          cloudRenderModal();
+          await cloudSyncAll();
+        } catch (error) { cloudHandleError(error); }
+      } else {
+        cloudProjectId = null;
+        cloudRole = null;
+        cloudSetStatus("signed_out");
+        cloudRenderModal();
+      }
+    }, 0);
+  });
+}
+
+async function bogatkaRunCloudSyncForStartup(preReveal, timeoutMs) {
+  let result = await cloudSyncAll({manual:false, preReveal, startup:true});
+  if (result?.deferred) {
+    await bogatkaWaitFor(() => !cloudSyncing, "existing cloud sync to finish before reveal", timeoutMs);
+    result = await cloudSyncAll({manual:false, preReveal, startup:true, afterDeferred:true});
+    if (result?.deferred) throw new Error("Первичная облачная синхронизация осталась отложенной.");
+  }
+  return result;
+}
+
+async function bogatkaRunCloudFirstSync({preReveal=false, timeoutMs=14000} = {}) {
+  if (!cloudSession) {
+    bogatkaCloudLastFirstSyncResult = {status:"no-session", preReveal};
+    bogatkaCloudFirstSyncCompleted = true;
+    return bogatkaCloudLastFirstSyncResult;
+  }
+  if (!navigator.onLine) {
+    cloudSetStatus("offline", "Изменения сохранены на устройстве и будут отправлены после восстановления связи.");
+    bogatkaCloudLastFirstSyncResult = {status:"offline", preReveal};
+    bogatkaCloudFirstSyncCompleted = true;
+    return bogatkaCloudLastFirstSyncResult;
+  }
+
+  const sync = async () => {
+    await cloudEnsureProject();
+    cloudRenderModal();
+    const result = await bogatkaRunCloudSyncForStartup(preReveal, timeoutMs);
+    bogatkaCloudFirstSyncCompleted = true;
+    bogatkaCloudLastFirstSyncResult = {status:"synced", preReveal, result};
+    window.dispatchEvent(new CustomEvent("bogatka:cloud-first-sync-ready", {detail:{version:"4.6.8", preReveal, result:bogatkaCloudLastFirstSyncResult}}));
+    return bogatkaCloudLastFirstSyncResult;
+  };
+
+  const timeout = new Promise(resolve => setTimeout(() => resolve({status:"timeout", preReveal}), timeoutMs));
+  const result = await Promise.race([sync().catch(error => ({status:"error", preReveal, error})), timeout]);
+  if (result.status === "error") cloudHandleError(result.error);
+  else if (result.status === "timeout") cloudSetStatus("error", "Первичная облачная проверка не завершилась вовремя. Локальные данные показаны, синхронизация продолжится в фоне.");
+  bogatkaCloudLastFirstSyncResult = result;
+  return result;
+}
+
+async function bogatkaInitCloudBeforeReveal(options = {}) {
+  const preReveal = Boolean(options.preReveal);
+  if (bogatkaCloudInitPromise) {
+    const result = await bogatkaCloudInitPromise;
+    if (preReveal) await bogatkaCloudFirstSyncReady;
+    return result;
+  }
+
+  bogatkaCloudInitPromise = (async () => {
+    cloudReplaceButtons();
+    bogatkaEnsureCloudTopPill();
+    if (!window.BOGATKA_SUPABASE || !window.supabase?.createClient) {
+      cloudSetStatus("error", "Не удалось загрузить модуль облака.");
+      bogatkaCloudLastInitResult = {status:"missing-supabase", session:false, preReveal};
+      return bogatkaCloudLastInitResult;
+    }
+    await cloudWaitForDb();
+    cloudInstallTracking();
+    if (!cloudClient) {
+      cloudClient = window.supabase.createClient(
+        BOGATKA_SUPABASE.url,
+        BOGATKA_SUPABASE.publishableKey,
+        {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}}
+      );
+    }
+
+    try { await bogatkaLoadCloudSyncModules(); }
+    catch (error) { bogatkaCloudSyncModuleError = error; console.error(error); }
+
+    const {data} = await cloudClient.auth.getSession();
+    cloudSession = data.session;
+    bogatkaInstallCloudAuthListener();
+    if (cloudSession) {
+      await cloudEnsureProject();
+      cloudRenderModal();
+      bogatkaCloudFirstSyncReady = bogatkaRunCloudFirstSync({preReveal, timeoutMs:options.timeoutMs || 14000});
+      await bogatkaCloudFirstSyncReady;
+    } else {
+      cloudSetStatus("signed_out");
+      bogatkaCloudFirstSyncReady = Promise.resolve({status:"no-session", preReveal});
+      bogatkaCloudFirstSyncCompleted = true;
+    }
+
+    window.cloudPublishReport = cloudPublishReport;
+    window.cloudSyncAll = cloudSyncAll;
+    window.cloudApplyRemote = cloudApplyRemote;
+    window.cloudFetchRemote = cloudFetchRemote;
+    window.cloudEnsureProject = cloudEnsureProject;
+    window.cloudSetStatus = cloudSetStatus;
+    window.cloudHandleRealtime = cloudHandleRealtime;
+    bogatkaInstallCloudWindowHooks();
+    bogatkaCloudPrepared = true;
+    bogatkaCloudLastInitResult = {status:"ready", session:Boolean(cloudSession), role:cloudRole || null, preReveal, firstSync:bogatkaCloudLastFirstSyncResult, syncModuleLoadError:bogatkaCloudSyncModuleError?.message || null};
+    return bogatkaCloudLastInitResult;
+  })();
+  return bogatkaCloudInitPromise;
+}
+
 async function bogatkaPrepareCloudBeforeReveal() {
   try {
     await bogatkaWaitFor(() => typeof window.cloudInit === "function" || typeof cloudInit === "function", "cloud module executed", 3500);
+    bogatkaInstallCloudInitOverride();
   } catch (error) {
     console.warn("Cloud module was not ready before local reveal.", error);
     return {status:"cloud-module-missing"};
   }
-  await bogatkaLoadStartupScript(BOGATKA_CLOUD_STARTUP_SCRIPT);
-  try {
-    await bogatkaWaitFor(() => Boolean(window.BogatkaCloud?.init), "cloud startup controller executed", 3500);
-  } catch (error) {
-    console.warn("Cloud startup controller was not ready before local reveal.", error);
-    return {status:"cloud-startup-api-missing"};
-  }
-  return await window.BogatkaCloud.init({preReveal:true, timeoutMs:14000});
+  return await bogatkaInitCloudBeforeReveal({preReveal:true, timeoutMs:14000});
 }
 
 async function bogatkaPrepareCriticalUi() {
@@ -138,6 +306,18 @@ async function bogatkaPrepareCriticalUi() {
 
   window.dispatchEvent(new CustomEvent("bogatka:critical-ui-ready", {detail:{version:"4.6.8", cloud}}));
 }
+
+window.BogatkaCloud = {
+  version:"4.6.8",
+  init:bogatkaInitCloudBeforeReveal,
+  installSyncModules:bogatkaLoadCloudSyncModules,
+  get firstSyncReady(){ return bogatkaCloudFirstSyncReady; },
+  get ready(){ return bogatkaCloudPrepared; },
+  get firstSyncCompleted(){ return bogatkaCloudFirstSyncCompleted; },
+  get lastInitResult(){ return bogatkaCloudLastInitResult ? {...bogatkaCloudLastInitResult} : null; },
+  get lastFirstSyncResult(){ return bogatkaCloudLastFirstSyncResult ? {...bogatkaCloudLastFirstSyncResult} : null; },
+  get diagnostics(){ return {syncModuleLoadError:bogatkaCloudSyncModuleError?.message || null, stability:window.BogatkaCloudStability?.diagnostics || null, integrity:window.BogatkaSyncIntegrity?.diagnostics || null, compatibility:window.BogatkaSyncCompatibility?.diagnostics || null}; },
+};
 
 window.BogatkaStartup = {
   version:"4.6.8",
