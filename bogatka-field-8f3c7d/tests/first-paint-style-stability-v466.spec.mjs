@@ -80,7 +80,7 @@ async function installFakeSupabase(page){
   }));
   const remotePhotos=[{id:'photo-lidskaya-1',project_id:'project-1',location_id:'cloud-lidskaya-34',category:'street',caption:'Фасад',storage_path:'project/cloud-lidskaya-34/photo-lidskaya-1.jpg',original_name:'photo.jpg',mime_type:'image/jpeg',width:10,height:10,file_size:4,created_at:REMOTE_UPDATED,updated_at:REMOTE_UPDATED,deleted_at:null}];
   await page.route('**/@supabase/supabase-js@2**',route=>route.fulfill({status:200,contentType:'application/javascript',body:'window.supabase={createClient:function(){return window.__bogatkaFakeSupabaseClient();}};'}));
-  await page.addInitScript(({remoteLocations,remotePhotos})=>{
+  await page.addInitScript(({remoteLocations,remotePhotos,updated})=>{
     const session={user:{id:'owner-user',email:'owner@example.com',user_metadata:{display_name:'Owner'}}};
     const state={remoteLocations:structuredClone(remoteLocations),remotePhotos:structuredClone(remotePhotos),reports:[],subscriptions:[],calls:[]};
     const clone=value=>structuredClone(value);
@@ -110,7 +110,7 @@ async function installFakeSupabase(page){
             for(const row of rows){
               const id=row.id||`cloud-${row.client_id}`;
               const existing=state.remoteLocations.find(item=>item.id===id||item.client_id===row.client_id);
-              const next={...(existing||{}),...row,id,revision:(existing?.revision||1),updated_at:REMOTE_UPDATED,created_at:existing?.created_at||REMOTE_UPDATED};
+              const next={...(existing||{}),...row,id,revision:(existing?.revision||1),updated_at:updated,created_at:existing?.created_at||updated};
               if(existing)Object.assign(existing,next);else state.remoteLocations.push(next);
             }
             const data=rows.map(row=>clone(state.remoteLocations.find(item=>item.id===(row.id||`cloud-${row.client_id}`)||item.client_id===row.client_id)));
@@ -123,19 +123,19 @@ async function installFakeSupabase(page){
         if(table==='photos'){
           if(query.action==='delete'){state.remotePhotos=state.remotePhotos.filter(row=>!filtersApply([row],query.filters).length);return result(null)}
           if(query.action==='upsert'){
-            for(const row of query.payload){const existing=state.remotePhotos.find(item=>item.id===row.id);if(existing)Object.assign(existing,row,{updated_at:REMOTE_UPDATED});else state.remotePhotos.push({...row,created_at:REMOTE_UPDATED,updated_at:REMOTE_UPDATED,deleted_at:null});}
+            for(const row of query.payload){const existing=state.remotePhotos.find(item=>item.id===row.id);if(existing)Object.assign(existing,row,{updated_at:updated});else state.remotePhotos.push({...row,created_at:updated,updated_at:updated,deleted_at:null});}
             return result(query.singleMode?clone(query.payload[0]):clone(query.payload));
           }
           const rows=filtersApply(state.remotePhotos,query.filters).filter(row=>row.deleted_at===null||row.deleted_at===undefined);
           return result(query.singleMode?(rows[0]||null):clone(rows));
         }
         if(table==='project_state'){
-          if(query.action==='upsert')return result({project_id:'project-1',data:{},updated_at:REMOTE_UPDATED});
+          if(query.action==='upsert')return result({project_id:'project-1',data:{},updated_at:updated});
           return result(query.singleMode?null:null);
         }
-        if(table==='project_members')return result(query.singleMode?{role:'owner'}:[{user_id:'owner-user',role:'owner',created_at:REMOTE_UPDATED}]);
+        if(table==='project_members')return result(query.singleMode?{role:'owner'}:[{user_id:'owner-user',role:'owner',created_at:updated}]);
         if(table==='profiles')return result([{id:'owner-user',email:'owner@example.com',display_name:'Owner'}]);
-        if(table==='projects')return result({id:'project-1',name:'Bogatka',slug:'bogatka-grodno',description:'',updated_at:REMOTE_UPDATED});
+        if(table==='projects')return result({id:'project-1',name:'Bogatka',slug:'bogatka-grodno',description:'',updated_at:updated});
         if(table==='reports'){
           if(query.action==='insert'){const report={public_token:'token-v468'};state.reports.push(report);return result(report)}
         }
@@ -164,7 +164,7 @@ async function installFakeSupabase(page){
       channel:name=>({name,on(){return this},subscribe(){state.subscriptions.push(name);return this}}),
       removeChannel:channel=>{state.subscriptions=state.subscriptions.filter(name=>name!==channel?.name);return result(null)},
     });
-  },{remoteLocations,remotePhotos});
+  },{remoteLocations,remotePhotos,updated:REMOTE_UPDATED});
 }
 
 async function installStartupProbe(page){
