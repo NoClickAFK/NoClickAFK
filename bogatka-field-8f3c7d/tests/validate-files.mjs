@@ -109,7 +109,7 @@ if (!failures.length) {
   for (const marker of ['.critical-deal-v430>summary::-webkit-details-marker','.economy-v400>summary::-webkit-details-marker','.launch-project-v400>summary::-webkit-details-marker','.critical-deal-v430>summary::marker','.economy-v400>summary::marker','.launch-project-v400>summary::marker','.critical-deal-v430>summary::before','.economy-v400>summary::before','.launch-project-v400>summary::before','border-left:8px solid currentColor','justify-self:end!important']) if (!criticalCss.includes(marker)) failures.push(`critical-deal-v430.css is missing ${marker}`);
   if (criticalCss.includes("content:'▶'")||criticalCss.includes('content:"▶"')) failures.push('critical-deal-v430.css still uses a character-based disclosure icon');
   const comparison = read('compare-v430.js');
-  for (const marker of ['Перед арендой','dealGate','comparison-shell-v430','data-open','comparison-chevron-v430','BogatkaComparisonV430']) if (!comparison.includes(marker)) failures.push(`compare-v430.js is missing ${marker}`);
+  for (const marker of ['Перед арендой','dealGate','comparison-shell-v430','dataset.open','comparison-chevron-v430','BogatkaComparisonV430']) if (!comparison.includes(marker)) failures.push(`compare-v430.js is missing ${marker}`);
   if (comparison.includes('document.createElement(\'details\')') || comparison.includes('document.createElement("details")')) failures.push('compare-v430.js still creates native details as the comparison state owner');
 
   const decision = read('decision-core-v340.js');
