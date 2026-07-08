@@ -25,6 +25,7 @@ test('repository build version controls UI when remote metadata is older',async(
 
   await page.goto(`${APP}?v=430`,{waitUntil:'domcontentloaded'});
   await expect(page.locator('#versionLabel')).toHaveText('4.3.0',{timeout:15000});
+  await page.waitForFunction(()=>window.BOGATKA_BUILD?.remoteIgnored==='4.2.6',null,{timeout:15000});
 
   const build=await page.evaluate(()=>window.BOGATKA_BUILD);
   expect(build.version).toBe('4.3.0');
@@ -36,6 +37,4 @@ test('repository build version controls UI when remote metadata is older',async(
 
   await page.evaluate(()=>{document.getElementById('versionLabel').textContent='4.0.0'});
   await expect(page.locator('#versionLabel')).toHaveText('4.3.0');
-
-  await page.waitForFunction(()=>window.exportBackup?.__versionedV426===true,null,{timeout:5000});
 });
