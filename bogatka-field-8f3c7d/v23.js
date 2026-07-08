@@ -218,6 +218,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-data-v452.js'});
   loadBogatkaPatch('script',{src:'./location-data-stability-v452.js'});
   loadBogatkaPatch('script',{src:'./durable-fields-v452.js'});
+  loadBogatkaPatch('script',{src:'./startup-cloud-v468.js'});
   ensureWorkflowEnhancements();
   installFreshEditorSelectionV463();
 
