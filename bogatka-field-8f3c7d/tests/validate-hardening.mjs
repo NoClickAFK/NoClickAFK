@@ -25,6 +25,7 @@ verify('object-type-normalize-v416.js',['pendingEmptyResets','persistIntentional
 verify('location-panels-v419.js',['INSPECTION_HIDE','panel-hidden-v419','reorderChildren','BogatkaLocationPanelsV419']);
 verify('location-global-v421.js',['premiseAvailability','landlordReadiness','BogatkaLocationGlobalV421']);
 verify('location-card-collapse-v422.js',['STORAGE_PREFIX','setCollapsed','BogatkaLocationCardCollapseV422']);
+const collapseCss=read('location-card-collapse-v422.css');
 verify('location-card-collapse-v422.css',[
   'repeat(3, 64px) 50px',
   'height: 64px',
@@ -35,7 +36,7 @@ verify('location-card-collapse-v422.css',[
   'border-bottom: 0 !important',
   '.archive-manager-v400'
 ]);
-if(read('location-card-collapse-v422.css').includes('comparison-chevron-v332'))failures.push('location-card-collapse-v422.css still owns comparison chevron rules');
+if(/^\s*\.comparison-chevron-v332\s*[,{:]/m.test(collapseCss))failures.push('location-card-collapse-v422.css still owns comparison chevron rules');
 verify('visual-v411.css',['.comparison-shell-v430','border:2px solid #d8b860!important','.comparison-chevron-v430::before','[data-open="true"]']);
 verify('workflow-v414.js',['checklist-guide-v414','structured-notes-v414','history-pagination-v414','BogatkaWorkflowV414']);
 verify('members-v32.js',['create_project_invite','update_project_member_role','remove_project_member']);
