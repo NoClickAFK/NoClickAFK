@@ -63,16 +63,19 @@ for(const marker of [
   'report-field-grid',
   'buildLocationReportHtmlV431',
   '__reportFinalizeV431',
-  'BogatkaDecisionEngine.computeAll',
+  'BogatkaDecisionEngine?.computeAll',
 ])if(!finalizer.includes(marker))failures.push(`report-finalize-v431.js missing ${marker}`);
 
 const baseLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-live-fixes-v427.js'})");
 const polishLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-polish-v428.js'})");
 const authorityLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-authority-v428.js'})");
+const finalizerLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-finalize-v431.js'})");
 if(polishLoad<0)failures.push('v23.js does not load report-polish-v428.js');
 if(authorityLoad<0)failures.push('v23.js does not load report-authority-v428.js');
+if(finalizerLoad<0)failures.push('v23.js does not load report-finalize-v431.js');
 if(polishLoad<baseLoad)failures.push('report-polish-v428.js is not loaded after the final v427 report wrapper');
 if(authorityLoad<polishLoad)failures.push('report-authority-v428.js is not loaded after report-polish-v428.js');
+if(finalizerLoad<authorityLoad)failures.push('report-finalize-v431.js is not loaded after report-authority-v428.js');
 for(const asset of ["'./report-polish-v428.js'","'./report-authority-v428.js'","'./report-finalize-v431.js'"]){
   if(!worker.includes(asset))failures.push(`Service Worker does not cache ${asset}`);
 }
