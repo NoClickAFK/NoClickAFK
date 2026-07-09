@@ -75,6 +75,8 @@
   "quick-checklist-v451.js",
   "release-integrity-v456.js",
   "report-authority-v428.js",
+  "report-finalize-v431.js",
+  "report-finalize-v432.js",
   "report-live-fixes-v427.js",
   "report-live-v427.js",
   "report-polish-v428.js",
