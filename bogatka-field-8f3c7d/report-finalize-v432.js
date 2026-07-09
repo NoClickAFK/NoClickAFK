@@ -5,12 +5,11 @@ const VERSION='4.3.2';
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 let attempts=0;
 const clean=value=>String(value??'').replace(/[\s\u00a0]+/g,' ').trim();
+const zeroScoreValue=value=>/^0\s*\/\s*(?:70|100)(?:\s+\S+)?$/i.test(clean(value))||/^0\s*%$/.test(clean(value));
 function safeFileNamePart(value){const normalized=String(value||'location').normalize('NFKD').replace(/[\u0300-\u036f]/g,'');const safe=normalized.replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]+/g,'-').replace(/^-+|-+$/g,'').replace(/-{2,}/g,'-');return(safe||'location').slice(0,72)}
 function removeZeroNoise(doc){
-  doc.querySelectorAll('.report-metrics div').forEach(metric=>{
-    const value=clean(metric.querySelector('strong')?.textContent);
-    if(/^0\s*\/\s*(?:70|100)\b/.test(value)||/^0\s*%$/.test(value))metric.remove();
-  });
+  doc.querySelectorAll('.report-metrics div').forEach(metric=>{if(zeroScoreValue(metric.querySelector('strong')?.textContent))metric.remove()});
+  doc.querySelectorAll('td').forEach(cell=>{if(zeroScoreValue(cell.textContent))cell.textContent='—'});
   doc.querySelectorAll('.report-field').forEach(field=>{
     const label=clean(field.querySelector('span')?.textContent);
     const value=clean(field.querySelector('strong')?.textContent);
