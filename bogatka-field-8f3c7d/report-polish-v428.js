@@ -290,7 +290,8 @@
     const parser=new DOMParser();
     const documentReport=parser.parseFromString(html,'text/html');
 
-    documentReport.querySelectorAll('#reportPolishV428,.report-detailed-comparison').forEach(node=>node.remove());
+    documentReport.getElementById('reportPolishV428')?.remove();
+    documentReport.querySelectorAll('.report-detailed-comparison').forEach(node=>node.remove());
 
     for(const card of documentReport.querySelectorAll('.report-location-card')){
       normalizeReportLocationCard(documentReport,card);
@@ -332,7 +333,7 @@
       .score-table td{padding:10px!important;vertical-align:middle!important}
       .score-table td:first-child{width:70%}
 
-      .collaboration-v400>.report-section-body{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+      .collaboration-v400>.details-body,.collaboration-v400>.report-section-body{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
       .collab-pane-v400{display:block!important;border:1px solid var(--line);border-radius:14px;background:#fbfdfc;padding:14px;min-width:0}
       .report-collab-title-v428{margin:0 0 12px;padding:0 0 9px;border-bottom:1px solid var(--line);font-size:17px;line-height:1.3;color:var(--green)}
       .task-list-v400,.comment-list-v400{display:grid;gap:9px;color:var(--muted)}
@@ -355,7 +356,7 @@
 
       @media(max-width:900px){
         .report-location-card .location-head{grid-template-columns:1fr}
-        .collaboration-v400>.report-section-body{grid-template-columns:1fr}
+        .collaboration-v400>.details-body,.collaboration-v400>.report-section-body{grid-template-columns:1fr}
       }
       @media(max-width:620px){
         .report-head-metrics-v428,.score-scale-v331,.score-scale-v415,.score-label-v414>small,.structured-notes-v414,.decision-actions-v412{grid-template-columns:1fr!important}
@@ -370,7 +371,7 @@
         .report-head-metric-line-v428 strong{font-size:17px}
         .report-head-status-v428{min-height:8mm;padding:1.5mm 2mm}
         .score-scale-v331,.score-scale-v415{grid-template-columns:repeat(5,1fr)!important}
-        .collaboration-v400>.report-section-body{grid-template-columns:1fr 1fr!important}
+        .collaboration-v400>.details-body,.collaboration-v400>.report-section-body{grid-template-columns:1fr 1fr!important}
         .decision-actions-v412{grid-template-columns:repeat(3,1fr)!important}
       }
     `;
