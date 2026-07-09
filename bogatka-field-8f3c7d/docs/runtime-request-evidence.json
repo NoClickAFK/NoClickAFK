@@ -110,7 +110,6 @@
   "suite-ui-v400.js",
   "suite-v400.css",
   "supabase-config.js",
-  "sw-v340.js",
   "sync-field-compat-v416.js",
   "sync-merge-v412.js",
   "sync-runtime-v412.js",
