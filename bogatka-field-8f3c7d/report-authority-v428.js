@@ -41,6 +41,12 @@
     cover.innerHTML=`<h1>Отчёт по локации «Богатка»</h1><p class="report-subtitle">${escapeHtml(title)}</p><div class="report-cover-grid"><div><span>Адрес</span><strong>${escapeHtml(item.address||'—')}</strong></div><div><span>Кто проводил осмотр</span><strong>${escapeHtml(global?.inspector||'—')}</strong></div><div><span>Сформирован</span><strong>${escapeHtml(generatedAt.toLocaleString('ru-RU'))}</strong></div><div><span>Рекомендация / решение</span><strong>${escapeHtml(decision)}</strong></div></div>`;
   }
 
+  function runLocationPolish(api,documentReport,card){
+    if(!card)return card;
+    if(typeof api?.polishLocationCard==='function')api.polishLocationCard(documentReport,card);
+    return card;
+  }
+
   async function buildLocationReportHtml(locationId){
     const api=window.BogatkaLiveReport;
     const item=findLocation(locationId);
@@ -50,7 +56,7 @@
 
     const finalHtml=await api.build();
     const parser=new DOMParser();
-    const documentReport=parser.parseFromString(finalHtml,'text/html');
+    let documentReport=parser.parseFromString(finalHtml,'text/html');
     const finalCard=documentReport.querySelector(`.report-location-card[data-location-card="${CSS.escape(locationId)}"]`);
     if(!finalCard)throw new Error('Не удалось подготовить выбранную локацию для отчёта.');
 
@@ -65,10 +71,14 @@
       if(body&&wasHidden)body.setAttribute('hidden','');
     }
 
-    const polishedHead=finalCard.querySelector(':scope > .location-head');
-    const completeHead=completeCard.querySelector(':scope > .location-head');
-    if(polishedHead&&completeHead)completeHead.replaceWith(polishedHead.cloneNode(true));
-    finalCard.replaceWith(completeCard);
+    const freshBody=completeCard.querySelector(':scope > .location-body,:scope > .report-location-body');
+    const existingBody=finalCard.querySelector(':scope > .location-body,:scope > .report-location-body');
+    if(freshBody&&existingBody){
+      freshBody.classList.add('report-location-body');
+      existingBody.replaceWith(freshBody);
+    }
+    runLocationPolish(api,documentReport,finalCard);
+
     documentReport.querySelectorAll('.report-location-card').forEach(card=>{
       if(card.dataset.locationCard!==locationId)card.remove();
     });
@@ -76,12 +86,17 @@
 
     const global=await idbGet(STORE,'global')||{};
     const data=await getLocationData(locationId);
-    const recommendation=completeCard.querySelector('.report-head-status-v428,.recommendation-status-v448,.decision-recommendation-v340')?.textContent?.trim()||'';
+    const recommendation=finalCard.querySelector('.report-head-status-v428,.recommendation-status-v448,.decision-recommendation-v340')?.textContent?.trim()||'';
     const generatedAt=new Date();
     replaceCover(documentReport,{item,data,global,recommendation,generatedAt});
     documentReport.title=`Отчёт по локации — ${item.title||item.address||'Богатка'}`;
     const footer=documentReport.querySelector('.report-meta-footer');
     if(footer)footer.textContent=`Отчёт по выбранной локации сформирован приложением «Богатка» · ${generatedAt.toLocaleString('ru-RU')}`;
+
+    if(typeof api.polishReportStabilityHtml==='function'){
+      documentReport=parser.parseFromString(api.polishReportStabilityHtml(`<!doctype html>\n${documentReport.documentElement.outerHTML}`),'text/html');
+    }
+
     return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
   }
 
