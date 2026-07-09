@@ -4,6 +4,7 @@ const path=require('path');
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=431';
 const ARTIFACT_DIR=path.resolve('test-results/report-v431-review');
+const hasPrintPageStyle=()=>Boolean((document.querySelector('#reportFinalV431')?.textContent||'').match(/@page\s*\{[^}]*size\s*:\s*A4/i));
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
@@ -71,11 +72,6 @@ function expectFinalSemanticReport(result,{allowZeroMetrics=false}={}){
   expect(result.emptyPhotoPlan).toBe(0);
   expect(result.emptyDecisionShell).toBe(false);
   expect(result.brokenCss).toBe(false);
-}
-
-function printStyleOk(){
-  const text=document.querySelector('#reportFinalV431')?.textContent||'';
-  return text.includes('@page{size:A4 portrait')||text.includes('size:A4 portrait')||text.includes('size: A4 portrait')||text.includes('size: A4');
 }
 
 test('comparison panel is collapsed after a page reload',async({page})=>{
@@ -216,7 +212,7 @@ test('export report desktop, mobile and print CSS keep semantic cards unclipped'
   const mobile=await reportPage.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
   expect(mobile).toBeLessThanOrEqual(1);
   await reportPage.emulateMedia({media:'print'});
-  const print=await reportPage.evaluate(()=>({actions:getComputedStyle(document.querySelector('.report-actions')).display,pageStyle:(${printStyleOk.toString()})(),locationBreak:getComputedStyle(document.querySelector('.report-location')).breakInside}));
+  const print=await reportPage.evaluate(()=>({actions:getComputedStyle(document.querySelector('.report-actions')).display,pageStyle:Boolean((document.querySelector('#reportFinalV431')?.textContent||'').match(/@page\s*\{[^}]*size\s*:\s*A4/i)),locationBreak:getComputedStyle(document.querySelector('.report-location')).breakInside}));
   expect(print.actions).toBe('none');
   expect(print.pageStyle).toBe(true);
   expect(['avoid','avoid-page']).toContain(print.locationBreak);
@@ -252,7 +248,7 @@ test('produces review artifacts for fixed single, full and print export',async({
   await fullPage.setContent(generated.full,{waitUntil:'load'});
   await fullPage.screenshot({path:path.join(ARTIFACT_DIR,'full-report-fixed.png'),fullPage:true});
   await fullPage.emulateMedia({media:'print'});
-  const printSmoke=await fullPage.evaluate(()=>({actions:getComputedStyle(document.querySelector('.report-actions')).display,pageStyle:(${printStyleOk.toString()})(),locations:document.querySelectorAll('.report-location').length,sections:document.querySelectorAll('.report-section').length,media:'print'}));
+  const printSmoke=await fullPage.evaluate(()=>({actions:getComputedStyle(document.querySelector('.report-actions')).display,pageStyle:Boolean((document.querySelector('#reportFinalV431')?.textContent||'').match(/@page\s*\{[^}]*size\s*:\s*A4/i)),locations:document.querySelectorAll('.report-location').length,sections:document.querySelectorAll('.report-section').length,media:'print'}));
   expect(printSmoke.actions).toBe('none');
   expect(printSmoke.pageStyle).toBe(true);
   expect(printSmoke.locations).toBeGreaterThan(0);
