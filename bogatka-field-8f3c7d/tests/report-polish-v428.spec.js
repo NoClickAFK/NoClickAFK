@@ -23,6 +23,7 @@ function inspectReport(html){
   const doc=new DOMParser().parseFromString(html,'text/html');
   const text=doc.body.textContent||'';
   const styleText=[...doc.querySelectorAll('style')].map(style=>style.textContent||'').join('\n');
+  const appButtons=[...doc.querySelectorAll('button')].filter(button=>!button.closest('.report-actions')).length;
   return {
     semanticDocument:doc.querySelectorAll('.report-document').length,
     semanticLocations:doc.querySelectorAll('.report-location').length,
@@ -30,7 +31,7 @@ function inspectReport(html){
     rawDetails:doc.querySelectorAll('details').length,
     appCards:doc.querySelectorAll('.report-location-card,.location-panels-v419,.inspection-card-v416,.landlord-card-v416,.decision-panel-v412,.economy-v400,.traffic-stage7-v453,.launch-v455').length,
     hiddenBodies:doc.querySelectorAll('.report-location-body[aria-hidden="true"],.location-body[aria-hidden="true"]').length,
-    controls:doc.querySelectorAll('input,select,textarea,button:not(.report-actions button)').length,
+    controls:doc.querySelectorAll('input,select,textarea').length+appButtons,
     runtimeAttrs:doc.querySelectorAll('[data-location-collapse-v422],[data-location-global-aligned-v421],[data-location-data-v452],[data-traffic-competitors-v453],[data-profile-v416],[data-overview-v417],[data-inspection-layout-v461],[data-inspection-layout-v462]').length,
     migrationText:text.includes('Существующие данные сохранены в прежнем объекте competitor'),
     helperText:/Новые шаги создавайте|Каждый замер сохраняется отдельно|Примеры задач|Нужно заполнить|Причина пока не заполнена/.test(text),
@@ -38,7 +39,6 @@ function inspectReport(html){
     dashCount:(text.match(/—/g)||[]).length,
     brokenCss:/,(?:score-scale|collaboration-v|report-progress|report-head|score-label|report-section-body)/.test(styleText),
     text,
-    doc,
   };
 }
 
@@ -49,7 +49,7 @@ function expectFinalSemanticReport(result){
   expect(result.rawDetails).toBe(0);
   expect(result.appCards).toBe(0);
   expect(result.hiddenBodies).toBe(0);
-  expect(result.controls).toBeLessThanOrEqual(1);
+  expect(result.controls).toBe(0);
   expect(result.runtimeAttrs).toBe(0);
   expect(result.migrationText).toBe(false);
   expect(result.helperText).toBe(false);
@@ -72,8 +72,10 @@ test('comparison panel is collapsed after a page reload',async({page})=>{
 
 test('final semantic report export removes workflow-only sections and raw app DOM',async({page})=>{
   await openApp(page);
-  const html=await page.evaluate(()=>window.BogatkaLiveReport.build());
-  const result=await page.evaluate(inspectReport.toString()+`;inspectReport(${JSON.stringify(html)})`);
+  const result=await page.evaluate(async()=>{
+    const html=await window.BogatkaLiveReport.build();
+    return (${inspectReport.toString()})(html);
+  });
 
   expectFinalSemanticReport(result);
   expect(result.text).toContain('Сравнение локаций');
@@ -99,7 +101,7 @@ test('individual final semantic report export keeps authoritative score and reco
     const doc=new DOMParser().parseFromString(html,'text/html');
     const metricValues=[...doc.querySelectorAll('.report-metrics strong')].map(node=>node.textContent.trim());
     const status=doc.querySelector('.report-metrics .report-status')?.textContent?.trim()||'';
-    return {...inspected,metricValues,status,html};
+    return {...inspected,metricValues,status};
   });
 
   expectFinalSemanticReport(result);
@@ -116,8 +118,8 @@ test('fixture snippets from failed production exports are rejected by the report
   await openApp(page);
   const brokenSingle='<!doctype html><style>.score-scale-v331,score-scale-v415{display:grid}.collaboration-v400>.details-body,collaboration-v400>.report-section-body{display:grid}</style><article class="report-location-card" data-location-collapse-v422><div class="report-head-metrics-v428">0 /70 0 /100 0% Недостаточно данных</div><section class="decision-reason-section-v412">Причина решения Нужно заполнить — Причина пока не заполнена</section></article>';
   const brokenFull='<!doctype html><details class="economy-v400"><summary>Экономическая модель и окупаемость</summary></details><div class="report-location-body" aria-hidden="true"></div><p>Существующие данные сохранены в прежнем объекте competitor</p><p>0/24</p>';
-  const single=await page.evaluate(inspectReport.toString()+`;inspectReport(${JSON.stringify(brokenSingle)})`);
-  const full=await page.evaluate(inspectReport.toString()+`;inspectReport(${JSON.stringify(brokenFull)})`);
+  const single=await page.evaluate(html=>(${inspectReport.toString()})(html),brokenSingle);
+  const full=await page.evaluate(html=>(${inspectReport.toString()})(html),brokenFull);
   expect(single.rawDetails+single.appCards+single.runtimeAttrs).toBeGreaterThan(0);
   expect(single.brokenCss).toBe(true);
   expect(single.text).toContain('0 /70');
