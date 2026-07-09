@@ -7,17 +7,18 @@
   let attempts=0;
 
   function loadNextPatch(){
-    const source='./report-stability-v429.js';
-    if(document.querySelector(`script[src="${source}"]`))return;
-    const script=document.createElement('script');
-    script.src=source;
-    script.async=false;
-    document.head.appendChild(script);
+    ['./report-stability-v429.js','./report-finalize-v431.js'].forEach((source,index)=>{
+      if(document.querySelector(`script[src="${source}"]`))return;
+      const script=document.createElement('script');
+      script.src=source;
+      script.async=false;
+      setTimeout(()=>document.head.appendChild(script),index?900:0);
+    });
   }
 
   function claimUnlessSuperseded(builder){
     const active=window.BogatkaLiveReport?.build||window.buildReportHtml;
-    if(active?.__reportStabilityV429)return;
+    if(active?.__reportStabilityV429||active?.__reportFinalizeV431)return;
     claim(builder);
   }
 
@@ -49,6 +50,7 @@
 
   async function buildLocationReportHtml(locationId){
     const api=window.BogatkaLiveReport;
+    if(typeof window.BogatkaReportFinalizeV431?.buildLocationReportHtml==='function')return window.BogatkaReportFinalizeV431.buildLocationReportHtml(locationId);
     const item=findLocation(locationId);
     const sourceCard=document.querySelector(`[data-location-card="${CSS.escape(String(locationId||''))}"]`);
     if(!api?.ready||typeof api.build!=='function'||typeof api.cloneLocation!=='function')throw new Error('Модуль HTML-отчёта ещё не готов.');
@@ -101,6 +103,22 @@
   }
 
   async function exportLocationHtmlReport(locationId){
+    const finalizer=window.BogatkaReportFinalizeV431;
+    if(typeof finalizer?.exportLocationHtmlReport==='function')return finalizer.exportLocationHtmlReport(locationId);
+    if(typeof finalizer?.buildLocationReportHtml==='function'){
+      const item=findLocation(locationId);
+      if(typeof showSaving==='function')showSaving();
+      try{
+        const html=await finalizer.buildLocationReportHtml(locationId);
+        const name=safeFileNamePart(item?.title||item?.address||locationId);
+        downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-location-${name}-${new Date().toISOString().slice(0,10)}.html`);
+        if(typeof showSaved==='function')showSaved();
+        return html;
+      }catch(error){
+        if(typeof showError==='function')showError(error);
+        throw error;
+      }
+    }
     const item=findLocation(locationId);
     if(typeof showSaving==='function')showSaving();
     try{
