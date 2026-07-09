@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=428';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=431';
 
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -8,7 +8,7 @@ async function openApp(page){
   await page.waitForFunction(()=>Boolean(
     window.BogatkaSuite&&
     window.BogatkaDecisionEngine&&
-    window.BogatkaLiveReport?.build?.__reportAuthorityV428&&
+    window.BogatkaLiveReport?.build?.__reportFinalizeV431&&
     window.buildReportHtml===window.BogatkaLiveReport.build
   ),{timeout:20000});
   await expect(page.locator('#app')).toBeVisible();
@@ -27,6 +27,7 @@ test('report keeps decision-stage workflow data, removes launch workflow and exc
   const report=await page.evaluate(async()=>await window.buildReportHtml());
   expect(report).toContain('Получить проект договора');
   expect(report).toContain('Проверить арендные каникулы');
+  expect(report).toContain('Экономическая модель');
   expect(report).not.toContain('Экономическая модель и окупаемость');
   expect(report).not.toContain('Проект открытия магазина');
   expect(report).not.toContain('Договор аренды подписан');
@@ -49,6 +50,6 @@ test('app shell reloads offline after service worker activation',async({page,con
   try{
     await page.reload({waitUntil:'domcontentloaded',timeout:20000});
     await expect(page.locator('#app')).toBeVisible({timeout:10000});
-    await expect(page.locator('#versionLabel')).toHaveText(/^4\.2\.\d+$/);
+    await expect(page.locator('#versionLabel')).toHaveText(/^4\.3\.1$/);
   }finally{await context.setOffline(false)}
 });
