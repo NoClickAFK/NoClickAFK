@@ -48,8 +48,8 @@ verify('version-authority-v426.js',[
   'window.BogatkaVersion',
   'registerVersionedWorker',
   'installVersionedBackup',
-  "version:'4.3.0'",
-  "versionToken:'430'"
+  "version:'4.3.1'",
+  "versionToken:'431'"
 ]);
 
 const functionPath=path.resolve('supabase/functions/bogatka-version/index.ts');
