@@ -7,6 +7,10 @@ let attempts=0;
 const clean=value=>String(value??'').replace(/[\s\u00a0]+/g,' ').trim();
 function safeFileNamePart(value){const normalized=String(value||'location').normalize('NFKD').replace(/[\u0300-\u036f]/g,'');const safe=normalized.replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]+/g,'-').replace(/^-+|-+$/g,'').replace(/-{2,}/g,'-');return(safe||'location').slice(0,72)}
 function removeZeroNoise(doc){
+  doc.querySelectorAll('.report-metrics div').forEach(metric=>{
+    const value=clean(metric.querySelector('strong')?.textContent);
+    if(/^0\s*\/\s*(?:70|100)\b/.test(value)||/^0\s*%$/.test(value))metric.remove();
+  });
   doc.querySelectorAll('.report-field').forEach(field=>{
     const label=clean(field.querySelector('span')?.textContent);
     const value=clean(field.querySelector('strong')?.textContent);
@@ -25,7 +29,7 @@ function removeZeroNoise(doc){
   });
 }
 function premiumizeCover(doc){const cover=doc.querySelector('.report-cover');if(!cover)return;cover.classList.add('report-cover-v432');const eyebrow=cover.querySelector('.report-eyebrow');if(eyebrow)eyebrow.textContent=`Bogatka · premium export · ${VERSION}`;if(!cover.querySelector('.report-cover-orb-v432'))cover.insertAdjacentHTML('afterbegin','<div class="report-cover-orb-v432" aria-hidden="true"></div>')}
-function sectionSubtitle(title){if(title==='Основные сведения')return'адрес, статус, контакт';if(title==='Технические параметры')return'площадь, аренда, инженерия';if(title==='Экономическая модель')return'выручка, маржа, окупаемость';if(title==='Трафик')return'замеры потока';if(title==='Конкуренты')return'окружение и цены';if(title==='Решение')return'решение и аргументация';if(title==='Фотографии')return'фотофиксация';return'детали раздела'}
+function sectionSubtitle(title){if(title==='Основные сведения')return'адрес, статус, контакт';if(title==='Технические параметры')return'площадь, аренда, инженерия';if(title==='Экономическая модель')return'выручка, маржа, Окупаемость';if(title==='Трафик')return'замеры потока';if(title==='Конкуренты')return'окружение и цены';if(title==='Решение')return'решение и аргументация';if(title==='Фотографии')return'фотофиксация';return'детали раздела'}
 function wrapSingleSections(doc){
   doc.querySelectorAll('.report-single-location-v432 .report-section,.report-location:not(.report-location-accordion-v432) > .report-section').forEach((section,index)=>{
     if(section.dataset.reportAccordionV432)return;
