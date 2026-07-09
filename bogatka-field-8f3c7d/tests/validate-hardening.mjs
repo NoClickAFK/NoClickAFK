@@ -48,8 +48,8 @@ verify('version-authority-v426.js',[
   'window.BogatkaVersion',
   'registerVersionedWorker',
   'installVersionedBackup',
-  "version:'4.3.1'",
-  "versionToken:'431'"
+  "version:'4.3.2'",
+  "versionToken:'432'"
 ]);
 
 const functionPath=path.resolve('supabase/functions/bogatka-version/index.ts');
@@ -62,7 +62,7 @@ else{
 }
 
 const sw=read('sw-v340.js');
-for(const asset of ['./version-authority-v426.js','./location-card-collapse-v422.js','./location-card-collapse-v422.css','./location-global-v421.js']){
+for(const asset of ['./version-authority-v426.js','./location-card-collapse-v422.js','./location-card-collapse-v422.css','./location-global-v421.js','./report-finalize-v432.js']){
   if(sw&&!sw.includes(`'${asset}'`))failures.push(`Service Worker does not cache ${asset}`);
 }
 if(sw&&!sw.includes("searchParams.get('v')"))failures.push('Service Worker does not derive its cache revision from the resolved version token');
