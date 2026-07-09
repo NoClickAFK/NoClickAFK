@@ -14,6 +14,7 @@ const read=file=>{
 
 const polish=read('report-polish-v428.js');
 const authority=read('report-authority-v428.js');
+const finalizer=read('report-finalize-v431.js');
 const loader=read('v23.js');
 const worker=read('sw-v340.js');
 const browser=read('tests/report-polish-v428.spec.js');
@@ -50,7 +51,20 @@ for(const marker of [
   'finally',
   'exportHtmlReportV428',
   'openPdfReportV428',
+  './report-finalize-v431.js',
 ])if(!authority.includes(marker))failures.push(`report-authority-v428.js missing ${marker}`);
+
+for(const marker of [
+  "const VERSION='4.3.1'",
+  'renderReport',
+  'report-document',
+  'report-location',
+  'report-section',
+  'report-field-grid',
+  'buildLocationReportHtmlV431',
+  '__reportFinalizeV431',
+  'BogatkaDecisionEngine.computeAll',
+])if(!finalizer.includes(marker))failures.push(`report-finalize-v431.js missing ${marker}`);
 
 const baseLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-live-fixes-v427.js'})");
 const polishLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-polish-v428.js'})");
@@ -59,7 +73,7 @@ if(polishLoad<0)failures.push('v23.js does not load report-polish-v428.js');
 if(authorityLoad<0)failures.push('v23.js does not load report-authority-v428.js');
 if(polishLoad<baseLoad)failures.push('report-polish-v428.js is not loaded after the final v427 report wrapper');
 if(authorityLoad<polishLoad)failures.push('report-authority-v428.js is not loaded after report-polish-v428.js');
-for(const asset of ["'./report-polish-v428.js'","'./report-authority-v428.js'"]){
+for(const asset of ["'./report-polish-v428.js'","'./report-authority-v428.js'","'./report-finalize-v431.js'"]){
   if(!worker.includes(asset))failures.push(`Service Worker does not cache ${asset}`);
 }
 
@@ -67,6 +81,7 @@ for(const marker of [
   'comparison panel is collapsed after a page reload',
   'removes workflow-only sections',
   'use separated grid layouts',
+  'final semantic report export',
 ])if(!browser.includes(marker))failures.push(`Browser regression missing ${marker}`);
 
 if(failures.length){
