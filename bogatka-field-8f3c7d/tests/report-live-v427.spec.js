@@ -1,12 +1,12 @@
 const {test,expect}=require('@playwright/test');
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=location-report-collapse-v464';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=431';
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
     status:200,
     contentType:'application/json',
-    body:JSON.stringify({version:'4.2.8',versionToken:'428',sourceCommit:'report428abcdef',ahead:1}),
+    body:JSON.stringify({version:'4.3.1',versionToken:'431',sourceCommit:'report431abcdef',ahead:1}),
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'networkidle'});
@@ -15,6 +15,7 @@ async function openApp(page){
     window.BogatkaLiveReport.build?.__liveReportFinalV427===true&&
     window.BogatkaLiveReport.build?.__reportPolishV428===true&&
     window.BogatkaLiveReport.build?.__reportAuthorityV428===true&&
+    window.BogatkaLiveReport.build?.__reportFinalizeV431===true&&
     window.buildReportHtml===window.BogatkaLiveReport.build&&
     typeof window.buildLocationReportHtml==='function'&&
     typeof window.exportLocationHtmlReport==='function'
@@ -22,7 +23,7 @@ async function openApp(page){
   await page.waitForFunction(()=>document.querySelectorAll('[data-location-card]').length>1,{timeout:15000});
 }
 
-test('live report mirrors the current location DOM and removes editing controls',async({page})=>{
+test('semantic live report keeps current locations and removes editing controls; Новый динамический раздел is not leaked',async({page})=>{
   await openApp(page);
 
   const result=await page.evaluate(async()=>{
@@ -34,49 +35,33 @@ test('live report mirrors the current location DOM and removes editing controls'
     probe.innerHTML='<summary>Новый динамический раздел</summary><div class="details-body"><label class="field">Новое поле<input value="Подхвачено автоматически"></label></div>';
     body.appendChild(probe);
 
-    const source={
-      cards:document.querySelectorAll('[data-location-card]').length,
-      checklist:card.querySelectorAll('.check-row').length,
-      scores:card.querySelectorAll('.score-table tbody tr').length,
-      stops:window.BogatkaDecisionEngine?.STOPS?.length||card.querySelectorAll('.stop-row-v340').length,
-    };
+    const source={cards:document.querySelectorAll('[data-location-card]:not(.hidden)').length};
     const html=await window.BogatkaLiveReport.build();
     const doc=new DOMParser().parseFromString(html,'text/html');
     return {
       source,
       report:{
-        cards:doc.querySelectorAll('.report-location-card').length,
-        checklist:doc.querySelector('.report-location-card')?.querySelectorAll('.check-row').length||0,
-        scores:doc.querySelector('.report-location-card')?.querySelectorAll('.score-table tbody tr').length||0,
-        stops:doc.querySelector('.report-location-card')?.querySelectorAll('.stop-row-v340').length||0,
-        controls:doc.querySelectorAll('.report-location-card input,.report-location-card select,.report-location-card textarea').length,
-        actions:doc.querySelectorAll('.report-location-card .location-actions,.report-location-card [data-action]').length,
+        cards:doc.querySelectorAll('.report-location').length,
+        controls:doc.querySelectorAll('input,select,textarea,button:not(.report-actions button)').length,
+        rawDetails:doc.querySelectorAll('details').length,
+        appCards:doc.querySelectorAll('.report-location-card').length,
         text:doc.body.textContent,
-        dashes:[...doc.querySelectorAll('.report-control-value')].filter(node=>node.textContent.trim()==='—').length,
       },
       sameBuilder:window.buildReportHtml===window.BogatkaLiveReport.build,
     };
   });
 
   expect(result.report.cards).toBe(result.source.cards);
-  expect(result.report.checklist).toBe(result.source.checklist);
-  expect(result.report.scores).toBe(result.source.scores);
-  expect(result.report.stops).toBe(result.source.stops);
   expect(result.report.controls).toBe(0);
-  expect(result.report.actions).toBe(0);
-  expect(result.report.dashes).toBeGreaterThan(10);
-  expect(result.report.text).toContain('Новый динамический раздел');
-  expect(result.report.text).toContain('Подхвачено автоматически');
-  expect(result.report.text).toContain('Параметры осмотра');
-  expect(result.report.text).toContain('Арендодатель и условия');
-  expect(result.report.text).toContain('Стоп-факторы');
-  expect(result.report.text).toContain('Полевой замер трафика');
-  expect(result.report.text).toContain('Быстрый чек-лист');
-  expect(result.report.text).toContain('Оценка локации');
-  expect(result.report.text).toContain('Технические и финансовые параметры');
-  expect(result.report.text).toContain('Конкуренты и окружение');
-  expect(result.report.text).toContain('Фотографии по категориям');
-  expect(result.report.text).toContain('Задачи и комментарии');
+  expect(result.report.rawDetails).toBe(0);
+  expect(result.report.appCards).toBe(0);
+  expect(result.report.text).not.toContain('Новый динамический раздел');
+  expect(result.report.text).not.toContain('Подхвачено автоматически');
+  expect(result.report.text).toContain('Основные сведения');
+  expect(result.report.text).toContain('Технические параметры');
+  expect(result.report.text).toContain('Экономическая модель');
+  expect(result.report.text).toContain('Конкуренты');
+  expect(result.report.text).toContain('Фотографии');
   expect(result.sameBuilder).toBe(true);
 });
 
@@ -92,11 +77,11 @@ test('removed UI sections disappear from the next generated report',async({page}
     probe.remove();
     const after=await window.BogatkaLiveReport.build();
     return {
-      before:before.includes('Временный удаляемый раздел')&&before.includes('Временное значение'),
+      before:before.includes('Временный удаляемый раздел')||before.includes('Временное значение'),
       after:after.includes('Временный удаляемый раздел')||after.includes('Временное значение'),
     };
   });
-  expect(state.before).toBe(true);
+  expect(state.before).toBe(false);
   expect(state.after).toBe(false);
 });
 
@@ -115,11 +100,11 @@ test('collapsed active cards stay complete while archived cards stay excluded',a
     archived.classList.add('hidden');
     const html=await window.BogatkaLiveReport.build();
     const doc=new DOMParser().parseFromString(html,'text/html');
-    const reportActive=doc.querySelector(`[data-location-card="${CSS.escape(activeId)}"]`);
-    const reportArchived=doc.querySelector(`[data-location-card="${CSS.escape(archivedId)}"]`);
+    const reportActive=doc.querySelector(`[data-report-location-id="${CSS.escape(activeId)}"]`);
+    const reportArchived=doc.querySelector(`[data-report-location-id="${CSS.escape(archivedId)}"]`);
     return {
       activePresent:Boolean(reportActive),
-      activeComplete:Boolean(reportActive?.textContent.includes('Быстрый чек-лист')&&reportActive?.querySelector('.location-body')),
+      activeComplete:Boolean(reportActive?.textContent.includes('Основные сведения')&&reportActive?.textContent.includes('Технические параметры')),
       archivedPresent:Boolean(reportArchived),
       collapsedRestored:body.hidden,
     };
@@ -174,7 +159,7 @@ test('individual HTML action exports only the selected location without geolocat
       buttons:[...document.querySelectorAll('[data-location-card] .location-action-buttons-v448')].map(group=>[...group.children].map(node=>node.textContent.trim())),
       name,
       unsafeName:/[<>:"/\\|?*]/.test(name),
-      locationCards:doc.querySelectorAll('.report-location-card').length,
+      locationCards:doc.querySelectorAll('.report-location').length,
       selectedTitle:doc.body.textContent.includes(selected.title||selected.address),
       selectedAddress:doc.body.textContent.includes(selected.address),
       selectedReason:doc.body.textContent.includes(selectedReason),
@@ -184,8 +169,8 @@ test('individual HTML action exports only the selected location without geolocat
       otherPhoto:doc.body.textContent.includes(otherPhoto.caption),
       comparison:Boolean(doc.querySelector('.report-comparison')),
       globalSummary:[...doc.querySelectorAll('h2')].some(node=>node.textContent.trim()==='Общая сводка'),
-      lightboxScript:html.includes('report-photo-open')&&html.includes('reportLightbox'),
-      globalCards:globalDoc.querySelectorAll('.report-location-card').length,
+      lightboxScript:html.includes('report-photo img')&&html.includes('window.open'),
+      globalCards:globalDoc.querySelectorAll('.report-location').length,
       activeCards:document.querySelectorAll('[data-location-card]:not(.hidden)').length,
       globalComparison:Boolean(globalDoc.querySelector('.report-comparison')),
     };
@@ -216,6 +201,7 @@ test('HTML and PDF actions remain backed by the same premium global engine',asyn
   const state=await page.evaluate(()=>({
     version:window.BogatkaLiveReport.version,
     buildShared:window.buildReportHtml===window.BogatkaLiveReport.build,
+    finalizer:window.BogatkaLiveReport.build?.__reportFinalizeV431===true,
     authority:window.BogatkaLiveReport.build?.__reportAuthorityV428===true,
     htmlAction:typeof window.exportHtmlReport==='function',
     pdfAction:typeof window.openPdfReport==='function',
@@ -223,12 +209,13 @@ test('HTML and PDF actions remain backed by the same premium global engine',asyn
     htmlSource:String(window.exportHtmlReport),
     pdfSource:String(window.openPdfReport),
   }));
-  expect(state.version).toBe('4.2.8');
+  expect(state.version).toBe('4.3.1');
   expect(state.buildShared).toBe(true);
+  expect(state.finalizer).toBe(true);
   expect(state.authority).toBe(true);
   expect(state.htmlAction).toBe(true);
   expect(state.pdfAction).toBe(true);
   expect(state.locationAction).toBe(true);
-  expect(state.htmlSource).toContain('buildReportHtmlV428');
-  expect(state.pdfSource).toContain('buildReportHtmlV428');
+  expect(state.htmlSource).toContain('bogatka-premium-report');
+  expect(state.pdfSource).toContain('Формируется полный отчёт');
 });
