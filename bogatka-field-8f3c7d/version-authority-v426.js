@@ -1,8 +1,8 @@
 const VERSION_CACHE_KEY='bogatka_build_meta_v426';
 const CURRENT_BUILD=Object.freeze({
-  version:'4.3.1',
-  versionToken:'431',
-  sourceCommit:'c5ab965856bf34c53d8000f7628410c44897f7e3',
+  version:'4.3.2',
+  versionToken:'432',
+  sourceCommit:'c5c755fb8489b16f98f55cb3d7593c32c491718b',
   source:'repository',
 });
 const FALLBACK_BUILD=CURRENT_BUILD;
@@ -131,7 +131,7 @@ async function resolveRemoteBuild(){
   );
   const {data,error}=await versionClient.functions.invoke('bogatka-version');
   if(error)throw error;
-  if(!data?.version||!/^\d+\.\d+\.\d+$/.test(data.version))throw new Error('Invalid version response.');
+  if(!data?.version||!/\d+\.\d+\.\d+/.test(data.version))throw new Error('Invalid version response.');
   const build=chooseBuild({...data,cachedAt:Date.now()});
   localStorage.setItem(VERSION_CACHE_KEY,JSON.stringify(build));
   return build;
