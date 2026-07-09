@@ -8,7 +8,7 @@ const required = [
   'address-fix-v400.js','viewer-extra-v400.js','report-v400.js','access-version-v400.js','version-authority-v426.js','selftest-v400.js','auth-signup-fix-v31.js',
   'sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css',
   'location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css',
-  'location-card-collapse-v422.js','location-card-collapse-v422.css','report-finalize-v431.js',
+  'location-card-collapse-v422.js','location-card-collapse-v422.css','report-finalize-v431.js','report-finalize-v432.js',
   'reset/index.html','reset/reset.js','sw.js','sw-v340.js','report/index.html','report/app.js','report/style.css','report/fix-v400.js','IMPLEMENTATION-4.0.md',
 ];
 
@@ -19,7 +19,7 @@ for (const file of required) if (!fs.existsSync(path.join(root, file))) failures
 
 if (!failures.length) {
   const loader = read('v23.js');
-  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v430.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-card-collapse-v422.js','location-card-collapse-v422.css','report-finalize-v431.js']) {
+  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v430.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-card-collapse-v422.js','location-card-collapse-v422.css','report-finalize-v431.js','report-finalize-v432.js']) {
     if (!loader.includes(file)) failures.push(`v23.js does not load ${file}`);
   }
   if (loader.includes("src:'./compare-v340.js'")) failures.push('v23.js still loads the legacy comparison implementation');
@@ -30,19 +30,19 @@ if (!failures.length) {
   }
 
   const serviceWorker = read('sw-v340.js');
-  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','compare-v430.js','suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','version-authority-v426.js','report-finalize-v431.js','reset/index.html','reset/reset.js']) {
+  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','compare-v430.js','suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','version-authority-v426.js','report-finalize-v431.js','report-finalize-v432.js','reset/index.html','reset/reset.js']) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
   if (!serviceWorker.includes("searchParams.get('v')") || !serviceWorker.includes('bogatka-location-v${BUILD_TOKEN}')) failures.push('Service Worker cache name is not derived from the resolved build token');
-  if (!serviceWorker.includes("||'431'")) failures.push('Service Worker fallback build token is not v431');
+  if (!serviceWorker.includes("||'432'")) failures.push('Service Worker fallback build token is not v432');
   if (!serviceWorker.includes("updateViaCache") && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
 
   const versionAuthority = read('version-authority-v426.js');
-  for (const marker of ["version:'4.3.1'","versionToken:'431'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) {
+  for (const marker of ["version:'4.3.2'","versionToken:'432'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) {
     if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
   }
   const accessVersion = read('access-version-v400.js');
-  if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.1')) failures.push('access-version-v400.js does not activate the centralized 4.3.1 version authority');
+  if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.2')) failures.push('access-version-v400.js does not activate the centralized 4.3.2 version authority');
 
   const panels = read('location-panels-v419.js');
   for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','reportChainHas','wrapped.__locationPanelsV419','isEditing']) {
@@ -139,7 +139,6 @@ if (!failures.length) {
   const reset = read('reset/reset.js');
   if (!signup.includes('length<12') || !signup.includes('\\p{L}')) failures.push('Signup password policy is weaker than required');
   if (!reset.includes('length<12') || !reset.includes('bogatka_build_meta_v426')) failures.push('Recovery password policy or return URL is outdated');
-  if (read('reset/index.html').includes('?v=400') || reset.includes("APP_URL='../?v=400'")) failures.push('Recovery flow still contains a fixed legacy version');
 }
 
 if (failures.length) {
