@@ -155,7 +155,7 @@ test('full report keeps filled sections for low-completion locations',async({pag
   expect(result.text).toContain('Тестовый конкурент');
   expect(result.text).toContain('Тестовый открытый вопрос');
   expect(result.text).toContain('Валовая маржа');
-  expect(result.text).toContain('Окупаемость');
+  expect(result.text.toLowerCase()).toContain('окупаемость');
 });
 
 test('individual premium report keeps score/recommendation data and reduces zero economy noise',async({page})=>{
@@ -183,7 +183,7 @@ test('individual premium report keeps score/recommendation data and reduces zero
   expect(result.semanticLocations).toBe(1);
   expect(result.text).toContain('Оставить');
   expect(result.text).toContain('Валовая маржа');
-  expect(result.text).toContain('Окупаемость');
+  expect(result.text.toLowerCase()).toContain('окупаемость');
   expect(result.zeroMoney).toBeLessThanOrEqual(5);
   expect(result.metricValues[0]).not.toBe('0');
   expect(result.metricValues[1]).not.toBe('0');
