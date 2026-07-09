@@ -34,15 +34,15 @@ if (!failures.length) {
     if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   }
   if (!serviceWorker.includes("searchParams.get('v')") || !serviceWorker.includes('bogatka-location-v${BUILD_TOKEN}')) failures.push('Service Worker cache name is not derived from the resolved build token');
-  if (!serviceWorker.includes("||'432'")) failures.push('Service Worker fallback build token is not v432');
+  if (!serviceWorker.includes("||'430'")) failures.push('Service Worker fallback build token is not v430');
   if (!serviceWorker.includes("updateViaCache") && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
 
   const versionAuthority = read('version-authority-v426.js');
-  for (const marker of ["functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) {
+  for (const marker of ["version:'4.3.0'","versionToken:'430'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) {
     if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
   }
   const accessVersion = read('access-version-v400.js');
-  if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority')) failures.push('access-version-v400.js does not activate the centralized version authority');
+  if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.0')) failures.push('access-version-v400.js does not activate the centralized 4.3.0 version authority');
 
   const panels = read('location-panels-v419.js');
   for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','reportChainHas','wrapped.__locationPanelsV419','isEditing']) {
@@ -69,8 +69,13 @@ if (!failures.length) {
     if (!collapseModule.includes(marker)) failures.push(`location-card-collapse-v422.js is missing ${marker}`);
   }
   const collapseCss = read('location-card-collapse-v422.css');
-  for (const marker of ['grid-template-columns: repeat(3, 64px) 50px','height: 64px','font-size: 18px !important','background: #edf6f1 !important','width: 34px','border: 1px solid currentColor !important','.comparison-chevron-v332::before','.location-card-collapsed-v422 > .location-body','border-bottom: 0 !important','.archive-manager-v400']) {
+  for (const marker of ['grid-template-columns: repeat(3, 64px) 50px','height: 64px','font-size: 18px !important','background: #edf6f1 !important','width: 34px','border: 1px solid currentColor !important','.location-card-collapsed-v422 > .location-body','border-bottom: 0 !important','.archive-manager-v400']) {
     if (!collapseCss.includes(marker)) failures.push(`location-card-collapse-v422.css is missing ${marker}`);
+  }
+  if (/^\s*\.comparison-chevron-v332\s*[,{:]/m.test(collapseCss)) failures.push('location-card-collapse-v422.css still owns comparison chevron rules');
+  const visualCss = read('visual-v411.css');
+  for (const marker of ['.comparison-shell-v430','.comparison-chevron-v430::before','[data-open="true"]','.comparison-interaction-ready-v430']) {
+    if (!visualCss.includes(marker)) failures.push(`visual-v411.css is missing canonical comparison shell marker: ${marker}`);
   }
 
   const objectNormalize = read('object-type-normalize-v416.js');
@@ -104,7 +109,8 @@ if (!failures.length) {
   for (const marker of ['.critical-deal-v430>summary::-webkit-details-marker','.economy-v400>summary::-webkit-details-marker','.launch-project-v400>summary::-webkit-details-marker','.critical-deal-v430>summary::marker','.economy-v400>summary::marker','.launch-project-v400>summary::marker','.critical-deal-v430>summary::before','.economy-v400>summary::before','.launch-project-v400>summary::before','border-left:8px solid currentColor','justify-self:end!important']) if (!criticalCss.includes(marker)) failures.push(`critical-deal-v430.css is missing ${marker}`);
   if (criticalCss.includes("content:'▶'")||criticalCss.includes('content:"▶"')) failures.push('critical-deal-v430.css still uses a character-based disclosure icon');
   const comparison = read('compare-v430.js');
-  if (!comparison.includes('Перед арендой') || !comparison.includes('dealGate')) failures.push('compare-v430.js does not expose the lease-check gate');
+  for (const marker of ['Перед арендой','dealGate','comparison-shell-v430','dataset.open','comparison-chevron-v430','BogatkaComparisonV430']) if (!comparison.includes(marker)) failures.push(`compare-v430.js is missing ${marker}`);
+  if (comparison.includes('document.createElement(\'details\')') || comparison.includes('document.createElement("details")')) failures.push('compare-v430.js still creates native details as the comparison state owner');
 
   const decision = read('decision-core-v340.js');
   if (!decision.includes("VERSION='4.3.1'")) failures.push('decision-core-v340.js compatibility version is not 4.3.1');

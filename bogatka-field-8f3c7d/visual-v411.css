@@ -69,8 +69,8 @@
 .summary-grid-v332 .metric span{margin-top:4px;font-size:12px!important;line-height:1.25!important}
 .summary-grid-v332 .metric:has(#storageUsage) strong{font-size:18px!important}
 
-/* Comparison entry: warmer accent, stronger frame, taller target, and clean clipped corners. */
-.comparison-panel-v332{
+/* Canonical comparison shell: section + button, not native details. */
+.comparison-shell-v430{
   margin:13px 0 0!important;
   overflow:clip!important;
   isolation:isolate;
@@ -79,15 +79,15 @@
   background:#fffaf0!important;
   box-shadow:0 10px 26px rgba(111,83,18,.09),0 2px 7px rgba(24,79,58,.035)!important;
 }
-.comparison-panel-v332>summary{
+.comparison-shell-v430>.comparison-toggle-v430{
   min-height:80px!important;
   padding:16px 18px!important;
   border-radius:16px!important;
   background:linear-gradient(180deg,#fffaf0,#fff3d6)!important;
   background-clip:padding-box!important;
 }
-.comparison-panel-v332>summary:hover{background:linear-gradient(180deg,#fff7e8,#ffefc8)!important}
-.comparison-panel-v332[open]>summary{
+.comparison-shell-v430>.comparison-toggle-v430:hover{background:linear-gradient(180deg,#fff7e8,#ffefc8)!important}
+.comparison-shell-v430[data-open="true"]>.comparison-toggle-v430{
   border-bottom:1px solid #e1c982!important;
   border-radius:16px 16px 0 0!important;
   background:linear-gradient(180deg,#fff8e8,#ffedc0)!important;
@@ -95,8 +95,38 @@
 .comparison-summary-copy strong{font-size:17px!important;color:#174f3a!important}
 .comparison-summary-copy small{color:#725f32!important;font-size:12px!important}
 .comparison-count-v332{min-height:33px!important;border-color:#d8bf78!important;background:rgba(255,255,255,.86)!important;color:#5f4b17!important}
-.comparison-chevron-v332::before{transition:none}
-.comparison-panel-v332.comparison-interaction-ready-v430 .comparison-chevron-v332::before{transition:transform .18s ease}
+.comparison-chevron-v430{
+  width:34px!important;
+  height:34px!important;
+  display:grid!important;
+  place-items:center;
+  box-sizing:border-box;
+  border:1px solid #d8b860!important;
+  border-radius:10px;
+  background:#fff6dc!important;
+  box-shadow:0 2px 7px rgba(111,83,18,.10);
+  transform:none!important;
+  transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease!important;
+}
+.comparison-chevron-v430::before{
+  content:"";
+  width:11px;
+  height:11px;
+  box-sizing:border-box;
+  border-right:2px solid #6a541d;
+  border-bottom:2px solid #6a541d;
+  transform:rotate(45deg);
+  transform-origin:center;
+  transition:none;
+}
+.comparison-shell-v430[data-open="true"] .comparison-chevron-v430{transform:none!important}
+.comparison-shell-v430[data-open="true"] .comparison-chevron-v430::before{transform:rotate(225deg)}
+.comparison-shell-v430>.comparison-toggle-v430:hover .comparison-chevron-v430{
+  border-color:#caa43b!important;
+  background:#ffedc0!important;
+  box-shadow:0 4px 10px rgba(111,83,18,.14);
+}
+.comparison-shell-v430.comparison-interaction-ready-v430 .comparison-chevron-v430::before{transition:transform .18s ease}
 
 @media(max-width:760px){
   .collaboration-accordion-trigger-v411{grid-template-columns:minmax(0,1fr) auto 16px;gap:10px;padding:13px 14px}
@@ -111,10 +141,10 @@
   .collaboration-accordion-chevron-v411{grid-column:2;grid-row:1}
   .collaboration-accordion-v411 .invite-history-v408{padding:11px}
   #cloudModal .member-role-field-v410 .premium-select-trigger,#cloudModal .member-save-v410,#cloudModal .member-remove-v410{height:46px!important;min-height:46px!important;max-height:46px!important}
-  .comparison-panel-v332>summary{min-height:84px!important;padding:15px 14px!important}
+  .comparison-shell-v430>.comparison-toggle-v430{min-height:84px!important;padding:15px 14px!important}
 }
 
 @media(prefers-reduced-motion:reduce){
   .collaboration-accordion-panel-v411,.collaboration-accordion-chevron-v411{transition:none}
-  .comparison-panel-v332.comparison-interaction-ready-v430 .comparison-chevron-v332::before{transition:none}
+  .comparison-shell-v430.comparison-interaction-ready-v430 .comparison-chevron-v430::before{transition:none}
 }

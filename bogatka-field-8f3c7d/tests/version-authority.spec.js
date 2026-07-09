@@ -2,7 +2,7 @@ const {test,expect}=require('@playwright/test');
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/';
 
-test('resolved build version controls UI, links and backup metadata',async({page})=>{
+test('repository build version controls UI when remote metadata is older',async({page})=>{
   await page.route('**/functions/v1/bogatka-version',async route=>{
     await route.fulfill({
       status:200,
@@ -23,19 +23,18 @@ test('resolved build version controls UI, links and backup metadata',async({page
     localStorage.removeItem('bogatka_build_meta_v426');
   });
 
-  await page.goto(`${APP}?v=425`,{waitUntil:'domcontentloaded'});
-  await expect(page.locator('#versionLabel')).toHaveText('4.2.6',{timeout:15000});
+  await page.goto(`${APP}?v=430`,{waitUntil:'domcontentloaded'});
+  await expect(page.locator('#versionLabel')).toHaveText('4.3.0',{timeout:15000});
+  await page.waitForFunction(()=>window.BOGATKA_BUILD?.remoteIgnored==='4.2.6',null,{timeout:15000});
 
   const build=await page.evaluate(()=>window.BOGATKA_BUILD);
-  expect(build.version).toBe('4.2.6');
-  expect(build.versionToken).toBe('426');
-  expect(build.sourceCommit).toContain('abcdef1');
+  expect(build.version).toBe('4.3.0');
+  expect(build.versionToken).toBe('430');
+  expect(build.remoteIgnored).toBe('4.2.6');
 
   const generated=await page.evaluate(()=>window.BogatkaVersion.makeAppUrl());
-  expect(generated).toContain('?v=426');
+  expect(generated).toContain('?v=430');
 
   await page.evaluate(()=>{document.getElementById('versionLabel').textContent='4.0.0'});
-  await expect(page.locator('#versionLabel')).toHaveText('4.2.6');
-
-  await page.waitForFunction(()=>window.exportBackup?.__versionedV426===true,null,{timeout:5000});
+  await expect(page.locator('#versionLabel')).toHaveText('4.3.0');
 });

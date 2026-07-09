@@ -4,6 +4,7 @@ const BOGATKA_STATIC_STYLE_MANIFEST=Object.freeze([
   'location-panels-v419.css','location-card-collapse-v422.css','status-next-task-v447.css','card-progress-v448.css','quick-checklist-v451.css','location-data-v452.css',
   'traffic-competitors-v453.css','launch-gate-v454.css','opening-project-v455.css',
 ]);
+const BOGATKA_VISIBLE_VERSION='4.3.0';
 
 function verifyStaticStylesheetManifest(){
   const loaded=new Set([...document.head.querySelectorAll('link[rel="stylesheet"]')].map(link=>new URL(link.href,location.href).pathname.split('/').pop()));
@@ -109,13 +110,7 @@ function installFreshEditorSelectionV463(){
   const states=new WeakMap();
   const capture=(control,focused=document.activeElement===control)=>{
     if(!control?.matches?.(selector))return;
-    states.set(control,{
-      value:'value' in control?String(control.value??''):'',
-      start:typeof control.selectionStart==='number'?control.selectionStart:null,
-      end:typeof control.selectionEnd==='number'?control.selectionEnd:null,
-      direction:control.selectionDirection||'none',
-      focused:Boolean(focused),
-    });
+    states.set(control,{value:'value' in control?String(control.value??''):'',start:typeof control.selectionStart==='number'?control.selectionStart:null,end:typeof control.selectionEnd==='number'?control.selectionEnd:null,direction:control.selectionDirection||'none',focused:Boolean(focused)});
   };
   const root=document.getElementById('locations')||document.body;
   root.addEventListener('input',event=>capture(event.target,true),true);
@@ -159,13 +154,12 @@ function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   verifyStaticStylesheetManifest();
   const versionLabel=document.getElementById('versionLabel');
-  if(versionLabel)versionLabel.textContent='4.0.0';
+  if(versionLabel)versionLabel.textContent=BOGATKA_VISIBLE_VERSION;
   const accessButton=document.getElementById('shareAccessBtn');
   if(accessButton)accessButton.textContent='Пригласить участника';
   upgradeAccessScreen();
   installSyncIntegrityGate();
   installLegacyRentMigrationV425();
-
   loadBogatkaPatch('script',{src:'./auth-v31.js'});
   loadBogatkaPatch('script',{src:'./auth-signup-fix-v31.js'});
   loadBogatkaPatch('script',{src:'./members-v32.js'});
@@ -201,6 +195,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-overview-init-v417.js'});
   loadBogatkaPatch('script',{src:'./location-panels-v419.js'});
   loadBogatkaPatch('script',{src:'./location-panels-render-v419.js'});
+  loadBogatkaPatch('script',{src:'./location-global-v421.js'});
   loadBogatkaPatch('script',{src:'./location-card-collapse-v422.js'});
   loadBogatkaPatch('script',{src:'./report-live-v427.js'});
   loadBogatkaPatch('script',{src:'./report-live-fixes-v427.js'});
@@ -218,9 +213,9 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./location-data-v452.js'});
   loadBogatkaPatch('script',{src:'./location-data-stability-v452.js'});
   loadBogatkaPatch('script',{src:'./durable-fields-v452.js'});
+  loadBogatkaPatch('script',{src:'./selftest-v400.js'});
   ensureWorkflowEnhancements();
   installFreshEditorSelectionV463();
-
   document.addEventListener('keydown',event=>{
     const target=event.target;
     if(event.key!=='Enter')return;

@@ -41,7 +41,7 @@
       }catch(error){add(`syntax ${file}`,false,error?.message||error)}
     }
     const failures=checks.filter(check=>!check.ok);
-    const result={version:'4.0.0',at:new Date().toISOString(),ok:failures.length===0,checks};
+    const result={version:'4.3.0',at:new Date().toISOString(),ok:failures.length===0,checks};
     localStorage.setItem('bogatka_selftest_v400',JSON.stringify(result));
     const statusbar=document.querySelector('.statusbar');
     if(statusbar){

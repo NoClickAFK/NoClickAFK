@@ -140,43 +140,6 @@
 .panel-chevron-v419 { transform: rotate(225deg) !important; transition: none !important; }
 .panel-closed-v419 .panel-chevron-v419 { transform: rotate(45deg) !important; }
 
-.comparison-panel-v332 > summary {
-  grid-template-columns: minmax(0,1fr) auto 36px !important;
-}
-
-.comparison-chevron-v332 {
-  width: 34px !important;
-  height: 34px !important;
-  display: grid !important;
-  place-items: center;
-  box-sizing: border-box;
-  border: 1px solid #d8b860 !important;
-  border-radius: 10px;
-  background: #fff6dc !important;
-  box-shadow: 0 2px 7px rgba(111,83,18,.10);
-  transform: none !important;
-  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease !important;
-}
-
-.comparison-chevron-v332::before {
-  content: "";
-  width: 11px;
-  height: 11px;
-  box-sizing: border-box;
-  border-right: 2px solid #6a541d;
-  border-bottom: 2px solid #6a541d;
-  transform: rotate(45deg);
-  transform-origin: center;
-}
-
-.comparison-panel-v332[open] .comparison-chevron-v332 { transform: none !important; }
-.comparison-panel-v332[open] .comparison-chevron-v332::before { transform: rotate(225deg); }
-.comparison-panel-v332 > summary:hover .comparison-chevron-v332 {
-  border-color: #caa43b !important;
-  background: #ffedc0 !important;
-  box-shadow: 0 4px 10px rgba(111,83,18,.14);
-}
-
 @media (max-width: 900px) {
   .location-head-side-v422 {
     width: 100%;
@@ -214,13 +177,6 @@
   .location-head-side-v422 .decision-score-v340 strong,
   .location-head-side-v422 .decision-complete-v340 strong { font-size: 17px !important; }
   .location-collapse-toggle-v422 { width: 32px; height: 32px; }
-  .comparison-panel-v332 > summary { grid-template-columns: minmax(0,1fr) 34px !important; }
-  .comparison-chevron-v332 {
-    grid-column: 2;
-    grid-row: 1;
-    width: 32px !important;
-    height: 32px !important;
-  }
 }
 
 /* Canonical location header grid: title, collapse control, action buttons and status. */
@@ -344,8 +300,7 @@ html [data-location-card] > .location-head[data-location-header-grid-v422="1"] .
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .location-collapse-chevron-v422,
-  .comparison-chevron-v332 { transition: none !important; }
+  .location-collapse-chevron-v422 { transition: none !important; }
 }
 
 @media print {
