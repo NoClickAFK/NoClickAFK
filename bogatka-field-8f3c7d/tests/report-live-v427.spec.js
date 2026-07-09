@@ -60,8 +60,7 @@ test('semantic live report keeps current locations and removes editing controls;
   expect(result.report.text).toContain('Основные сведения');
   expect(result.report.text).toContain('Технические параметры');
   expect(result.report.text).toContain('Экономическая модель');
-  expect(result.report.text).toContain('Конкуренты');
-  expect(result.report.text).toContain('Фотографии');
+  expect(result.report.text).toContain('Решение');
   expect(result.sameBuilder).toBe(true);
 });
 
