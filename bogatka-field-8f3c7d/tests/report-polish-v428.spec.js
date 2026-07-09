@@ -1,35 +1,61 @@
 const {test,expect}=require('@playwright/test');
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=428';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=431';
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
     status:200,
     contentType:'application/json',
-    body:JSON.stringify({version:'4.2.8',versionToken:'428',sourceCommit:'report428abcdef',ahead:1}),
+    body:JSON.stringify({version:'4.3.1',versionToken:'431',sourceCommit:'report431abcdef',ahead:1}),
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
-    window.BogatkaLiveReport?.build?.__reportPolishV428&&
-    typeof window.BogatkaLiveReport?.polishLocationCard==='function'&&
+    window.BogatkaLiveReport?.build?.__reportFinalizeV431&&
+    typeof window.BogatkaReportFinalizeV431?.renderReport==='function'&&
     typeof window.buildLocationReportHtml==='function'&&
     document.getElementById('locationComparisonPanel')&&
     document.querySelector('[data-location-card]')
-  ),{timeout:20000});
+  ),{timeout:35000});
 }
 
-function expectCleanReportShape(result){
-  expect(result.cards).toBeGreaterThan(0);
-  expect(result.controls).toBe(0);
-  expect(result.actions).toBe(0);
+function inspectReport(html){
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const text=doc.body.textContent||'';
+  const styleText=[...doc.querySelectorAll('style')].map(style=>style.textContent||'').join('\n');
+  return {
+    semanticDocument:doc.querySelectorAll('.report-document').length,
+    semanticLocations:doc.querySelectorAll('.report-location').length,
+    semanticSections:doc.querySelectorAll('.report-section').length,
+    rawDetails:doc.querySelectorAll('details').length,
+    appCards:doc.querySelectorAll('.report-location-card,.location-panels-v419,.inspection-card-v416,.landlord-card-v416,.decision-panel-v412,.economy-v400,.traffic-stage7-v453,.launch-v455').length,
+    hiddenBodies:doc.querySelectorAll('.report-location-body[aria-hidden="true"],.location-body[aria-hidden="true"]').length,
+    controls:doc.querySelectorAll('input,select,textarea,button:not(.report-actions button)').length,
+    runtimeAttrs:doc.querySelectorAll('[data-location-collapse-v422],[data-location-global-aligned-v421],[data-location-data-v452],[data-traffic-competitors-v453],[data-profile-v416],[data-overview-v417],[data-inspection-layout-v461],[data-inspection-layout-v462]').length,
+    migrationText:text.includes('Существующие данные сохранены в прежнем объекте competitor'),
+    helperText:/Новые шаги создавайте|Каждый замер сохраняется отдельно|Примеры задач|Нужно заполнить|Причина пока не заполнена/.test(text),
+    emptyPhotoPlan:(text.match(/0\/24/g)||[]).length,
+    dashCount:(text.match(/—/g)||[]).length,
+    brokenCss:/,(?:score-scale|collaboration-v|report-progress|report-head|score-label|report-section-body)/.test(styleText),
+    text,
+    doc,
+  };
+}
+
+function expectFinalSemanticReport(result){
+  expect(result.semanticDocument).toBe(1);
+  expect(result.semanticLocations).toBeGreaterThan(0);
+  expect(result.semanticSections).toBeGreaterThan(0);
   expect(result.rawDetails).toBe(0);
-  expect(result.taskExamples).toBe(0);
-  expect(result.histories).toBe(0);
-  expect(result.reportSections).toBeGreaterThan(4);
-  expect(result.normalized).toBe(result.cards);
-  expect(result.reportText).not.toContain('Примеры задач');
-  expect(result.reportText).not.toContain('История изменений');
+  expect(result.appCards).toBe(0);
+  expect(result.hiddenBodies).toBe(0);
+  expect(result.controls).toBeLessThanOrEqual(1);
+  expect(result.runtimeAttrs).toBe(0);
+  expect(result.migrationText).toBe(false);
+  expect(result.helperText).toBe(false);
+  expect(result.emptyPhotoPlan).toBe(0);
+  expect(result.dashCount).toBeLessThan(10);
+  expect(result.brokenCss).toBe(false);
 }
 
 test('comparison panel is collapsed after a page reload',async({page})=>{
@@ -40,93 +66,65 @@ test('comparison panel is collapsed after a page reload',async({page})=>{
   await expect(panel).toHaveAttribute('open','');
 
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>Boolean(window.BogatkaLiveReport?.build?.__reportPolishV428&&document.getElementById('locationComparisonPanel')),{timeout:20000});
+  await page.waitForFunction(()=>Boolean(window.BogatkaLiveReport?.build?.__reportFinalizeV431&&document.getElementById('locationComparisonPanel')),{timeout:35000});
   await expect(page.locator('#locationComparisonPanel')).not.toHaveAttribute('open','');
 });
 
-test('report keeps compact comparison and removes workflow-only sections',async({page})=>{
+test('final semantic report export removes workflow-only sections and raw app DOM',async({page})=>{
   await openApp(page);
-  const result=await page.evaluate(async()=>{
-    const panel=document.getElementById('locationComparisonPanel');
-    panel.open=false;
-    const html=await window.BogatkaLiveReport.build();
-    const doc=new DOMParser().parseFromString(html,'text/html');
-    const first=doc.querySelector('.report-location-card');
-    return {
-      cards:doc.querySelectorAll('.report-location-card').length,
-      normalized:doc.querySelectorAll('.report-location-normalized-v430').length,
-      panelOpenAfterBuild:panel.open,
-      compactComparison:doc.querySelectorAll('.report-comparison-table').length,
-      detailedComparison:doc.querySelectorAll('.report-detailed-comparison').length,
-      metrics:first?.querySelectorAll('.report-head-metric-v428').length||0,
-      status:first?.querySelectorAll('.report-head-status-v428').length||0,
-      reportSections:first?.querySelectorAll('.report-export-section-v430').length||0,
-      rawDetails:first?.querySelectorAll('details').length||0,
-      controls:doc.querySelectorAll('.report-location-card input,.report-location-card select,.report-location-card textarea').length,
-      actions:doc.querySelectorAll('.report-location-card .location-actions,.report-location-card [data-action],.report-location-card button:not(.report-photo-open)').length,
-      economies:doc.querySelectorAll('.economy-v400').length,
-      launches:doc.querySelectorAll('.launch-project-v400').length,
-      histories:doc.querySelectorAll('[data-collab-pane="history"],.history-list-v400,.history-item-v400').length,
-      taskExamples:doc.querySelectorAll('.task-examples-v414,.task-form-help-v414,[data-task-examples],[data-task-examples-v414]').length,
-      technicalDecisionCopy:doc.querySelectorAll('.decision-copy-v412 p').length,
-      technicalOverview:doc.querySelectorAll('.decision-overview-v340').length,
-      collaborationTitle:first?.querySelector('.collaboration-v400>.report-section-header')?.textContent?.trim()||'',
-      reportText:doc.body.textContent,
-      html,
-    };
-  });
+  const html=await page.evaluate(()=>window.BogatkaLiveReport.build());
+  const result=await page.evaluate(inspectReport.toString()+`;inspectReport(${JSON.stringify(html)})`);
 
-  expectCleanReportShape(result);
-  expect(result.panelOpenAfterBuild).toBe(false);
-  expect(result.compactComparison).toBe(1);
-  expect(result.detailedComparison).toBe(0);
-  expect(result.metrics).toBe(3);
-  expect(result.status).toBe(1);
-  expect(result.economies).toBe(0);
-  expect(result.launches).toBe(0);
-  expect(result.technicalDecisionCopy).toBe(0);
-  expect(result.technicalOverview).toBe(0);
-  expect(result.collaborationTitle).toBe('Задачи и комментарии');
-  expect(result.reportText).not.toContain('Полная таблица сравнения');
-  expect(result.reportText).not.toContain('Примеры задач — нажмите');
-  expect(result.reportText).not.toContain('Проект открытия магазина');
-  expect(result.reportText).not.toContain('Экономическая модель и окупаемость');
+  expectFinalSemanticReport(result);
+  expect(result.text).toContain('Сравнение локаций');
+  expect(result.text).not.toContain('Полная таблица сравнения');
+  expect(result.text).not.toContain('Экономическая модель и окупаемость');
 });
 
-test('individual export keeps the selected card normalized instead of inserting a raw clone',async({page})=>{
+test('individual final semantic report export keeps authoritative score and recommendation data',async({page})=>{
   await openApp(page);
   const result=await page.evaluate(async()=>{
     const selected=locations.find(item=>!item.archivedAt);
     const data=await getLocationData(selected.id);
     data.decision='Оставить';
-    data.decisionReason='Проверочная причина решения для одного отчёта';
+    data.decisionReason='';
+    data.status='Осмотрено';
+    data.objectType='Торговое помещение';
+    data.score={housing:4,occupied:4,foot:4,car:3,parking:4,stop:4,anchor:3,visibility:4,sign:3,loading:3,condition:4,storage:3,competition:3,overall:4};
+    data.tech={...(data.tech||{}),totalArea:'80',rentPerMonth:'3000',powerKw:'15'};
     await idbPut(STORE,data,`location:${selected.id}`);
-    const control=document.querySelector(`[data-location-card="${CSS.escape(selected.id)}"] [data-field="decisionReason"]`);
-    if(control)control.value=data.decisionReason;
-
+    if(typeof updateSummary==='function')await updateSummary();
     const html=await window.buildLocationReportHtml(selected.id);
+    const inspected=(${inspectReport.toString()})(html);
     const doc=new DOMParser().parseFromString(html,'text/html');
-    return {
-      cards:doc.querySelectorAll('.report-location-card').length,
-      normalized:doc.querySelectorAll('.report-location-normalized-v430').length,
-      reportSections:doc.querySelectorAll('.report-location-card .report-export-section-v430').length,
-      controls:doc.querySelectorAll('.report-location-card input,.report-location-card select,.report-location-card textarea').length,
-      actions:doc.querySelectorAll('.report-location-card .location-actions,.report-location-card [data-action],.report-location-card button:not(.report-photo-open)').length,
-      rawDetails:doc.querySelectorAll('.report-location-card details').length,
-      taskExamples:doc.querySelectorAll('.task-examples-v414,[data-task-examples],[data-task-examples-v414]').length,
-      histories:doc.querySelectorAll('[data-collab-pane="history"],.history-list-v400,.history-item-v400').length,
-      comparison:Boolean(doc.querySelector('.report-comparison')),
-      globalSummary:[...doc.querySelectorAll('h2')].some(node=>node.textContent.trim()==='Общая сводка'),
-      reason:doc.body.textContent.includes(data.decisionReason),
-      reportText:doc.body.textContent,
-    };
+    const metricValues=[...doc.querySelectorAll('.report-metrics strong')].map(node=>node.textContent.trim());
+    const status=doc.querySelector('.report-metrics .report-status')?.textContent?.trim()||'';
+    return {...inspected,metricValues,status,html};
   });
 
-  expectCleanReportShape(result);
-  expect(result.cards).toBe(1);
-  expect(result.comparison).toBe(false);
-  expect(result.globalSummary).toBe(false);
-  expect(result.reason).toBe(true);
+  expectFinalSemanticReport(result);
+  expect(result.semanticLocations).toBe(1);
+  expect(result.text).toContain('Оставить');
+  expect(result.text).toContain('Причина решения не заполнена.');
+  expect(result.metricValues[0]).not.toBe('0');
+  expect(result.metricValues[1]).not.toBe('0');
+  expect(result.metricValues[2]).not.toBe('0%');
+  expect(result.status).not.toBe('Недостаточно данных');
+});
+
+test('fixture snippets from failed production exports are rejected by the report regression rules',async({page})=>{
+  await openApp(page);
+  const brokenSingle='<!doctype html><style>.score-scale-v331,score-scale-v415{display:grid}.collaboration-v400>.details-body,collaboration-v400>.report-section-body{display:grid}</style><article class="report-location-card" data-location-collapse-v422><div class="report-head-metrics-v428">0 /70 0 /100 0% Недостаточно данных</div><section class="decision-reason-section-v412">Причина решения Нужно заполнить — Причина пока не заполнена</section></article>';
+  const brokenFull='<!doctype html><details class="economy-v400"><summary>Экономическая модель и окупаемость</summary></details><div class="report-location-body" aria-hidden="true"></div><p>Существующие данные сохранены в прежнем объекте competitor</p><p>0/24</p>';
+  const single=await page.evaluate(inspectReport.toString()+`;inspectReport(${JSON.stringify(brokenSingle)})`);
+  const full=await page.evaluate(inspectReport.toString()+`;inspectReport(${JSON.stringify(brokenFull)})`);
+  expect(single.rawDetails+single.appCards+single.runtimeAttrs).toBeGreaterThan(0);
+  expect(single.brokenCss).toBe(true);
+  expect(single.text).toContain('0 /70');
+  expect(full.rawDetails).toBeGreaterThan(0);
+  expect(full.hiddenBodies).toBeGreaterThan(0);
+  expect(full.migrationText).toBe(true);
+  expect(full.emptyPhotoPlan).toBeGreaterThan(0);
 });
 
 test('report score, collaboration and decision blocks use separated grid layouts',async({page,context})=>{
@@ -143,25 +141,20 @@ test('report score, collaboration and decision blocks use separated grid layouts
       return {display:style.display,columns:style.gridTemplateColumns,gap:style.gap,breakInside:style.breakInside};
     };
     return {
-      head:styleOf('.report-head-metrics-v428'),
-      scoreScale:styleOf('.score-scale-v331,.score-scale-v415'),
-      scoreGuidance:styleOf('.score-label-v414>small'),
-      collaboration:styleOf('.collaboration-v400>.report-section-body'),
-      decision:styleOf('.decision-actions-v412'),
-      section:styleOf('.report-export-section-v430'),
+      metrics:styleOf('.report-metrics'),
+      fields:styleOf('.report-field-grid'),
+      section:styleOf('.report-section'),
+      location:styleOf('.report-location'),
     };
   });
 
-  expect(styles.head?.display).toBe('grid');
-  expect(styles.head?.columns.split(' ').length).toBe(3);
-  expect(styles.scoreScale?.display).toBe('grid');
-  expect(styles.scoreGuidance?.display).toBe('grid');
-  expect(styles.collaboration?.display).toBe('grid');
-  expect(styles.decision?.display).toBe('grid');
+  expect(styles.metrics?.display).toBe('grid');
+  expect(styles.fields?.display).toBe('grid');
   expect(styles.section?.display).toBe('block');
+  expect(styles.location?.display).toBe('block');
 });
 
-test('export report desktop and print CSS keep cards unclipped and actions print-hidden',async({page,context})=>{
+test('export report desktop, mobile and print CSS keep semantic cards unclipped',async({page,context})=>{
   await openApp(page);
   const html=await page.evaluate(()=>window.BogatkaLiveReport.build());
   const reportPage=await context.newPage({viewport:{width:1440,height:1200}});
@@ -169,20 +162,23 @@ test('export report desktop and print CSS keep cards unclipped and actions print
 
   const desktop=await reportPage.evaluate(()=>({
     overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
-    sectionDisplay:getComputedStyle(document.querySelector('.report-export-section-v430')).display,
-    bodyDisplay:getComputedStyle(document.querySelector('.report-export-section-v430>.report-section-body')).display,
+    actions:getComputedStyle(document.querySelector('.report-actions')).display,
+    sectionDisplay:getComputedStyle(document.querySelector('.report-section')).display,
   }));
   expect(desktop.overflow).toBeLessThanOrEqual(1);
   expect(desktop.sectionDisplay).toBe('block');
-  expect(desktop.bodyDisplay).toBe('block');
+
+  await reportPage.setViewportSize({width:390,height:900});
+  const mobile=await reportPage.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+  expect(mobile).toBeLessThanOrEqual(1);
 
   await reportPage.emulateMedia({media:'print'});
   const print=await reportPage.evaluate(()=>({
     actions:getComputedStyle(document.querySelector('.report-actions')).display,
     pageStyle:[...document.styleSheets].some(sheet=>[...(sheet.cssRules||[])].some(rule=>String(rule.cssText).includes('@page')&&String(rule.cssText).includes('A4 portrait'))),
-    sectionBreak:getComputedStyle(document.querySelector('.report-export-section-v430')).breakInside,
+    locationBreak:getComputedStyle(document.querySelector('.report-location')).breakInside,
   }));
   expect(print.actions).toBe('none');
   expect(print.pageStyle).toBe(true);
-  expect(['avoid','avoid-page']).toContain(print.sectionBreak);
+  expect(['avoid','avoid-page']).toContain(print.locationBreak);
 });
