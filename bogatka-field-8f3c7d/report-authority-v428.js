@@ -7,19 +7,13 @@
   let attempts=0;
 
   function loadNextPatch(){
-    ['./report-stability-v429.js','./report-finalize-v431.js'].forEach((source,index)=>{
+    ['./report-stability-v429.js','./report-finalize-v431.js','./report-finalize-v432.js'].forEach((source,index)=>{
       if(document.querySelector(`script[src="${source}"]`))return;
       const script=document.createElement('script');
       script.src=source;
       script.async=false;
-      setTimeout(()=>document.head.appendChild(script),index?900:0);
+      setTimeout(()=>document.head.appendChild(script),index?900*index:0);
     });
-  }
-
-  function claimUnlessSuperseded(builder){
-    const active=window.BogatkaLiveReport?.build||window.buildReportHtml;
-    if(active?.__reportStabilityV429||active?.__reportFinalizeV431)return;
-    claim(builder);
   }
 
   function findLocation(id){
@@ -34,91 +28,19 @@
     return (safe||'location').slice(0,72);
   }
 
-  function replaceCover(documentReport,{item,data,global,recommendation,generatedAt}){
-    const cover=documentReport.querySelector('.report-cover');
-    if(!cover)return;
-    const title=item.title||item.address||'Локация';
-    const decision=data?.decision||recommendation||'Не выбрано';
-    cover.innerHTML=`<h1>Отчёт по локации «Богатка»</h1><p class="report-subtitle">${escapeHtml(title)}</p><div class="report-cover-grid"><div><span>Адрес</span><strong>${escapeHtml(item.address||'—')}</strong></div><div><span>Кто проводил осмотр</span><strong>${escapeHtml(global?.inspector||'—')}</strong></div><div><span>Сформирован</span><strong>${escapeHtml(generatedAt.toLocaleString('ru-RU'))}</strong></div><div><span>Рекомендация / решение</span><strong>${escapeHtml(decision)}</strong></div></div>`;
-  }
-
-  function runLocationPolish(api,documentReport,card){
-    if(!card)return card;
-    if(typeof api?.polishLocationCard==='function')api.polishLocationCard(documentReport,card);
-    return card;
+  function finalizer(){
+    return window.BogatkaReportFinalizeV432||window.BogatkaReportFinalizeV431||null;
   }
 
   async function buildLocationReportHtml(locationId){
-    const api=window.BogatkaLiveReport;
-    if(typeof window.BogatkaReportFinalizeV431?.buildLocationReportHtml==='function')return window.BogatkaReportFinalizeV431.buildLocationReportHtml(locationId);
-    const item=findLocation(locationId);
-    const sourceCard=document.querySelector(`[data-location-card="${CSS.escape(String(locationId||''))}"]`);
-    if(!api?.ready||typeof api.build!=='function'||typeof api.cloneLocation!=='function')throw new Error('Модуль HTML-отчёта ещё не готов.');
-    if(!item||!sourceCard)throw new Error('Локация для отчёта не найдена.');
-
-    const finalHtml=await api.build();
-    const parser=new DOMParser();
-    let documentReport=parser.parseFromString(finalHtml,'text/html');
-    const finalCard=documentReport.querySelector(`.report-location-card[data-location-card="${CSS.escape(locationId)}"]`);
-    if(!finalCard)throw new Error('Не удалось подготовить выбранную локацию для отчёта.');
-
-    const body=sourceCard.querySelector(':scope > .location-body');
-    const wasHidden=Boolean(body?.hidden);
-    if(body&&wasHidden)body.removeAttribute('hidden');
-    let completeCard;
-    try{
-      const photos=await idbAll(PHOTO_STORE);
-      completeCard=await api.cloneLocation(sourceCard,photos);
-    }finally{
-      if(body&&wasHidden)body.setAttribute('hidden','');
-    }
-
-    const freshBody=completeCard.querySelector(':scope > .location-body,:scope > .report-location-body');
-    const existingBody=finalCard.querySelector(':scope > .location-body,:scope > .report-location-body');
-    if(freshBody&&existingBody){
-      freshBody.classList.add('report-location-body');
-      existingBody.replaceWith(freshBody);
-    }
-    runLocationPolish(api,documentReport,finalCard);
-
-    documentReport.querySelectorAll('.report-location-card').forEach(card=>{
-      if(card.dataset.locationCard!==locationId)card.remove();
-    });
-    documentReport.querySelectorAll('main.report-shell > .report-section').forEach(section=>section.remove());
-
-    const global=await idbGet(STORE,'global')||{};
-    const data=await getLocationData(locationId);
-    const recommendation=finalCard.querySelector('.report-head-status-v428,.recommendation-status-v448,.decision-recommendation-v340')?.textContent?.trim()||'';
-    const generatedAt=new Date();
-    replaceCover(documentReport,{item,data,global,recommendation,generatedAt});
-    documentReport.title=`Отчёт по локации — ${item.title||item.address||'Богатка'}`;
-    const footer=documentReport.querySelector('.report-meta-footer');
-    if(footer)footer.textContent=`Отчёт по выбранной локации сформирован приложением «Богатка» · ${generatedAt.toLocaleString('ru-RU')}`;
-
-    if(typeof api.polishReportStabilityHtml==='function'){
-      documentReport=parser.parseFromString(api.polishReportStabilityHtml(`<!doctype html>\n${documentReport.documentElement.outerHTML}`),'text/html');
-    }
-
-    return `<!doctype html>\n${documentReport.documentElement.outerHTML}`;
+    const api=finalizer();
+    if(typeof api?.buildLocationReportHtml==='function')return api.buildLocationReportHtml(locationId);
+    throw new Error('Финальный модуль HTML-отчёта ещё не готов.');
   }
 
   async function exportLocationHtmlReport(locationId){
-    const finalizer=window.BogatkaReportFinalizeV431;
-    if(typeof finalizer?.exportLocationHtmlReport==='function')return finalizer.exportLocationHtmlReport(locationId);
-    if(typeof finalizer?.buildLocationReportHtml==='function'){
-      const item=findLocation(locationId);
-      if(typeof showSaving==='function')showSaving();
-      try{
-        const html=await finalizer.buildLocationReportHtml(locationId);
-        const name=safeFileNamePart(item?.title||item?.address||locationId);
-        downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-location-${name}-${new Date().toISOString().slice(0,10)}.html`);
-        if(typeof showSaved==='function')showSaved();
-        return html;
-      }catch(error){
-        if(typeof showError==='function')showError(error);
-        throw error;
-      }
-    }
+    const api=finalizer();
+    if(typeof api?.exportLocationHtmlReport==='function')return api.exportLocationHtmlReport(locationId);
     const item=findLocation(locationId);
     if(typeof showSaving==='function')showSaving();
     try{
@@ -131,6 +53,12 @@
       if(typeof showError==='function')showError(error);
       throw error;
     }
+  }
+
+  function claimUnlessSuperseded(builder){
+    const active=window.BogatkaLiveReport?.build||window.buildReportHtml;
+    if(active?.__reportStabilityV429||active?.__reportFinalizeV431||active?.__reportFinalizeV432)return;
+    claim(builder);
   }
 
   function install(){
@@ -155,6 +83,7 @@
       const html=await buildReportHtmlV428();
       downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-premium-report-${new Date().toISOString().slice(0,10)}.html`);
       if(typeof showSaved==='function')showSaved();
+      return html;
     };
 
     const openPdfReportV428=async function(){
@@ -181,11 +110,7 @@
     };
 
     buildReportHtmlV428=async function(...args){
-      try{
-        return await baseBuild(...args);
-      }finally{
-        claimUnlessSuperseded(buildReportHtmlV428);
-      }
+      try{return await baseBuild(...args)}finally{claimUnlessSuperseded(buildReportHtmlV428)}
     };
 
     buildReportHtmlV428.__reportAuthorityV428=true;
@@ -218,11 +143,7 @@
     window.openPdfReport=builder.__pdfAction;
     window.buildLocationReportHtml=buildLocationReportHtml;
     window.exportLocationHtmlReport=exportLocationHtmlReport;
-    try{
-      buildReportHtml=window.buildReportHtml;
-      exportHtmlReport=window.exportHtmlReport;
-      openPdfReport=window.openPdfReport;
-    }catch(_){ }
+    try{buildReportHtml=window.buildReportHtml;exportHtmlReport=window.exportHtmlReport;openPdfReport=window.openPdfReport}catch(_){ }
   }
 
   install();
