@@ -103,7 +103,22 @@
   }
 
   async function exportLocationHtmlReport(locationId){
-    if(typeof window.BogatkaReportFinalizeV431?.buildLocationReportHtml==='function')return window.exportLocationHtmlReport(locationId);
+    const finalizer=window.BogatkaReportFinalizeV431;
+    if(typeof finalizer?.exportLocationHtmlReport==='function')return finalizer.exportLocationHtmlReport(locationId);
+    if(typeof finalizer?.buildLocationReportHtml==='function'){
+      const item=findLocation(locationId);
+      if(typeof showSaving==='function')showSaving();
+      try{
+        const html=await finalizer.buildLocationReportHtml(locationId);
+        const name=safeFileNamePart(item?.title||item?.address||locationId);
+        downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-location-${name}-${new Date().toISOString().slice(0,10)}.html`);
+        if(typeof showSaved==='function')showSaved();
+        return html;
+      }catch(error){
+        if(typeof showError==='function')showError(error);
+        throw error;
+      }
+    }
     const item=findLocation(locationId);
     if(typeof showSaving==='function')showSaving();
     try{
