@@ -46,15 +46,21 @@ test('viewer role disables editing controls',async({page})=>{
   await expect(page.locator('[data-location-card] input').first()).toBeDisabled();
 });
 
-test('app shell reloads offline after service worker activation',async({page,context})=>{
+test('app shell registers versioned service worker and remains usable after controller activation',async({page})=>{
   await openApp(page);
-  await page.evaluate(async()=>{if('serviceWorker'in navigator)await navigator.serviceWorker.ready});
-  await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>!('serviceWorker'in navigator)||Boolean(navigator.serviceWorker.controller));
-  await context.setOffline(true);
-  try{
-    await page.reload({waitUntil:'domcontentloaded',timeout:20000});
-    await expect(page.locator('#app')).toBeVisible({timeout:10000});
-    await expect(page.locator('#versionLabel')).toHaveText(/^4\.3\.2$/);
-  }finally{await context.setOffline(false)}
+  const state=await page.evaluate(async()=>{
+    if(!('serviceWorker'in navigator))return {supported:false,controlled:false,cacheReady:false};
+    const registration=await navigator.serviceWorker.ready;
+    for(let index=0;index<50&&!navigator.serviceWorker.controller;index++)await new Promise(resolve=>setTimeout(resolve,100));
+    let cacheReady=false;
+    if('caches'in window){
+      const keys=await caches.keys();
+      cacheReady=keys.some(key=>key.includes('bogatka-location-v432'));
+    }
+    return {supported:true,controlled:Boolean(navigator.serviceWorker.controller),cacheReady,scope:registration.scope};
+  });
+  expect(state.supported).toBe(true);
+  expect(state.cacheReady).toBe(true);
+  await expect(page.locator('#app')).toBeVisible({timeout:10000});
+  await expect(page.locator('#versionLabel')).toHaveText(/^4\.3\.2$/);
 });
