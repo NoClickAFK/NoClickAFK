@@ -7,17 +7,18 @@
   let attempts=0;
 
   function loadNextPatch(){
-    const source='./report-stability-v429.js';
-    if(document.querySelector(`script[src="${source}"]`))return;
-    const script=document.createElement('script');
-    script.src=source;
-    script.async=false;
-    document.head.appendChild(script);
+    ['./report-stability-v429.js','./report-finalize-v431.js'].forEach((source,index)=>{
+      if(document.querySelector(`script[src="${source}"]`))return;
+      const script=document.createElement('script');
+      script.src=source;
+      script.async=false;
+      setTimeout(()=>document.head.appendChild(script),index?900:0);
+    });
   }
 
   function claimUnlessSuperseded(builder){
     const active=window.BogatkaLiveReport?.build||window.buildReportHtml;
-    if(active?.__reportStabilityV429)return;
+    if(active?.__reportStabilityV429||active?.__reportFinalizeV431)return;
     claim(builder);
   }
 
@@ -49,6 +50,7 @@
 
   async function buildLocationReportHtml(locationId){
     const api=window.BogatkaLiveReport;
+    if(typeof window.BogatkaReportFinalizeV431?.buildLocationReportHtml==='function')return window.BogatkaReportFinalizeV431.buildLocationReportHtml(locationId);
     const item=findLocation(locationId);
     const sourceCard=document.querySelector(`[data-location-card="${CSS.escape(String(locationId||''))}"]`);
     if(!api?.ready||typeof api.build!=='function'||typeof api.cloneLocation!=='function')throw new Error('Модуль HTML-отчёта ещё не готов.');
@@ -101,6 +103,7 @@
   }
 
   async function exportLocationHtmlReport(locationId){
+    if(typeof window.BogatkaReportFinalizeV431?.buildLocationReportHtml==='function')return window.exportLocationHtmlReport(locationId);
     const item=findLocation(locationId);
     if(typeof showSaving==='function')showSaving();
     try{
