@@ -81,6 +81,7 @@ jobs:
       - name: Run changed-domain tests
         if: steps.select.outputs.count != '0'
         run: |
+          set -o pipefail
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
@@ -88,7 +89,7 @@ jobs:
             curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
             sleep 1
           done
-          xargs -a /tmp/selected-tests.txt npx playwright test --workers=1 --reporter=line | tee /tmp/bogatka-feature-tests.log
+          xargs -a /tmp/selected-tests.txt npx playwright test --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-feature-tests.log
 
       - name: Upload report export review artifacts
         if: always()
