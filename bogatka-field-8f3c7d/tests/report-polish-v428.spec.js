@@ -42,6 +42,13 @@ function inspectReport(html){
   };
 }
 
+async function inspectInPage(page,html){
+  return page.evaluate(({source,html})=>{
+    const inspect=(new Function(`return (${source});`))();
+    return inspect(html);
+  },{source:inspectReport.toString(),html});
+}
+
 function expectFinalSemanticReport(result){
   expect(result.semanticDocument).toBe(1);
   expect(result.semanticLocations).toBeGreaterThan(0);
@@ -72,10 +79,8 @@ test('comparison panel is collapsed after a page reload',async({page})=>{
 
 test('final semantic report export removes workflow-only sections and raw app DOM',async({page})=>{
   await openApp(page);
-  const result=await page.evaluate(async()=>{
-    const html=await window.BogatkaLiveReport.build();
-    return (${inspectReport.toString()})(html);
-  });
+  const html=await page.evaluate(()=>window.BogatkaLiveReport.build());
+  const result=await inspectInPage(page,html);
 
   expectFinalSemanticReport(result);
   expect(result.text).toContain('Сравнение локаций');
@@ -85,7 +90,7 @@ test('final semantic report export removes workflow-only sections and raw app DO
 
 test('individual final semantic report export keeps authoritative score and recommendation data',async({page})=>{
   await openApp(page);
-  const result=await page.evaluate(async()=>{
+  const generated=await page.evaluate(async()=>{
     const selected=locations.find(item=>!item.archivedAt);
     const data=await getLocationData(selected.id);
     data.decision='Оставить';
@@ -97,12 +102,12 @@ test('individual final semantic report export keeps authoritative score and reco
     await idbPut(STORE,data,`location:${selected.id}`);
     if(typeof updateSummary==='function')await updateSummary();
     const html=await window.buildLocationReportHtml(selected.id);
-    const inspected=(${inspectReport.toString()})(html);
     const doc=new DOMParser().parseFromString(html,'text/html');
     const metricValues=[...doc.querySelectorAll('.report-metrics strong')].map(node=>node.textContent.trim());
     const status=doc.querySelector('.report-metrics .report-status')?.textContent?.trim()||'';
-    return {...inspected,metricValues,status};
+    return {html,metricValues,status};
   });
+  const result={...(await inspectInPage(page,generated.html)),metricValues:generated.metricValues,status:generated.status};
 
   expectFinalSemanticReport(result);
   expect(result.semanticLocations).toBe(1);
@@ -118,8 +123,8 @@ test('fixture snippets from failed production exports are rejected by the report
   await openApp(page);
   const brokenSingle='<!doctype html><style>.score-scale-v331,score-scale-v415{display:grid}.collaboration-v400>.details-body,collaboration-v400>.report-section-body{display:grid}</style><article class="report-location-card" data-location-collapse-v422><div class="report-head-metrics-v428">0 /70 0 /100 0% Недостаточно данных</div><section class="decision-reason-section-v412">Причина решения Нужно заполнить — Причина пока не заполнена</section></article>';
   const brokenFull='<!doctype html><details class="economy-v400"><summary>Экономическая модель и окупаемость</summary></details><div class="report-location-body" aria-hidden="true"></div><p>Существующие данные сохранены в прежнем объекте competitor</p><p>0/24</p>';
-  const single=await page.evaluate(html=>(${inspectReport.toString()})(html),brokenSingle);
-  const full=await page.evaluate(html=>(${inspectReport.toString()})(html),brokenFull);
+  const single=await inspectInPage(page,brokenSingle);
+  const full=await inspectInPage(page,brokenFull);
   expect(single.rawDetails+single.appCards+single.runtimeAttrs).toBeGreaterThan(0);
   expect(single.brokenCss).toBe(true);
   expect(single.text).toContain('0 /70');
