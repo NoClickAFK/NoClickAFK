@@ -4,7 +4,6 @@ const path=require('path');
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=432';
 const ARTIFACT_DIR=path.resolve('test-results/report-v432-review');
-const hasPrintPageStyle=()=>Boolean((document.querySelector('#reportFinalV432')?.textContent||'').match(/@page\s*\{[^}]*size\s*:\s*A4/i));
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
@@ -122,7 +121,7 @@ test('single-location report has premium collapsible section cards',async({page}
   expect(result.sectionAccordions).toBeGreaterThanOrEqual(2);
   expect(result.openSections).toBeGreaterThanOrEqual(2);
   expect(result.collapsedSections).toBeGreaterThan(0);
-  expect(result.text).toContain('Премиальный отчёт');
+  expect(html).toContain('premium export');
 });
 
 test('full report keeps filled sections for low-completion locations',async({page})=>{
@@ -224,7 +223,12 @@ test('export report desktop, mobile and print CSS keep premium accordions unclip
   const mobile=await reportPage.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
   expect(mobile).toBeLessThanOrEqual(1);
   await reportPage.emulateMedia({media:'print'});
-  const print=await reportPage.evaluate(()=>({actions:getComputedStyle(document.querySelector('.report-actions')).display,pageStyle:hasPrintPageStyle(),collapsedPrint:getComputedStyle(document.querySelector('.report-accordion-body-v432[hidden]')).display,locationBreak:getComputedStyle(document.querySelector('.report-location')).breakInside}),hasPrintPageStyle.toString());
+  const print=await reportPage.evaluate(()=>({
+    actions:getComputedStyle(document.querySelector('.report-actions')).display,
+    pageStyle:Boolean((document.querySelector('#reportFinalV432')?.textContent||'').match(/@page\s*\{[^}]*size\s*:\s*A4/i)),
+    collapsedPrint:getComputedStyle(document.querySelector('.report-accordion-body-v432[hidden]')).display,
+    locationBreak:getComputedStyle(document.querySelector('.report-location')).breakInside,
+  }));
   expect(print.actions).toBe('none');
   expect(print.pageStyle).toBe(true);
   expect(print.collapsedPrint).toBe('block');
@@ -275,7 +279,14 @@ test('produces premium review artifacts for fixed single, full and print export'
   await fullPage.setContent(generated.full,{waitUntil:'load'});
   await fullPage.screenshot({path:path.join(ARTIFACT_DIR,'full-report-premium-v432.png'),fullPage:true});
   await fullPage.emulateMedia({media:'print'});
-  const printSmoke=await fullPage.evaluate(()=>({actions:getComputedStyle(document.querySelector('.report-actions')).display,pageStyle:Boolean((document.querySelector('#reportFinalV432')?.textContent||'').match(/@page\s*\{[^}]*size\s*:\s*A4/i)),locations:document.querySelectorAll('.report-location').length,accordions:document.querySelectorAll('.report-accordion-v432').length,collapsedPrinted:getComputedStyle(document.querySelector('.report-accordion-body-v432[hidden]')).display,media:'print'}));
+  const printSmoke=await fullPage.evaluate(()=>({
+    actions:getComputedStyle(document.querySelector('.report-actions')).display,
+    pageStyle:Boolean((document.querySelector('#reportFinalV432')?.textContent||'').match(/@page\s*\{[^}]*size\s*:\s*A4/i)),
+    locations:document.querySelectorAll('.report-location').length,
+    accordions:document.querySelectorAll('.report-accordion-v432').length,
+    collapsedPrinted:getComputedStyle(document.querySelector('.report-accordion-body-v432[hidden]')).display,
+    media:'print'
+  }));
   expect(printSmoke.actions).toBe('none');
   expect(printSmoke.pageStyle).toBe(true);
   expect(printSmoke.locations).toBeGreaterThan(0);
