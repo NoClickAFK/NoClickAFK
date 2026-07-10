@@ -121,9 +121,28 @@
       metricNumber(left,'originalIndex')-metricNumber(right,'originalIndex');
   }
 
+  function syncRankDisplay(metric={}){
+    const card=document.querySelector(`[data-location-card="${CSS.escape(String(metric.id||''))}"]`);
+    const wrap=card?.querySelector(':scope > .location-head .location-title-wrap');
+    const anchor=wrap?.querySelector(':scope > .rank');
+    if(!wrap||!anchor)return false;
+    let node=wrap.querySelector(`[data-auto-rank="${CSS.escape(String(metric.id||''))}"]`);
+    if(!node){
+      node=document.createElement('span');
+      node.className='auto-rank-v340';
+      node.dataset.autoRank=String(metric.id||'');
+      anchor.insertAdjacentElement('afterend',node);
+    }
+    const label=`Рейтинг #${metric.rank}`;
+    if(node.textContent!==label)node.textContent=label;
+    const title='Рейтинг учитывает стоп-факторы, риски, качество и надёжность оценки.';
+    if(node.title!==title)node.title=title;
+    return true;
+  }
+
   function rankMetrics(metrics=[]){
     const ranked=[...metrics].sort(compareMetrics);
-    ranked.forEach((metric,index)=>{metric.rank=index+1});
+    ranked.forEach((metric,index)=>{metric.rank=index+1;syncRankDisplay(metric)});
     return metrics;
   }
 
@@ -211,21 +230,31 @@
     setTimeout(()=>highlight.classList.remove('progress-target-flash-v448'),1600);
   }
 
+  async function finalizePanelLayout(card){
+    await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
+    window.BogatkaInspectionLayoutV461?.enhanceAll?.();
+    return card;
+  }
+
   function handleProgressNavigation(event){
     const button=event.target?.closest?.('[data-progress-target-v448]');
     const target=button?.dataset.progressTargetV448;
     if(target!=='inspection'&&target!=='landlord')return;
     const card=button.closest('[data-location-card]');
     if(!card)return;
-    const panel=target==='landlord'?card.querySelector('.landlord-card-v416'):card.querySelector('.inspection-card-v416');
-    openPanel(panel,card,target);
-    Promise.resolve(window.BogatkaInspectionLayoutV461?.enhanceAll?.()).finally(()=>setTimeout(()=>focusMissingField(card,target),0));
+    finalizePanelLayout(card).finally(()=>{
+      const current=document.querySelector(`[data-location-card="${CSS.escape(card.dataset.locationCard)}"]`)||card;
+      const panel=target==='landlord'?current.querySelector('.landlord-card-v416'):current.querySelector('.inspection-card-v416');
+      openPanel(panel,current,target);
+      setTimeout(()=>focusMissingField(current,target),0);
+    });
   }
 
   async function refresh(){
     installPhotoPlan();installApi();installEngineTerminal();enforceOptionalReason();refreshPhotoCopy();
     if(typeof window.BogatkaDecisionUI?.refresh==='function')await window.BogatkaDecisionUI.refresh();
     await window.BogatkaCardProgressV448?.renderAll?.();
+    for(const metric of window.BogatkaDecisionUI?.lastMetrics||[])syncRankDisplay(metric);
     enforceOptionalReason();refreshPhotoCopy();
   }
 
