@@ -56,23 +56,30 @@ test('full report follows executive narrative and separates shortlist, risks, co
   await openApp(page);
   const generated=await seedFixtures(page);
   const report=await pageFromHtml(context,generated.full,{width:1440,height:1100});
-  const result=await report.evaluate(()=>({
-    topChildren:[...document.querySelector('.report-document').children].map(node=>node.className||node.tagName),
-    shortlist:document.querySelectorAll('.report-shortlist-card-v433').length,
-    riskRows:document.querySelectorAll('.report-risk-row-v433').length,
-    comparisonHidden:document.querySelector('.report-comparison-body-v433')?.hidden,
-    locationCount:document.querySelectorAll('.report-location-dossier-v433').length,
-    openLocations:document.querySelectorAll('.report-location-dossier-v433[data-open="true"]>.report-location-body-v433:not([hidden])').length,
-    collapsedLocations:document.querySelectorAll('.report-location-dossier-v433[data-open="false"]>.report-location-body-v433[hidden]').length,
-    firstSummaryText:document.querySelector('.report-location-summary-v433')?.textContent||'',
-    statusPills:[...document.querySelectorAll('.report-location-summary-v433 .report-status')].map(node=>node.textContent.trim()),
-    overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
-  }));
-  const joined=result.topChildren.join('|');
-  expect(joined.indexOf('report-hero-v433')).toBeLessThan(joined.indexOf('report-portfolio-summary-v433'));
-  expect(joined.indexOf('report-portfolio-summary-v433')).toBeLessThan(joined.indexOf('report-shortlist-v433'));
-  expect(joined.indexOf('report-shortlist-v433')).toBeLessThan(joined.indexOf('report-risk-overview-v433'));
-  expect(joined.indexOf('report-risk-overview-v433')).toBeLessThan(joined.indexOf('report-comparison'));
+  const result=await report.evaluate(()=>{
+    const root=document.querySelector('.report-document');
+    const hero=root?.querySelector(':scope>.report-hero-v433');
+    const summary=root?.querySelector(':scope>.report-portfolio-summary-v433');
+    const shortlist=root?.querySelector(':scope>.report-shortlist-v433');
+    const risks=root?.querySelector(':scope>.report-risk-overview-v433');
+    const comparison=root?.querySelector(':scope>.report-comparison-v433');
+    const follows=(before,after)=>Boolean(before&&after&&(before.compareDocumentPosition(after)&Node.DOCUMENT_POSITION_FOLLOWING));
+    return{
+      hierarchyPresent:Boolean(hero&&summary&&shortlist&&risks&&comparison),
+      hierarchyOrdered:follows(hero,summary)&&follows(summary,shortlist)&&follows(shortlist,risks)&&follows(risks,comparison),
+      shortlist:document.querySelectorAll('.report-shortlist-card-v433').length,
+      riskRows:document.querySelectorAll('.report-risk-row-v433').length,
+      comparisonHidden:document.querySelector('.report-comparison-body-v433')?.hidden,
+      locationCount:document.querySelectorAll('.report-location-dossier-v433').length,
+      openLocations:document.querySelectorAll('.report-location-dossier-v433[data-open="true"]>.report-location-body-v433:not([hidden])').length,
+      collapsedLocations:document.querySelectorAll('.report-location-dossier-v433[data-open="false"]>.report-location-body-v433[hidden]').length,
+      firstSummaryText:document.querySelector('.report-location-summary-v433')?.textContent||'',
+      statusPills:[...document.querySelectorAll('.report-location-summary-v433 .report-status')].map(node=>node.textContent.trim()),
+      overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+    };
+  });
+  expect(result.hierarchyPresent).toBe(true);
+  expect(result.hierarchyOrdered).toBe(true);
   expect(result.shortlist).toBeGreaterThan(0);
   expect(result.shortlist).toBeLessThanOrEqual(3);
   expect(result.riskRows).toBeGreaterThan(0);
