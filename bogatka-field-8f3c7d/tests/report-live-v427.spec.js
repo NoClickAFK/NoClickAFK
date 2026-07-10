@@ -1,12 +1,12 @@
 const {test,expect}=require('@playwright/test');
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=432';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=433';
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
     status:200,
     contentType:'application/json',
-    body:JSON.stringify({version:'4.3.2',versionToken:'432',sourceCommit:'report432abcdef',ahead:1}),
+    body:JSON.stringify({version:'4.3.3',versionToken:'433',sourceCommit:'report433abcdef',ahead:1}),
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'networkidle'});
@@ -17,6 +17,7 @@ async function openApp(page){
     window.BogatkaLiveReport.build?.__reportAuthorityV428===true&&
     window.BogatkaLiveReport.build?.__reportFinalizeV431===true&&
     window.BogatkaLiveReport.build?.__reportFinalizeV432===true&&
+    window.BogatkaLiveReport.build?.__reportFinalizeV433===true&&
     window.buildReportHtml===window.BogatkaLiveReport.build&&
     typeof window.buildLocationReportHtml==='function'&&
     typeof window.exportLocationHtmlReport==='function'
@@ -203,6 +204,7 @@ test('HTML and PDF actions remain backed by the same premium global engine',asyn
     buildShared:window.buildReportHtml===window.BogatkaLiveReport.build,
     finalizer431:window.BogatkaLiveReport.build?.__reportFinalizeV431===true,
     finalizer432:window.BogatkaLiveReport.build?.__reportFinalizeV432===true,
+    finalizer433:window.BogatkaLiveReport.build?.__reportFinalizeV433===true,
     authority:window.BogatkaLiveReport.build?.__reportAuthorityV428===true,
     htmlAction:typeof window.exportHtmlReport==='function',
     pdfAction:typeof window.openPdfReport==='function',
@@ -210,10 +212,11 @@ test('HTML and PDF actions remain backed by the same premium global engine',asyn
     htmlSource:String(window.exportHtmlReport),
     pdfSource:String(window.openPdfReport),
   }));
-  expect(state.version).toBe('4.3.2');
+  expect(state.version).toBe('4.3.3');
   expect(state.buildShared).toBe(true);
   expect(state.finalizer431).toBe(true);
   expect(state.finalizer432).toBe(true);
+  expect(state.finalizer433).toBe(true);
   expect(state.authority).toBe(true);
   expect(state.htmlAction).toBe(true);
   expect(state.pdfAction).toBe(true);
