@@ -93,3 +93,27 @@ test('full report follows executive narrative and separates shortlist, risks, co
   expect(result.statusPills.length).toBeLessThanOrEqual(result.locationCount);
   expect(result.overflow).toBeLessThanOrEqual(1);
 });
+
+test('portfolio keeps completion KPI when zero score and weight are pruned',async({page,context})=>{
+  await openApp(page);
+  const generated=await page.evaluate(async()=>{
+    const selected=locations.find(item=>!item.archivedAt);
+    const data=await getLocationData(selected.id);
+    Object.assign(data,{decision:'',status:'Осмотрено',objectType:'Торговое помещение',score:{},tech:{totalArea:'80',rentPerMonth:'3000',powerKw:'15'},economy:{monthlyRevenue:'60000',grossMarginPct:'38',taxRatePct:'5',payroll:'5000',initialStock:'20000'}});
+    await idbPut(STORE,data,`location:${selected.id}`);
+    if(typeof updateSummary==='function')await updateSummary();
+    const base=await window.BogatkaReportFinalizeV431.renderReport();
+    const baseDoc=new DOMParser().parseFromString(base,'text/html');
+    const card=baseDoc.querySelector(`[data-report-location-id="${selected.id}"]`);
+    const completion=[...card.querySelectorAll('.report-metrics>div')].find(metric=>/заполн|готовност/i.test(metric.querySelector('span')?.textContent||''))?.querySelector('strong')?.textContent?.trim()||'';
+    return{title:selected.title||selected.address,completion,html:window.BogatkaReportFinalizeV433.finalizeHtml(base)};
+  });
+  expect(generated.completion).toMatch(/^[1-9]\d*%$/);
+  const report=await pageFromHtml(context,generated.html,{width:1440,height:1000});
+  const result=await report.evaluate(({title})=>{
+    const row=[...document.querySelectorAll('.report-risk-row-v433')].find(node=>node.textContent.includes(title));
+    return{riskCompletion:row?.querySelector('.report-labeled-value-v433 strong')?.textContent?.trim()||'',summaryAverage:[...document.querySelectorAll('.report-portfolio-kpi-v433')].find(node=>/Средняя готовность/i.test(node.textContent))?.querySelector('strong')?.textContent?.trim()||''};
+  },{title:generated.title});
+  expect(result.riskCompletion).toBe(generated.completion);
+  expect(result.summaryAverage).not.toBe('—');
+});
