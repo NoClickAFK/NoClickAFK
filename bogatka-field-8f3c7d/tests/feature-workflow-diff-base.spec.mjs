@@ -62,7 +62,7 @@ test.afterAll(()=>{
   for(const directory of temporary)rmSync(directory,{recursive:true,force:true});
 });
 
-test('feature workflow declares guarded pull-request and dispatch base inputs',()=>{
+test('feature workflow declares guarded bases and keeps compare mapped',()=>{
   const workflow=readFileSync(WORKFLOW,'utf8');
   const resolver=readFileSync(RESOLVER,'utf8');
   expect(workflow).toContain('workflow_dispatch:');
@@ -70,11 +70,14 @@ test('feature workflow declares guarded pull-request and dispatch base inputs',(
   expect(workflow).toContain("PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}");
   expect(workflow).toContain("WORKFLOW_INPUT_BASE_SHA: ${{ inputs.base_sha || '' }}");
   expect(workflow).toContain('bash .github/scripts/resolve-feature-diff-base.sh');
+  expect(workflow).toContain("photo-plan|compare'");
   expect(workflow).not.toMatch(/git diff[^\n]*github\.event\.pull_request\.base\.sha/);
   expect(resolver).toContain('git rev-parse --verify');
   expect(resolver).toContain('git merge-base HEAD');
+  expect(resolver).toContain('git merge-base "$base_sha" HEAD');
   expect(resolver).toContain("resolve_commit 'HEAD^'");
   expect(resolver).toContain('Unable to resolve a valid comparison base');
+  expect(resolver).toContain('does not share a merge base with HEAD');
 });
 
 test('pull_request uses and verifies the event base SHA',()=>{
@@ -85,9 +88,11 @@ test('pull_request uses and verifies the event base SHA',()=>{
   expect(result.status,result.stderr).toBe(0);
   expect(result.stdout).toContain('Event name: pull_request');
   expect(result.stdout).toContain(`Resolved base SHA: ${base}`);
+  expect(result.stdout).toContain(`Diff merge base SHA: ${base}`);
   expect(result.stdout).toContain('pull-request.txt');
   expect(result.changed.trim()).toBe('pull-request.txt');
   expect(result.output).toContain(`base_sha=${base}`);
+  expect(result.output).toContain(`diff_merge_base=${base}`);
 });
 
 test('workflow_dispatch honors an explicit base_sha',()=>{
@@ -98,6 +103,21 @@ test('workflow_dispatch honors an explicit base_sha',()=>{
   expect(result.status,result.stderr).toBe(0);
   expect(result.stdout).toContain('Base source: workflow_dispatch input base_sha');
   expect(result.changed.trim()).toBe('explicit-dispatch.txt');
+});
+
+test('workflow_dispatch rejects an existing base from unrelated history',()=>{
+  const repo=makeRepo();
+  const originalHead=git(repo,'rev-parse','HEAD');
+  git(repo,'checkout','--orphan','unrelated');
+  rmSync(path.join(repo,'base.txt'),{force:true});
+  writeFileSync(path.join(repo,'unrelated.txt'),'unrelated\n');
+  git(repo,'add','-A');
+  git(repo,'commit','-m','unrelated history');
+  const unrelated=git(repo,'rev-parse','HEAD');
+  git(repo,'checkout','--detach',originalHead);
+  const result=runResolver(repo,{GITHUB_EVENT_NAME:'workflow_dispatch',WORKFLOW_INPUT_BASE_SHA:unrelated});
+  expect(result.status).not.toBe(0);
+  expect(result.stderr).toContain(`Resolved base '${unrelated}' does not share a merge base with HEAD`);
 });
 
 test('workflow_dispatch without input uses the merge base with origin main',()=>{
