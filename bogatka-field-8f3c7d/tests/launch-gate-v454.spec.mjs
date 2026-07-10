@@ -29,6 +29,8 @@ async function resetLocation(page,id,patch={}){
     data.updatedAt=new Date().toISOString();
     await idbPut(STORE,data,`location:${id}`);
     renderLocations();
+    await restoreAllForms({preserveActive:false});
+    await window.BogatkaLocationDataV452?.enhanceAll?.();
   },{id,patch});
   await page.waitForFunction(()=>window.BogatkaLaunchGateV454?.audit().ok);
   await expandCard(page,id);
@@ -48,6 +50,8 @@ async function setConfirmedChecks(page,id,{keepProject=true}={}){
     data.updatedAt=new Date().toISOString();
     await idbPut(STORE,data,`location:${locationId}`);
     renderLocations();
+    await restoreAllForms({preserveActive:false});
+    await window.BogatkaLocationDataV452?.enhanceAll?.();
   },{locationId:id,keepProject});
   await page.waitForFunction(()=>window.BogatkaLaunchGateV454?.audit().ok);
   await expandCard(page,id);
@@ -132,7 +136,10 @@ test('eligible location activates opening project only by explicit action',async
   const details=await openLaunchDetails(page,id);
   await expect(details).toHaveAttribute('data-launch-gate-v454','ready');
   await activateCurrentLaunchAction(page,id);
-  await page.waitForFunction(async locationId=>(await getLocationData(locationId)).launchProject?.enabled===true&&window.BogatkaLaunchGateV454.pendingWrites===0,id);
+  await expect.poll(async()=>page.evaluate(async locationId=>{
+    const stored=await getLocationData(locationId);
+    return{enabled:stored.launchProject?.enabled===true,milestones:stored.launchProject?.milestones?.length||0,pending:window.BogatkaLaunchGateV454.pendingWrites};
+  },id),{timeout:15000}).toMatchObject({enabled:true,pending:0});
   const stored=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(stored.decision).toBe('Оставить');
   expect(stored.launchProject.milestones.length).toBeGreaterThan(0);
