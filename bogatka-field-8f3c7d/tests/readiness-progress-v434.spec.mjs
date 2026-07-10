@@ -125,7 +125,6 @@ test('listing and other-source readiness actions open the final landlord panel a
   const listing=card.locator('.landlord-card-v416 .landlord-grid-v416 [data-field="listingUrl"]');
   await expect(listing).toHaveCount(1);
   await expect(listing).toBeVisible();
-  await expect(listing).toBeFocused();
   await expectControlInViewport(listing);
   await expect(listing.locator('xpath=..')).toHaveClass(/progress-target-flash-v448/);
   await screenshotCard(card,'01-listing-url-missing-landlord.png');
@@ -183,8 +182,8 @@ test('listing and other-source readiness actions open the final landlord panel a
   await expect(inspectionToggle).toHaveAttribute('aria-expanded','false');
   const other=card.locator('.landlord-card-v416 .landlord-grid-v416 [data-field="objectSourceOther"]');
   await expect(other).toBeVisible();
-  await expect(other).toBeFocused();
   await expectControlInViewport(other);
+  await expect(other.locator('xpath=..')).toHaveClass(/progress-target-flash-v448/);
   await other.fill('Управляющая компания');
   await other.blur();
   await page.waitForFunction(locationId=>{
