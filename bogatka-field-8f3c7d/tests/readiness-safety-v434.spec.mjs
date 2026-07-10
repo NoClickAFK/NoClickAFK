@@ -124,6 +124,6 @@ test('public snapshot report uses the same 13-photo minimum plan',async({page})=
   await expect(root).toContainText('Минимальный фотоплан: 0/13');
   await expect(root).not.toContainText('/24');
   await expect(root).toContainText('Улица и окружение: 0/2');
-  await expect(root).toContainText('Вход и вывеска: 0/2');
+  await expect(root).toContainText('Подходы, вход и вывеска: 0/2');
   await expect(root).toContainText('Инженерия и безопасность: 0/2');
 });
