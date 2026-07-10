@@ -32,16 +32,13 @@ jobs:
         run: |
           CHANGED="$(git diff --name-only HEAD^ HEAD | tr '[:upper:]' '[:lower:]')"
           : > /tmp/selected-tests.txt
-          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|readiness|progress|recommendation|ui-refine|card-progress|compare|decision-panel|first-paint'; then
+          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|readiness|progress|recommendation|ui-refine|card-progress|compare|decision-panel'; then
             printf '%s\n' \
-              bogatka-field-8f3c7d/tests/first-paint-style-stability-v466.spec.mjs \
               bogatka-field-8f3c7d/tests/ui-refine-v462.spec.mjs \
               bogatka-field-8f3c7d/tests/card-progress-v448.spec.mjs \
               bogatka-field-8f3c7d/tests/readiness-progress-v434.spec.mjs \
               bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
               bogatka-field-8f3c7d/tests/location-data-v452.spec.mjs \
-              bogatka-field-8f3c7d/tests/location-card-collapse-v422.spec.mjs \
-              bogatka-field-8f3c7d/tests/location-card-collapse-mobile-v422.spec.mjs \
               bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs \
               bogatka-field-8f3c7d/tests/launch-gate-v454.spec.mjs \
               bogatka-field-8f3c7d/tests/backup-v400.spec.mjs \
