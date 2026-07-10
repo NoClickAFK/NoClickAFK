@@ -115,6 +115,39 @@ test('optional decision reason survives repeated delayed v452 sync passes',async
   await expect(card.locator('.decision-reason-warning-v452')).toBeHidden();
 });
 
+test('readiness terminal keeps ownership through the scheduled 10s v452 stability pass',async({page})=>{
+  const {id}=await openApp(page);
+  await writeLocation(page,id,data=>{
+    data.decision='Оставить';
+    data.decisionReason='';
+    data.pros='';data.cons='';data.risks='';data.questions='';
+  });
+  const before=await page.evaluate(()=>({
+    sameOwner:window.BogatkaDecisionEngine.computeAll.__locationDataV452Owner===window.BogatkaLocationDataV452.augmentMetric,
+    terminal:Boolean(window.BogatkaDecisionEngine.computeAll.__readinessTerminalV434),
+    functionRef:window.BogatkaDecisionEngine.computeAll,
+  }));
+  expect(before.sameOwner).toBe(true);
+  expect(before.terminal).toBe(true);
+  await page.waitForTimeout(10500);
+  const after=await page.evaluate(async locationId=>{
+    const current=window.BogatkaDecisionEngine.computeAll;
+    const marker=current.__locationDataV452Owner===window.BogatkaLocationDataV452.augmentMetric;
+    const ensureResult=window.BogatkaLocationDataStabilityV452.ensureEngine();
+    const sameAfterEnsure=current===window.BogatkaDecisionEngine.computeAll;
+    const metric=(await window.BogatkaDecisionEngine.computeAll()).find(item=>item.id===locationId);
+    const conclusion=metric.progressGroups.find(group=>group.key==='conclusion');
+    return{marker,ensureResult,sameAfterEnsure,terminal:Boolean(current.__readinessTerminalV434),conclusion:{total:conclusion.total,done:conclusion.done,missingCount:conclusion.missingCount,labels:conclusion.requirements.map(item=>item.label)}};
+  },id);
+  expect(after).toMatchObject({
+    marker:true,
+    ensureResult:true,
+    sameAfterEnsure:true,
+    terminal:true,
+    conclusion:{total:1,done:1,missingCount:0,labels:['предварительное решение']},
+  });
+});
+
 test('built-in self-test accepts the 13-photo minimum plan',async({page})=>{
   await openApp(page);
   await page.waitForFunction(()=>Boolean(window.BogatkaSelftest?.run),null,{timeout:30000});
