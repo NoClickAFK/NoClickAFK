@@ -23,18 +23,19 @@ test('repository build version controls UI when remote metadata is older',async(
     localStorage.removeItem('bogatka_build_meta_v426');
   });
 
-  await page.goto(`${APP}?v=433`,{waitUntil:'domcontentloaded'});
-  await expect(page.locator('#versionLabel')).toHaveText('4.3.3',{timeout:15000});
+  await page.goto(`${APP}?v=434`,{waitUntil:'domcontentloaded'});
+  await expect(page.locator('#versionLabel')).toHaveText('4.3.4',{timeout:15000});
   await page.waitForFunction(()=>window.BOGATKA_BUILD?.remoteIgnored==='4.2.6',null,{timeout:15000});
 
   const build=await page.evaluate(()=>window.BOGATKA_BUILD);
-  expect(build.version).toBe('4.3.3');
-  expect(build.versionToken).toBe('433');
+  expect(build.version).toBe('4.3.4');
+  expect(build.versionToken).toBe('434');
   expect(build.remoteIgnored).toBe('4.2.6');
+  expect(build.sourceCommit).toBe('b76e9d385154fc5994e37eefc24724bd9eb483a4');
 
   const generated=await page.evaluate(()=>window.BogatkaVersion.makeAppUrl());
-  expect(generated).toContain('?v=433');
+  expect(generated).toContain('?v=434');
 
   await page.evaluate(()=>{document.getElementById('versionLabel').textContent='4.0.0'});
-  await expect(page.locator('#versionLabel')).toHaveText('4.3.3');
+  await expect(page.locator('#versionLabel')).toHaveText('4.3.4');
 });
