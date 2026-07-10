@@ -2,7 +2,7 @@ const {test,expect}=require('@playwright/test');
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/';
 
- test('repository build version controls UI when remote metadata is older',async({page})=>{
+test('repository build version controls UI when remote metadata is older',async({page})=>{
   const diagnostics=[];
   page.on('pageerror',error=>diagnostics.push(`pageerror: ${error?.stack||error}`));
   page.on('console',message=>{if(['error','warning'].includes(message.type()))diagnostics.push(`console.${message.type()}: ${message.text()}`)});
@@ -38,7 +38,7 @@ const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/';
     label:'4.3.4',
     versionApi:true,
     accessVersionLoaded:true,
-    build:{version:'4.3.4',versionToken:'434',remoteIgnored:'4.2.6',sourceCommit:'38dbe06bd24de8d5a895c431dd4683c3aae1b696'},
+    build:{version:'4.3.4',versionToken:'434',remoteIgnored:'4.2.6',sourceCommit:'e07ebf93a19d3386f35f0c16df762a847ba27bfb'},
   });
 
   const generated=await page.evaluate(()=>window.BogatkaVersion.makeAppUrl());
