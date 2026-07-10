@@ -59,7 +59,8 @@ jobs:
             printf '%s\n' \
               bogatka-field-8f3c7d/tests/browser-workflows.spec.mjs \
               bogatka-field-8f3c7d/tests/report-live-v427.spec.js \
-              bogatka-field-8f3c7d/tests/report-polish-v428.spec.js >> /tmp/selected-tests.txt
+              bogatka-field-8f3c7d/tests/report-polish-v428.spec.js \
+              bogatka-field-8f3c7d/tests/report-premium-v433.spec.js >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|select'; then
             printf '%s\n' bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs bogatka-field-8f3c7d/tests/sync-field-merge.spec.mjs >> /tmp/selected-tests.txt
@@ -95,8 +96,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bogatka-report-v432-review-artifacts
-          path: test-results/report-v432-review/**
+          name: bogatka-report-v433-review-artifacts
+          path: test-results/report-v433-review/**
           if-no-files-found: ignore
           retention-days: 7
 
