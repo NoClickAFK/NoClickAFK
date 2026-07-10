@@ -29,6 +29,10 @@ test('report keeps decision-stage workflow data, removes launch workflow and exc
     await idbPut(STORE,{updatedAt:now,archivedAt:now,notes:'ARCHIVED_MARKER'},`location:${second}`);
     const meta=locations.find(item=>item.id===second);if(meta)meta.archivedAt=now;
     await saveLocations();
+    await restoreAllForms({preserveActive:false});
+    await window.BogatkaLocationDataV452?.enhanceAll?.();
+    await window.BogatkaDecisionUI?.refresh?.();
+    await window.BogatkaCardProgressV448?.renderAll?.();
   },{first:ids[0],second:ids[1]});
   const report=await page.evaluate(async()=>await window.buildReportHtml());
   expect(report).toContain('Получить проект договора');
