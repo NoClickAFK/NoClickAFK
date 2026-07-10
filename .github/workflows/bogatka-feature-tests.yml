@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -30,7 +30,7 @@ jobs:
       - name: Select tests for changed domains
         id: select
         run: |
-          CHANGED="$(git diff --name-only HEAD^ HEAD | tr '[:upper:]' '[:lower:]')"
+          CHANGED="$(git diff --name-only '${{ github.event.pull_request.base.sha }}'...HEAD | tr '[:upper:]' '[:lower:]')"
           : > /tmp/selected-tests.txt
           if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|readiness|progress|recommendation|decision-panel|photo-plan'; then
             printf '%s\n' \
@@ -115,7 +115,7 @@ jobs:
 
       - name: No mapped feature tests
         if: steps.select.outputs.count == '0'
-        run: echo 'The latest commit did not change a mapped application domain.'
+        run: echo 'The pull request did not change a mapped application domain.'
 
       - name: Upload feature diagnostics
         if: failure()
