@@ -10,7 +10,7 @@ const required = [
   'location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css',
   'location-card-collapse-v422.js','location-card-collapse-v422.css','report-finalize-v431.js','report-finalize-v432.js',
   'report-editorial-core-v433.js','report-editorial-single-v433.js','report-editorial-portfolio-v433.js','report-editorial-style-a-v433.js','report-editorial-style-b-v433.js',
-  'docs/report-v433-visual-spec.md','tests/fixtures/report-v433-before-pass.html',
+  'readiness-progress-v434.js','docs/report-v433-visual-spec.md','tests/fixtures/report-v433-before-pass.html',
   'reset/index.html','reset/reset.js','sw.js','sw-v340.js','report/index.html','report/app.js','report/style.css','report/fix-v400.js','IMPLEMENTATION-4.0.md',
 ];
 const failures = [];
@@ -18,22 +18,25 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 for (const file of required) if (!fs.existsSync(path.join(root, file))) failures.push(`Missing required file: ${file}`);
 if (!failures.length) {
   const loader = read('v23.js');
-  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v430.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-card-collapse-v422.js','location-card-collapse-v422.css','report-finalize-v431.js','report-finalize-v432.js']) {
+  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','decision-core-v340.js','suite-core-v400.js','decision-ui-v340.js','compare-v430.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','report-v400.js','access-version-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-card-collapse-v422.js','location-card-collapse-v422.css','report-finalize-v431.js','report-finalize-v432.js','readiness-progress-v434.js']) {
     if (!loader.includes(file)) failures.push(`v23.js does not load ${file}`);
   }
   if (loader.includes("src:'./compare-v340.js'")) failures.push('v23.js still loads the legacy comparison implementation');
   const backup = read('backup-v400.js');
   for (const file of ['cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','selftest-v400.js','location-global-v421.js','location-card-collapse-v422.js']) if (!backup.includes(file)) failures.push(`backup-v400.js does not load ${file}`);
   const serviceWorker = read('sw-v340.js');
-  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','compare-v430.js','suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','version-authority-v426.js','report-finalize-v431.js','report-finalize-v432.js','report-editorial-core-v433.js','report-editorial-single-v433.js','report-editorial-portfolio-v433.js','report-editorial-style-a-v433.js','report-editorial-style-b-v433.js','reset/index.html','reset/reset.js']) if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
+  for (const file of ['critical-deal-schema-v430.js','critical-deal-v430.css','compare-v430.js','suite-core-v400.js','suite-ui-v400.js','archive-label-v400.js','backup-v400.js','cloud-archive-v400.js','address-fix-v400.js','viewer-extra-v400.js','report-v400.js','selftest-v400.js','sync-field-compat-v416.js','field-integrity-v416.js','object-type-normalize-v416.js','location-profile-v416.js','location-profile-v416.css','location-panels-v419.js','location-panels-render-v419.js','location-panels-v419.css','location-global-v421.js','location-global-v421.css','location-card-collapse-v422.js','location-card-collapse-v422.css','version-authority-v426.js','report-finalize-v431.js','report-finalize-v432.js','report-editorial-core-v433.js','report-editorial-single-v433.js','report-editorial-portfolio-v433.js','report-editorial-style-a-v433.js','report-editorial-style-b-v433.js','readiness-progress-v434.js','reset/index.html','reset/reset.js']) if (!serviceWorker.includes(file)) failures.push(`Service Worker does not cache ${file}`);
   if (!serviceWorker.includes("searchParams.get('v')") || !serviceWorker.includes('bogatka-location-v${BUILD_TOKEN}')) failures.push('Service Worker cache name is not derived from the resolved build token');
-  if (!serviceWorker.includes("||'433'")) failures.push('Service Worker fallback build token is not v433');
+  if (!serviceWorker.includes("||'434'")) failures.push('Service Worker fallback build token is not v434');
   if (!serviceWorker.includes('updateViaCache') && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
   const versionAuthority = read('version-authority-v426.js');
-  for (const marker of ["version:'4.3.3'","versionToken:'433'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
-  if (versionAuthority.includes("version:'4.3.2'") || versionAuthority.includes("versionToken:'432'")) failures.push('version-authority-v426.js still contains stale v4.3.2 compatibility markers');
+  for (const marker of ["version:'4.3.4'","versionToken:'434'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
+  if (versionAuthority.includes("version:'4.3.3'") || versionAuthority.includes("versionToken:'433'")) failures.push('version-authority-v426.js still contains stale v4.3.3 production markers');
   const accessVersion = read('access-version-v400.js');
-  if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.3')) failures.push('access-version-v400.js does not activate the centralized 4.3.3 version authority');
+  if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.4')) failures.push('access-version-v400.js does not activate the centralized 4.3.4 version authority');
+  const readiness = read('readiness-progress-v434.js');
+  for (const marker of ['BogatkaReadinessProgressV434','inspectionPurpose','inspectionResult','objectSource','listingUrl','objectSourceOther','Минимальный фотоплан','VALID_DECISIONS','applyMetric']) if (!readiness.includes(marker)) failures.push(`readiness-progress-v434.js is missing ${marker}`);
+  if (!readiness.includes('street:2') || !readiness.includes('entrance:2') || !readiness.includes('engineering:2') || !readiness.includes('documents:1')) failures.push('readiness-progress-v434.js does not contain the canonical 13-photo plan');
   const panels = read('location-panels-v419.js');
   for (const marker of ['INSPECTION_HIDE','panel-hidden-v419','bindFallbackField','overviewBoundV417','reorderChildren','aria-expanded','reportChainHas','wrapped.__locationPanelsV419','isEditing']) if (!panels.includes(marker)) failures.push(`location-panels-v419.js is missing ${marker}`);
   if (panels.includes('if(wrapper)wrapper.remove();')) failures.push('location-panels-v419.js removes legacy fields instead of hiding them');
@@ -94,4 +97,4 @@ if (!failures.length) {
   if (!reset.includes('length<12') || !reset.includes('bogatka_build_meta_v426')) failures.push('Recovery password policy or return URL is outdated');
 }
 if (failures.length) {console.error('Bogatka validation failed:');failures.forEach(failure=>console.error(`- ${failure}`));process.exit(1)}
-console.log(`Bogatka validation passed: ${required.length} required files and integration markers verified.`);
+console.log('Bogatka file validation passed.');
