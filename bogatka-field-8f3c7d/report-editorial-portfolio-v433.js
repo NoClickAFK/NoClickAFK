@@ -8,6 +8,8 @@ function scoreValue(data){return metricByLabel(data,/\/\s*70|балл/i)}
 function weightValue(data){return metricByLabel(data,/\/\s*100|вес/i)}
 function completionValue(data){return metricByLabel(data,/заполн|готовност/i)}
 function canonicalMetrics(data){return[{label:'/70 балл',value:scoreValue(data)||'—'},{label:'/100 вес',value:weightValue(data)||'—'},{label:'заполнено',value:completionValue(data)||'—'}]}
+function priorityTuple(data){return[parseNumber(weightValue(data))??-1,parseNumber(scoreValue(data))??-1,parseNumber(completionValue(data))??-1]}
+function comparePriority(left,right){const a=priorityTuple(left.data),b=priorityTuple(right.data);for(let index=0;index<a.length;index++){if(b[index]!==a[index])return b[index]-a[index]}return left.sourceIndex-right.sourceIndex}
 function buildFullHero(doc,cover,locations){
   const hero=node(doc,'section','report-hero-v433 report-hero-full-v433'),copy=node(doc,'div','report-hero-copy-v433'),eyebrow=node(doc,'p','report-eyebrow-v433');
   append(eyebrow,node(doc,'span','','BOGATKA'),node(doc,'span','report-eyebrow-separator-v433','•'),node(doc,'span','','PORTFOLIO REVIEW'),node(doc,'span','report-version-v433',VERSION));
@@ -28,12 +30,12 @@ function locationInsight(location,data){
   return firstSentence(data.reason||data.system||data.strengths||data.risks,150)||(completion!==null&&completion<35?'Ключевые данные по объекту заполнены не полностью.':'Дополнительный вывод по локации не зафиксирован.');
 }
 function buildShortlist(doc,locations){
-  const candidates=locations.map((location,index)=>({location,index,data:contextData(location)})).filter(item=>canonicalMetrics(item.data).some(metric=>parseNumber(metric.value)!==null)||item.data.recommendation).slice(0,3);
+  const candidates=locations.map((location,sourceIndex)=>({location,sourceIndex,data:contextData(location)})).filter(item=>canonicalMetrics(item.data).some(metric=>parseNumber(metric.value)!==null)||item.data.recommendation).sort(comparePriority).slice(0,3);
   if(!candidates.length)return null;
   const section=node(doc,'section','report-shortlist-v433 report-top-section-v433'),heading=node(doc,'div','report-section-heading-v433');append(heading,node(doc,'p','report-kicker-v433','PRIORITY SHORTLIST'),node(doc,'h2','','Локации для первого рассмотрения'));
   const grid=node(doc,'div','report-shortlist-grid-v433');
-  candidates.forEach(({location,index,data})=>{
-    const card=node(doc,'article','report-shortlist-card-v433'),top=node(doc,'div','report-shortlist-top-v433');append(top,node(doc,'span','report-shortlist-rank-v433',String(index+1).padStart(2,'0')),makePill(doc,data.recommendation||'Недостаточно данных'));
+  candidates.forEach(({location,data},priorityIndex)=>{
+    const card=node(doc,'article','report-shortlist-card-v433'),top=node(doc,'div','report-shortlist-top-v433');append(top,node(doc,'span','report-shortlist-rank-v433',String(priorityIndex+1).padStart(2,'0')),makePill(doc,data.recommendation||'Недостаточно данных'));
     const metrics=node(doc,'div','report-shortlist-metrics-v433');canonicalMetrics(data).forEach(item=>append(metrics,makeLabeledValue(doc,item.label,item.value,'compact')));
     append(card,top,node(doc,'h3','',data.title),node(doc,'p','report-shortlist-address-v433',data.address||'Адрес не указан'),metrics,makeLabeledValue(doc,'Решение',data.decision||'Не выбрано','decision'),node(doc,'p','report-shortlist-insight-v433',locationInsight(location,data)));grid.appendChild(card);
   });
@@ -75,5 +77,5 @@ function addReportClasses(doc){
   doc.querySelectorAll('.report-field').forEach(field=>{field.classList.add('report-data-row-v433');const label=clean(field.querySelector('span')?.textContent),value=clean(field.querySelector('strong')?.textContent);if(/причина|комментарий|основание|вывод|наблюден|плюсы|минусы|риски|вопрос/i.test(label)||value.length>110)field.classList.add('report-narrative-row-v433','report-field-wide')});
   doc.querySelectorAll('.report-photo').forEach(photo=>photo.classList.add('report-photo-v433'));
 }
-Object.assign(C,{ready:true,metricByLabel,scoreValue,weightValue,completionValue,canonicalMetrics,buildFullHero,buildPortfolioSummary,locationInsight,buildShortlist,buildRiskOverview,makeComparisonAccordion,dehydratePhotos,makeLocationSummary,wrapFullLocations,addReportClasses});
+Object.assign(C,{ready:true,metricByLabel,scoreValue,weightValue,completionValue,canonicalMetrics,priorityTuple,comparePriority,buildFullHero,buildPortfolioSummary,locationInsight,buildShortlist,buildRiskOverview,makeComparisonAccordion,dehydratePhotos,makeLocationSummary,wrapFullLocations,addReportClasses});
 })();
