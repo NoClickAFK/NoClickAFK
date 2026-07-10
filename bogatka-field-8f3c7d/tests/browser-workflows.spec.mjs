@@ -6,7 +6,7 @@ async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
     status:200,
     contentType:'application/json',
-    body:JSON.stringify({version:'4.3.4',versionToken:'434',sourceCommit:'1210a94cb61a683731cd5c9c67790145b449f80a',ahead:1}),
+    body:JSON.stringify({version:'4.3.4',versionToken:'434',sourceCommit:'e07ebf93a19d3386f35f0c16df762a847ba27bfb',ahead:1}),
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
@@ -47,16 +47,16 @@ test('viewer role disables editing controls',async({page})=>{
   await expect(page.locator('[data-location-card] input').first()).toBeDisabled();
 });
 
-test('app shell registers versioned service worker and remains usable after controller activation',async({page})=>{
+test('app shell activates the v4.3.4 Service Worker cache and remains usable',async({page})=>{
   await openApp(page);
   await page.waitForFunction(async()=>{
     if(!('serviceWorker'in navigator)||!('caches'in window))return false;
     const registration=await navigator.serviceWorker.getRegistration();
     const keys=await caches.keys();
     return Boolean(
-      registration?.active?.scriptURL?.includes('v=434')&&
-      navigator.serviceWorker.controller?.scriptURL?.includes('v=434')&&
-      keys.some(key=>key.includes('bogatka-location-v434'))
+      registration?.active?.scriptURL?.includes('/sw.js')&&
+      navigator.serviceWorker.controller?.scriptURL?.includes('/sw.js')&&
+      keys.some(key=>key==='bogatka-location-v434')
     );
   },null,{timeout:20000});
   const state=await page.evaluate(async()=>{
@@ -67,15 +67,17 @@ test('app shell registers versioned service worker and remains usable after cont
       controlled:Boolean(navigator.serviceWorker.controller),
       activeScript:registration?.active?.scriptURL||'',
       controllerScript:navigator.serviceWorker.controller?.scriptURL||'',
-      cacheReady:keys.some(key=>key.includes('bogatka-location-v434')),
+      cacheReady:keys.includes('bogatka-location-v434'),
+      staleBuildCaches:keys.filter(key=>key.startsWith('bogatka-location-v')&&key!=='bogatka-location-v434'),
       scope:registration?.scope||'',
     };
   });
   expect(state.supported).toBe(true);
   expect(state.controlled).toBe(true);
-  expect(state.activeScript).toContain('v=434');
-  expect(state.controllerScript).toContain('v=434');
+  expect(state.activeScript).toContain('/sw.js');
+  expect(state.controllerScript).toContain('/sw.js');
   expect(state.cacheReady).toBe(true);
+  expect(state.staleBuildCaches).toEqual([]);
   await expect(page.locator('#app')).toBeVisible({timeout:10000});
   await expect(page.locator('#versionLabel')).toHaveText(/^4\.3\.4$/);
 });
