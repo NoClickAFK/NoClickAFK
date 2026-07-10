@@ -15,41 +15,44 @@
   let refreshTimer=null;
 
   const filled=value=>value!==undefined&&value!==null&&(typeof value!=='string'||value.trim()!=='');
-  const requirement=(label,done)=>({label,done:Boolean(done)});
-  const simple=(label,value)=>requirement(label,filled(value));
+  const requirement=(label,done,field='')=>({label,done:Boolean(done),field});
+  const simple=(label,value,field='')=>requirement(label,filled(value),field);
+  const metricNumber=(metric,key,fallback=0)=>Number(metric?.[key]??fallback)||0;
 
   function inspectionRequirements(data={}){
-    const items=[simple('статус работы',data.status),simple('тип объекта',data.objectType),simple('дата осмотра',data.date),simple('время осмотра',data.time),simple('этаж / расположение',data.floorLocation),simple('состояние помещения',data.premiseCondition),simple('доступность помещения',data.premiseAvailability),simple('готовность собственника',data.landlordReadiness),simple('цель осмотра',data.inspectionPurpose),simple('итог осмотра',data.inspectionResult)];
-    if(data.objectType==='Другое')items.splice(2,0,simple('уточнение типа объекта',data.objectTypeOther));
+    const items=[simple('статус работы',data.status,'status'),simple('тип объекта',data.objectType,'objectType'),simple('дата осмотра',data.date,'date'),simple('время осмотра',data.time,'time'),simple('этаж / расположение',data.floorLocation,'floorLocation'),simple('состояние помещения',data.premiseCondition,'premiseCondition'),simple('доступность помещения',data.premiseAvailability,'premiseAvailability'),simple('готовность собственника',data.landlordReadiness,'landlordReadiness'),simple('цель осмотра',data.inspectionPurpose,'inspectionPurpose'),simple('итог осмотра',data.inspectionResult,'inspectionResult')];
+    if(data.objectType==='Другое')items.splice(2,0,simple('уточнение типа объекта',data.objectTypeOther,'objectTypeOther'));
     return items;
   }
 
   function landlordRequirements(data={}){
-    const items=[simple('собственник / организация',data.ownerName),simple('роль контактного лица',data.contactRole),simple('контактное лицо',data.contact),requirement('телефон, мессенджер или email',[data.contactPhone,data.contactMessenger,data.contactEmail].some(filled)),simple('источник объекта',data.objectSource)];
-    if(data.contactRole==='Другое')items.splice(2,0,simple('уточнение роли контактного лица',data.contactRoleOther));
-    if(data.objectSource==='Объявление')items.push(simple('ссылка на объявление',data.listingUrl));
-    if(data.objectSource==='Другое')items.push(simple('уточнение источника объекта',data.objectSourceOther));
+    const items=[simple('собственник / организация',data.ownerName,'ownerName'),simple('роль контактного лица',data.contactRole,'contactRole'),simple('контактное лицо',data.contact,'contact'),requirement('телефон, мессенджер или email',[data.contactPhone,data.contactMessenger,data.contactEmail].some(filled),'contactPhone'),simple('источник объекта',data.objectSource,'objectSource')];
+    if(data.contactRole==='Другое')items.splice(2,0,simple('уточнение роли контактного лица',data.contactRoleOther,'contactRoleOther'));
+    if(data.objectSource==='Объявление')items.push(simple('ссылка на объявление',data.listingUrl,'listingUrl'));
+    if(data.objectSource==='Другое')items.push(simple('уточнение источника объекта',data.objectSourceOther,'objectSourceOther'));
     return items;
   }
 
   function technicalRequirements(data={}){
-    return[simple('общая площадь',data?.tech?.totalArea),simple('аренда в месяц',data?.tech?.rentPerMonth),simple('электрическая мощность',data?.tech?.powerKw),simple('требуемая мощность',data?.tech?.requiredPowerKw),simple('режим работы',data?.tech?.openingHours),simple('коммунальные расходы',data?.tech?.utilities),simple('оценка ремонта',data?.tech?.repairEstimate)];
+    return[simple('общая площадь',data?.tech?.totalArea,'tech.totalArea'),simple('аренда в месяц',data?.tech?.rentPerMonth,'tech.rentPerMonth'),simple('электрическая мощность',data?.tech?.powerKw,'tech.powerKw'),simple('требуемая мощность',data?.tech?.requiredPowerKw,'tech.requiredPowerKw'),simple('режим работы',data?.tech?.openingHours,'tech.openingHours'),simple('коммунальные расходы',data?.tech?.utilities,'tech.utilities'),simple('оценка ремонта',data?.tech?.repairEstimate,'tech.repairEstimate')];
   }
 
-  function conclusionRequirements(data={}){return[requirement('предварительное решение',VALID_DECISIONS.has(String(data.decision||'').trim()))]}
+  function conclusionRequirements(data={}){return[requirement('предварительное решение',VALID_DECISIONS.has(String(data.decision||'').trim()),'decision')]}
 
   function requirementGroup(key,items,detail=''){
     const meta=GROUP_META[key];
-    const normalized=items.map(item=>({label:String(item.label),done:Boolean(item.done)}));
+    const normalized=items.map(item=>({label:String(item.label),done:Boolean(item.done),field:String(item.field||'')}));
     const total=normalized.length;
     const done=normalized.filter(item=>item.done).length;
-    const missingLabels=normalized.filter(item=>!item.done).map(item=>item.label);
-    return{key,title:meta.title,target:meta.target,weight:GROUP_WEIGHTS[key],requirements:normalized,done,total,ratio:total?done/total:1,percent:total?Math.round(done/total*100):100,missingCount:Math.max(0,total-done),missingLabels,detail};
+    const missing=normalized.filter(item=>!item.done);
+    const missingLabels=missing.map(item=>item.label);
+    const missingFields=missing.map(item=>item.field).filter(Boolean);
+    return{key,title:meta.title,target:meta.target,weight:GROUP_WEIGHTS[key],requirements:normalized,done,total,ratio:total?done/total:1,percent:total?Math.round(done/total*100):100,missingCount:Math.max(0,total-done),missingLabels,missingFields,detail};
   }
 
   function scoreGroup(data={}){
     const weights=window.BogatkaDecisionEngine?.WEIGHTS||{};
-    const group=requirementGroup('scores',Object.keys(weights).map(key=>simple(key,data?.score?.[key])));
+    const group=requirementGroup('scores',Object.keys(weights).map(key=>simple(key,data?.score?.[key],`score.${key}`)));
     group.detail=group.missingCount?`Оценено ${group.done} из ${group.total} критериев.`:'Все 14 критериев оценены.';
     return group;
   }
@@ -61,7 +64,7 @@
     const missing=Array.isArray(plan.missing)?plan.missing:[];
     const missingLabels=missing.map(item=>`${PHOTO_LABELS[item.category]||item.category}: ещё ${item.missing}`);
     const missingCount=Math.max(0,total-done);
-    return{key:'photos',title:GROUP_META.photos.title,target:'photos',weight:GROUP_WEIGHTS.photos,done,total,ratio:total?done/total:1,percent:total?Math.min(100,Math.round(done/total*100)):100,missingCount,missingLabels,detail:missingCount?`Не хватает ${missingCount} фото до минимального фотоплана.`:'Минимальный фотоплан выполнен.'};
+    return{key:'photos',title:GROUP_META.photos.title,target:'photos',weight:GROUP_WEIGHTS.photos,done,total,ratio:total?done/total:1,percent:total?Math.min(100,Math.round(done/total*100)):100,missingCount,missingLabels,missingFields:[],detail:missingCount?`Не хватает ${missingCount} фото до минимального фотоплана.`:'Минимальный фотоплан выполнен.'};
   }
 
   function checksGroup(metric={}){
@@ -71,7 +74,7 @@
     const complete=entry=>Boolean(deal?.isCompleted?.(entry.value,entry.definition));
     const done=entries.length?entries.filter(complete).length:Number(metric.stopAnswered||0);
     const missingLabels=entries.filter(entry=>!complete(entry)).map(entry=>entry.definition?.title||'проверка');
-    return{key:'checks',title:GROUP_META.checks.title,target:'checks',weight:GROUP_WEIGHTS.checks,done,total,ratio:total?done/total:1,percent:total?Math.round(done/total*100):100,missingCount:Math.max(0,total-done),missingLabels,detail:Math.max(0,total-done)?`Не завершено ${Math.max(0,total-done)} из ${total} проверок.`:'Все проверки завершены.'};
+    return{key:'checks',title:GROUP_META.checks.title,target:'checks',weight:GROUP_WEIGHTS.checks,done,total,ratio:total?done/total:1,percent:total?Math.round(done/total*100):100,missingCount:Math.max(0,total-done),missingLabels,missingFields:[],detail:Math.max(0,total-done)?`Не завершено ${Math.max(0,total-done)} из ${total} проверок.`:'Все проверки завершены.'};
   }
 
   function progressMissing(groups){
@@ -109,7 +112,22 @@
     return metric;
   }
 
-  function transformMetrics(metrics=[]){for(const metric of metrics)applyMetric(metric);return metrics}
+  function compareMetrics(left={},right={}){
+    return (left.dealGate?.priority??9)-(right.dealGate?.priority??9)||
+      metricNumber(left,'risks')-metricNumber(right,'risks')||
+      metricNumber(right,'ratingScore',right.weighted)-metricNumber(left,'ratingScore',left.weighted)||
+      metricNumber(right,'completion')-metricNumber(left,'completion')||
+      metricNumber(right,'rawScore')-metricNumber(left,'rawScore')||
+      metricNumber(left,'originalIndex')-metricNumber(right,'originalIndex');
+  }
+
+  function rankMetrics(metrics=[]){
+    const ranked=[...metrics].sort(compareMetrics);
+    ranked.forEach((metric,index)=>{metric.rank=index+1});
+    return metrics;
+  }
+
+  function transformMetrics(metrics=[]){for(const metric of metrics)applyMetric(metric);return rankMetrics(metrics)}
 
   function installPhotoPlan(){
     const suite=window.BogatkaSuite;
@@ -135,6 +153,8 @@
     if(!api?.ready)return false;
     api.buildProgress=buildProgress;
     api.applyMetricV434=applyMetric;
+    api.compareMetricsV434=compareMetrics;
+    api.rankMetricsV434=rankMetrics;
     const current=api.transformMetrics;
     if(typeof current==='function'&&current!==apiTransformTerminal&&!current.__readinessTerminalV434){
       const wrapped=markTerminal(function(metrics){return transformMetrics(current.call(api,metrics))},current);
@@ -165,6 +185,43 @@
 
   function refreshPhotoCopy(root=document){root.querySelectorAll?.('.photo-plan-head-v400 strong').forEach(node=>{if(node.textContent!=='Минимальный фотоплан')node.textContent='Минимальный фотоплан'})}
 
+  function openPanel(panel,card,target){
+    if(!panel)return;
+    panel.dataset.panelOpenV419='1';
+    panel.classList.remove('panel-closed-v419');
+    const toggle=panel.querySelector(':scope > .panel-toggle-v419');
+    if(toggle)toggle.setAttribute('aria-expanded','true');
+    const chevron=panel.querySelector('.panel-chevron-v419');
+    if(chevron&&chevron.textContent!=='⌃')chevron.textContent='⌃';
+    try{localStorage.setItem(`bogatka.panel.${target}.open.${card.dataset.locationCard}`,'1')}catch(_){ }
+  }
+
+  function focusMissingField(card,target){
+    const metric=(window.BogatkaDecisionUI?.lastMetrics||[]).find(item=>item.id===card.dataset.locationCard);
+    const group=metric?.progressGroups?.find(item=>item.target===target&&item.missingCount>0);
+    const field=group?.missingFields?.find(Boolean);
+    if(!field)return;
+    const panel=target==='landlord'?card.querySelector('.landlord-card-v416'):card.querySelector('.inspection-card-v416');
+    const control=panel?.querySelector(`[data-field="${CSS.escape(field)}"]`);
+    if(!control||control.hidden||control.closest('[hidden]'))return;
+    control.scrollIntoView({behavior:'auto',block:'center'});
+    try{control.focus({preventScroll:true})}catch(_){control.focus()}
+    const highlight=control.closest('label.field')||control;
+    highlight.classList.add('progress-target-flash-v448');
+    setTimeout(()=>highlight.classList.remove('progress-target-flash-v448'),1600);
+  }
+
+  function handleProgressNavigation(event){
+    const button=event.target?.closest?.('[data-progress-target-v448]');
+    const target=button?.dataset.progressTargetV448;
+    if(target!=='inspection'&&target!=='landlord')return;
+    const card=button.closest('[data-location-card]');
+    if(!card)return;
+    const panel=target==='landlord'?card.querySelector('.landlord-card-v416'):card.querySelector('.inspection-card-v416');
+    openPanel(panel,card,target);
+    Promise.resolve(window.BogatkaInspectionLayoutV461?.enhanceAll?.()).finally(()=>setTimeout(()=>focusMissingField(card,target),0));
+  }
+
   async function refresh(){
     installPhotoPlan();installApi();installEngineTerminal();enforceOptionalReason();refreshPhotoCopy();
     if(typeof window.BogatkaDecisionUI?.refresh==='function')await window.BogatkaDecisionUI.refresh();
@@ -178,6 +235,7 @@
   function install(){
     const root=document.getElementById('locations')||document.body;
     ensureTerminal();enforceOptionalReason(root);refreshPhotoCopy(root);
+    root.addEventListener('click',handleProgressNavigation,true);
     root.addEventListener('input',event=>{if(event.target?.matches?.('[data-field="listingUrl"],[data-field="objectSourceOther"],[data-field="inspectionPurpose"],[data-field="inspectionResult"]'))schedule(700)},true);
     root.addEventListener('change',event=>{if(event.target?.matches?.('[data-field="objectSource"],[data-field="decision"]'))schedule(180)},true);
     new MutationObserver(()=>{ensureTerminal();enforceOptionalReason(root);refreshPhotoCopy(root)}).observe(root,{childList:true,subtree:true});
@@ -186,5 +244,5 @@
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-  window.BogatkaReadinessProgressV434={version:VERSION,ready:true,PHOTO_PLAN,GROUP_ORDER,GROUP_WEIGHTS,inspectionRequirements,landlordRequirements,technicalRequirements,conclusionRequirements,buildProgress,applyMetric,transformMetrics,installPhotoPlan,installApi,installEngineTerminal,refresh};
+  window.BogatkaReadinessProgressV434={version:VERSION,ready:true,PHOTO_PLAN,GROUP_ORDER,GROUP_WEIGHTS,inspectionRequirements,landlordRequirements,technicalRequirements,conclusionRequirements,buildProgress,applyMetric,compareMetrics,rankMetrics,transformMetrics,installPhotoPlan,installApi,installEngineTerminal,refresh};
 })();
