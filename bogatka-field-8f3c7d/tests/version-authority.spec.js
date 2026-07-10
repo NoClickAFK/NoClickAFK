@@ -26,8 +26,8 @@ test('repository build version controls UI when remote metadata is older',async(
     localStorage.removeItem('bogatka_build_meta_v426');
   });
 
-  await page.goto(`${APP}?v=434`,{waitUntil:'networkidle'});
-  await page.waitForTimeout(1500);
+  await page.goto(`${APP}?v=434`,{waitUntil:'domcontentloaded'});
+  await page.waitForTimeout(5000);
   const initial=await page.evaluate(()=>({
     label:document.getElementById('versionLabel')?.textContent||'',
     build:window.BOGATKA_BUILD||null,
@@ -37,6 +37,7 @@ test('repository build version controls UI when remote metadata is older',async(
   expect(initial,diagnostics.join('\n')).toMatchObject({
     label:'4.3.4',
     versionApi:true,
+    accessVersionLoaded:true,
     build:{version:'4.3.4',versionToken:'434',remoteIgnored:'4.2.6',sourceCommit:'b76e9d385154fc5994e37eefc24724bd9eb483a4'},
   });
 
