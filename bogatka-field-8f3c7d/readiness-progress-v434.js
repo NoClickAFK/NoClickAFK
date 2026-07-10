@@ -156,6 +156,13 @@
     return true;
   }
 
+  function stampLocationOwner(fn){
+    const owner=window.BogatkaLocationDataV452?.augmentMetric;
+    if(typeof fn!=='function'||typeof owner!=='function')return fn;
+    if(fn.__locationDataV452Owner!==owner)Object.defineProperty(fn,'__locationDataV452Owner',{value:owner,enumerable:false,configurable:true});
+    return fn;
+  }
+
   function markTerminal(wrapped,current){
     Object.assign(wrapped,current);
     Object.defineProperties(wrapped,{
@@ -164,7 +171,7 @@
       __locationDataV452:{value:true,configurable:true},
       __base:{value:current,configurable:true},
     });
-    return wrapped;
+    return stampLocationOwner(wrapped);
   }
 
   function installApi(){
@@ -186,7 +193,7 @@
     const engine=window.BogatkaDecisionEngine;
     const current=engine?.computeAll;
     if(!engine||typeof current!=='function')return false;
-    if(current===engineTerminal||current.__readinessTerminalV434){engineTerminal=current;return true}
+    if(current===engineTerminal||current.__readinessTerminalV434){stampLocationOwner(current);engineTerminal=current;return true}
     const wrapped=markTerminal(async function(...args){installPhotoPlan();return transformMetrics(await current.apply(engine,args))},current);
     engine.computeAll=wrapped;engineTerminal=wrapped;
     return true;
