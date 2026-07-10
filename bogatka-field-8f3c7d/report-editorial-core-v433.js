@@ -100,6 +100,39 @@ function installLocationExportGuard(){
     Promise.resolve(exporter(locationId)).catch(error=>console.error('Location report export failed.',error));
   },true);
 }
-window.BogatkaReportCoreV433={VERSION,clean,preserve,wait,safeName,node,append,isSingle,sectionTitle,findSection,fieldMap,firstValue,firstSentence,parseNumber,statusClass,makePill,metricItems,removeNoise,updateGeneratorMetadata,contextData,sectionSubtitle,makeMetric,makeLabeledValue,pickLeadPhoto,installLocationExportGuard};
+let terminalBuilder=null;
+let authorityTimer=null;
+function enforceTerminalAuthority(){
+  const api=window.BogatkaLiveReport;
+  const finalizer=window.BogatkaReportFinalizeV433;
+  if(api?.build?.__reportFinalizeV433)terminalBuilder=api.build;
+  else if(window.buildReportHtml?.__reportFinalizeV433)terminalBuilder=window.buildReportHtml;
+  if(!api||!finalizer?.ready||!terminalBuilder)return;
+  api.version=VERSION;
+  api.build=terminalBuilder;
+  api.finalizeReportHtmlV432=finalizer.finalizeHtml;
+  api.finalizeReportHtmlV433=finalizer.finalizeHtml;
+  api.buildLocationReportHtml=finalizer.buildLocationReportHtml;
+  api.exportLocationHtmlReport=finalizer.exportLocationHtmlReport;
+  window.buildReportHtml=terminalBuilder;
+  window.exportHtmlReport=terminalBuilder.__htmlAction;
+  window.openPdfReport=terminalBuilder.__pdfAction;
+  window.buildLocationReportHtml=finalizer.buildLocationReportHtml;
+  window.exportLocationHtmlReport=finalizer.exportLocationHtmlReport;
+  try{buildReportHtml=window.buildReportHtml;exportHtmlReport=window.exportHtmlReport;openPdfReport=window.openPdfReport}catch(_){}
+}
+function installTerminalAuthorityGuard(){
+  if(authorityTimer)return;
+  let passes=0;
+  const tick=()=>{
+    enforceTerminalAuthority();
+    passes+=1;
+    if(passes>=180&&authorityTimer){clearInterval(authorityTimer);authorityTimer=null}
+  };
+  tick();
+  authorityTimer=setInterval(tick,250);
+}
+window.BogatkaReportCoreV433={VERSION,clean,preserve,wait,safeName,node,append,isSingle,sectionTitle,findSection,fieldMap,firstValue,firstSentence,parseNumber,statusClass,makePill,metricItems,removeNoise,updateGeneratorMetadata,contextData,sectionSubtitle,makeMetric,makeLabeledValue,pickLeadPhoto,installLocationExportGuard,enforceTerminalAuthority,installTerminalAuthorityGuard};
 installLocationExportGuard();
+installTerminalAuthorityGuard();
 })();
