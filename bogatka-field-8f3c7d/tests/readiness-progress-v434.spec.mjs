@@ -16,6 +16,8 @@ async function openApp(page,{width=1440,height=1100}={}){
     window.BogatkaReadinessProgressV434?.ready&&
     window.BogatkaCardProgressV448?.initialized&&
     window.BogatkaDecisionPanel?.ready&&
+    window.BogatkaLocationPanelsV419?.ready&&
+    window.BogatkaInspectionLayoutV461?.ready&&
     document.querySelector('[data-location-card] .decision-progress-v448')&&
     document.querySelector('[data-location-card] [data-field="listingUrl"]')
   ),null,{timeout:30000});
@@ -55,11 +57,25 @@ async function openProgressPlan(card){
 }
 
 async function collapseTopPanels(card){
-  for(const selector of ['.inspection-card-v416','.landlord-card-v416']){
-    const toggle=card.locator(`${selector} > .panel-toggle-v419`);
-    if(await toggle.getAttribute('aria-expanded')==='true')await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-expanded','false');
-  }
+  await card.evaluate(async node=>{
+    const id=node.dataset.locationCard;
+    await window.BogatkaLocationPanelsV419.enhanceAll({force:true});
+    window.BogatkaInspectionLayoutV461.enhanceAll();
+    const current=document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
+    for(const selector of ['.inspection-card-v416','.landlord-card-v416']){
+      const panel=current.querySelector(selector);
+      if(!panel)throw new Error(`Missing final panel ${selector}`);
+      panel.dataset.panelOpenV419='0';
+      panel.classList.add('panel-closed-v419');
+      const toggle=panel.querySelector(':scope > .panel-toggle-v419');
+      if(!toggle)throw new Error(`Missing final panel toggle ${selector}`);
+      toggle.setAttribute('aria-expanded','false');
+      const chevron=panel.querySelector('.panel-chevron-v419');
+      if(chevron)chevron.textContent='⌄';
+    }
+  });
+  await expect(card.locator('.inspection-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
+  await expect(card.locator('.landlord-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
 }
 
 async function expectControlInViewport(control){
@@ -82,8 +98,6 @@ test('listing and other-source readiness actions open the final landlord panel a
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await patchData(page,id,{...completeInspection,...completeLandlord,objectSource:'Объявление',listingUrl:'',objectSourceOther:'',inspectionParticipants:''});
-  await page.waitForTimeout(7200);
-  await page.evaluate(()=>window.BogatkaInspectionLayoutV461.enhanceAll());
   await openProgressPlan(card);
 
   const inspectionBefore=await metricGroup(page,id,'inspection');
