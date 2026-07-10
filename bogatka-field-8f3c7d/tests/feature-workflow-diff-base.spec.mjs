@@ -62,7 +62,7 @@ test.afterAll(()=>{
   for(const directory of temporary)rmSync(directory,{recursive:true,force:true});
 });
 
-test('feature workflow declares guarded bases and keeps compare mapped',()=>{
+test('feature workflow declares guarded bases, preserves artifacts, and keeps compare mapped',()=>{
   const workflow=readFileSync(WORKFLOW,'utf8');
   const resolver=readFileSync(RESOLVER,'utf8');
   expect(workflow).toContain('workflow_dispatch:');
@@ -71,6 +71,7 @@ test('feature workflow declares guarded bases and keeps compare mapped',()=>{
   expect(workflow).toContain("WORKFLOW_INPUT_BASE_SHA: ${{ inputs.base_sha || '' }}");
   expect(workflow).toContain('bash .github/scripts/resolve-feature-diff-base.sh');
   expect(workflow).toContain("photo-plan|compare'");
+  expect(workflow).toContain('--output=/tmp/bogatka-workflow-resolver-results');
   expect(workflow).not.toMatch(/git diff[^\n]*github\.event\.pull_request\.base\.sha/);
   expect(resolver).toContain('git rev-parse --verify');
   expect(resolver).toContain('git merge-base HEAD');
