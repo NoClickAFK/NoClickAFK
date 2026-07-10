@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=location-report-collapse-v464';
+const WORKER='http://127.0.0.1:4173/bogatka-field-8f3c7d/sw-v340.js';
 
 async function openApp(page,width=1440,height=1200){
   await page.setViewportSize({width,height});
@@ -165,9 +166,10 @@ test('mobile layout stays single-column and overflow free',async({page})=>{
   expect(result.landlordOverflow).toBeLessThanOrEqual(1);
 });
 
-test('v461 assets are present in the offline cache manifest',async({page})=>{
-  await openApp(page);
-  const worker=await page.evaluate(()=>fetch('./sw-v340.js').then(response=>response.text()));
+test('v461 assets are present in the offline cache manifest without depending on app startup',async({request})=>{
+  const response=await request.get(WORKER);
+  expect(response.ok()).toBe(true);
+  const worker=await response.text();
   expect(worker).toContain('./inspection-layout-v461.css');
   expect(worker).toContain('./inspection-layout-v461.js');
 });
