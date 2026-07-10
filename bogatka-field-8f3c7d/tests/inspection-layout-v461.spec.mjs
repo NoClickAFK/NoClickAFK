@@ -14,9 +14,24 @@ async function openApp(page,width=1440,height=1200){
     document.querySelector('[data-location-card][data-inspection-layout-v462="1"]')&&
     document.querySelector('[data-location-card] .next-task-card-v447')
   ),{timeout:30000});
-  const card=page.locator('[data-location-card]').first();
-  await card.evaluate(node=>window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:false}));
-  return card;
+  const initial=page.locator('[data-location-card]').first();
+  const id=await initial.getAttribute('data-location-card');
+  await page.evaluate(async locationId=>{
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
+    await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
+    window.BogatkaInspectionLayoutV461?.enhanceAll?.();
+    const current=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    for(const selector of ['.inspection-card-v416','.landlord-card-v416']){
+      const panel=current.querySelector(selector);
+      panel.dataset.panelOpenV419='1';
+      panel.classList.remove('panel-closed-v419');
+      panel.querySelector(':scope > .panel-toggle-v419')?.setAttribute('aria-expanded','true');
+      const chevron=panel.querySelector('.panel-chevron-v419');
+      if(chevron)chevron.textContent='⌃';
+    }
+  },id);
+  return page.locator(`[data-location-card="${id}"]`);
 }
 
 const visibleField=(card,field)=>card.locator(`[data-field="${field}"]:not([data-stage6-marker-v461])`).first();
