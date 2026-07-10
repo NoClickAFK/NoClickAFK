@@ -1,21 +1,22 @@
 import { test, expect } from '@playwright/test';
 
-const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=432';
+const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=433';
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
     status:200,
     contentType:'application/json',
-    body:JSON.stringify({version:'4.3.2',versionToken:'432',sourceCommit:'report432abcdef',ahead:1}),
+    body:JSON.stringify({version:'4.3.3',versionToken:'433',sourceCommit:'report433abcdef',ahead:1}),
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaSuite&&
     window.BogatkaDecisionEngine&&
+    window.BogatkaLiveReport?.build?.__reportFinalizeV433&&
     window.BogatkaLiveReport?.build?.__reportFinalizeV432&&
     window.buildReportHtml===window.BogatkaLiveReport.build
-  ),{timeout:25000});
+  ),{timeout:30000});
   await expect(page.locator('#app')).toBeVisible();
 }
 
@@ -55,12 +56,12 @@ test('app shell registers versioned service worker and remains usable after cont
     let cacheReady=false;
     if('caches'in window){
       const keys=await caches.keys();
-      cacheReady=keys.some(key=>key.includes('bogatka-location-v432'));
+      cacheReady=keys.some(key=>key.includes('bogatka-location-v433'));
     }
     return {supported:true,controlled:Boolean(navigator.serviceWorker.controller),cacheReady,scope:registration.scope};
   });
   expect(state.supported).toBe(true);
   expect(state.cacheReady).toBe(true);
   await expect(page.locator('#app')).toBeVisible({timeout:10000});
-  await expect(page.locator('#versionLabel')).toHaveText(/^4\.3\.2$/);
+  await expect(page.locator('#versionLabel')).toHaveText(/^4\.3\.3$/);
 });
