@@ -60,11 +60,17 @@ esac
 
 [[ -n "$base_sha" ]] || error "Resolved comparison base is empty"
 git rev-parse --verify "${base_sha}^{commit}" >/dev/null 2>&1 || error "Resolved base '$base_sha' is not a valid local commit"
+diff_merge_base="$(git merge-base "$base_sha" HEAD 2>/dev/null || true)"
+[[ -n "$diff_merge_base" ]] || error "Resolved base '$base_sha' does not share a merge base with HEAD"
+git rev-parse --verify "${diff_merge_base}^{commit}" >/dev/null 2>&1 || error "Resolved diff merge base '$diff_merge_base' is not a valid local commit"
 
 echo "Resolved base SHA: $base_sha"
 echo "Base source: $base_source"
+echo "Diff merge base SHA: $diff_merge_base"
 mkdir -p "$(dirname "$changed_file")"
-git diff --name-only "${base_sha}...HEAD" > "$changed_file"
+if ! git diff --name-only "${base_sha}...HEAD" > "$changed_file"; then
+  error "Failed to evaluate changed files between base '$base_sha' and HEAD"
+fi
 echo "Changed files:"
 if [[ -s "$changed_file" ]]; then
   cat "$changed_file"
@@ -78,6 +84,7 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "base_sha=$base_sha"
     echo "base_source=$base_source"
+    echo "diff_merge_base=$diff_merge_base"
     echo "changed_file=$changed_file"
     echo "changed_count=$changed_count"
   } >> "$GITHUB_OUTPUT"
