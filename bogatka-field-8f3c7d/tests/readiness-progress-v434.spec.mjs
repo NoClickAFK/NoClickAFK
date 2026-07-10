@@ -83,11 +83,10 @@ async function collapseTopPanels(card){
 }
 
 async function expectControlInViewport(control){
-  const visible=await control.evaluate(node=>{
+  await expect.poll(()=>control.evaluate(node=>{
     const rect=node.getBoundingClientRect();
     return rect.width>0&&rect.height>0&&rect.top>=0&&rect.left>=0&&rect.bottom<=window.innerHeight&&rect.right<=window.innerWidth;
-  });
-  expect(visible).toBe(true);
+  }),{timeout:5000}).toBe(true);
 }
 
 async function screenshotCard(card,name){
