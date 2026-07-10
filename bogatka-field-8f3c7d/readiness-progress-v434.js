@@ -259,16 +259,16 @@
   }
 
   function schedule(delay=420){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refresh().catch(console.error),delay)}
-  function ensureTerminal(){installPhotoPlan();installApi();installEngineTerminal()}
+  function ensureTerminal(root=document){installPhotoPlan();installApi();installEngineTerminal();enforceOptionalReason(root)}
 
   function install(){
     const root=document.getElementById('locations')||document.body;
-    ensureTerminal();enforceOptionalReason(root);refreshPhotoCopy(root);
+    ensureTerminal(root);refreshPhotoCopy(root);
     root.addEventListener('click',handleProgressNavigation,true);
     root.addEventListener('input',event=>{if(event.target?.matches?.('[data-field="listingUrl"],[data-field="objectSourceOther"],[data-field="inspectionPurpose"],[data-field="inspectionResult"]'))schedule(700)},true);
     root.addEventListener('change',event=>{if(event.target?.matches?.('[data-field="objectSource"],[data-field="decision"]'))schedule(180)},true);
-    new MutationObserver(()=>{ensureTerminal();enforceOptionalReason(root);refreshPhotoCopy(root)}).observe(root,{childList:true,subtree:true});
-    [0,120,280,520,900,1500,2500,4000,7000].forEach(delay=>setTimeout(ensureTerminal,delay));
+    new MutationObserver(()=>{ensureTerminal(root);refreshPhotoCopy(root)}).observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['required','aria-required','data-required-missing','hidden']});
+    [0,120,280,520,900,1500,2500,4000,6200,7000].forEach(delay=>setTimeout(()=>ensureTerminal(root),delay));
     schedule(0);
   }
 
