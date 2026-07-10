@@ -93,6 +93,28 @@ test('viewer restrictions, optional reason persistence and premium report access
   expect(stored.decisionReason).toBe('Сохранённая необязательная аргументация');
 });
 
+test('optional decision reason survives repeated delayed v452 sync passes',async({page})=>{
+  const {card,id}=await openApp(page);
+  await writeLocation(page,id,data=>{
+    data.decision='Оставить';
+    data.decisionReason='';
+  });
+  await page.evaluate(async locationId=>{
+    await restoreAllForms({preserveActive:false});
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    const decision=card.querySelector('[data-field="decision"][value="Оставить"]');
+    decision.checked=true;
+    for(const delay of [0,30,80])setTimeout(()=>window.BogatkaLocationDataV452.enhanceCard(card),delay);
+  },id);
+  await page.waitForTimeout(240);
+  await expect.poll(()=>card.evaluate(node=>[...node.querySelectorAll('[data-field="decisionReason"]')].map(control=>({required:control.required,aria:control.getAttribute('aria-required'),missing:control.closest('.decision-reason-section-v412,.decision-reason-v452')?.dataset.requiredMissing||'',warningHidden:control.closest('.decision-reason-section-v412,.decision-reason-v452')?.querySelector('.decision-reason-warning-v452')?.hidden??true}))),{timeout:5000}).toEqual(expect.arrayContaining([expect.objectContaining({required:false,aria:'false',missing:'false',warningHidden:true})]));
+  for(const control of await card.locator('[data-field="decisionReason"]').all()){
+    await expect(control).not.toHaveAttribute('required','');
+    await expect(control).toHaveAttribute('aria-required','false');
+  }
+  await expect(card.locator('.decision-reason-warning-v452')).toBeHidden();
+});
+
 test('built-in self-test accepts the 13-photo minimum plan',async({page})=>{
   await openApp(page);
   await page.waitForFunction(()=>Boolean(window.BogatkaSelftest?.run),null,{timeout:30000});
