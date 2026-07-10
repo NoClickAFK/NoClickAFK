@@ -3,6 +3,7 @@
   if(window.BogatkaReadinessProgressV434?.ready)return;
 
   const VERSION='4.3.4';
+  const OPTIONAL_REASON_HINT='Необязательно — можно кратко зафиксировать аргументы решения.';
   const VALID_DECISIONS=new Set(['Оставить','Под вопросом','Исключить']);
   const PHOTO_PLAN=Object.freeze({
     street:2,
@@ -239,20 +240,24 @@
 
   function enforceOptionalReason(root=document){
     root.querySelectorAll?.('[data-field="decisionReason"]').forEach(control=>{
-      control.required=false;
-      control.setAttribute('aria-required','false');
+      if(control.required)control.required=false;
+      if(control.getAttribute('aria-required')!=='false')control.setAttribute('aria-required','false');
       const section=control.closest('.decision-reason-section-v412,.decision-reason-v452');
       if(section){
-        section.dataset.requiredMissing='false';
-        section.querySelector('.decision-reason-warning-v452')?.setAttribute('hidden','');
+        if(section.dataset.requiredMissing!=='false')section.dataset.requiredMissing='false';
+        const warning=section.querySelector('.decision-reason-warning-v452');
+        if(warning&&!warning.hasAttribute('hidden'))warning.setAttribute('hidden','');
       }
     });
-    root.querySelectorAll?.('.decision-reason-description-v412').forEach(node=>{node.textContent='Необязательно — можно кратко зафиксировать аргументы решения.'});
-    root.querySelectorAll?.('.decision-reason-helper-v412').forEach(node=>{node.textContent='Необязательно — можно кратко зафиксировать аргументы решения.'});
+    root.querySelectorAll?.('.decision-reason-description-v412,.decision-reason-helper-v412').forEach(node=>{
+      if(node.textContent!==OPTIONAL_REASON_HINT)node.textContent=OPTIONAL_REASON_HINT;
+    });
   }
 
   function refreshPhotoCopy(root=document){
-    root.querySelectorAll?.('.photo-plan-head-v400 strong').forEach(node=>{node.textContent='Минимальный фотоплан'});
+    root.querySelectorAll?.('.photo-plan-head-v400 strong').forEach(node=>{
+      if(node.textContent!=='Минимальный фотоплан')node.textContent='Минимальный фотоплан';
+    });
   }
 
   async function refresh(){
