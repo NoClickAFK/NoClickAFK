@@ -62,7 +62,7 @@ async function inspectReport(context,html,{width=1440,height=1400,print=false}={
     const bodyValue=document.querySelector('.report-field strong');
     const fieldGrid=document.querySelector('.report-field-grid');
     const section=document.querySelector('.report-section-accordion-v432');
-    const pills=[...document.querySelectorAll('.report-status')];
+    const pills=[...document.querySelectorAll('.report-status')].filter(node=>node.getClientRects().length);
     const hiddenBody=document.querySelector('.report-accordion-body-v432[hidden]');
     return {
       styleCount:document.querySelectorAll('#reportFinalV432[data-version="4.3.3"]').length,
