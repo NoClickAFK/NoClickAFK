@@ -119,15 +119,26 @@
     return true;
   }
 
+  function markTerminal(wrapped,current){
+    Object.assign(wrapped,current);
+    Object.defineProperties(wrapped,{
+      __readinessProgressV434:{value:true,configurable:true},
+      __readinessTerminalV434:{value:true,configurable:true},
+      __locationDataV452:{value:true,configurable:true},
+      __base:{value:current,configurable:true},
+    });
+    return wrapped;
+  }
+
   function installApi(){
     const api=window.BogatkaCardProgressV448;
     if(!api?.ready)return false;
     api.buildProgress=buildProgress;
     api.applyMetricV434=applyMetric;
     const current=api.transformMetrics;
-    if(typeof current==='function'&&current!==apiTransformTerminal){
-      const wrapped=function(metrics){return transformMetrics(current.call(api,metrics))};
-      Object.assign(wrapped,current);wrapped.__readinessProgressV434=true;wrapped.__base=current;api.transformMetrics=wrapped;apiTransformTerminal=wrapped;
+    if(typeof current==='function'&&current!==apiTransformTerminal&&!current.__readinessTerminalV434){
+      const wrapped=markTerminal(function(metrics){return transformMetrics(current.call(api,metrics))},current);
+      api.transformMetrics=wrapped;apiTransformTerminal=wrapped;
     }
     return true;
   }
@@ -136,9 +147,9 @@
     const engine=window.BogatkaDecisionEngine;
     const current=engine?.computeAll;
     if(!engine||typeof current!=='function')return false;
-    if(current===engineTerminal)return true;
-    const wrapped=async function(...args){installPhotoPlan();return transformMetrics(await current.apply(engine,args))};
-    Object.assign(wrapped,current);wrapped.__readinessProgressV434=true;wrapped.__base=current;engine.computeAll=wrapped;engineTerminal=wrapped;
+    if(current===engineTerminal||current.__readinessTerminalV434){engineTerminal=current;return true}
+    const wrapped=markTerminal(async function(...args){installPhotoPlan();return transformMetrics(await current.apply(engine,args))},current);
+    engine.computeAll=wrapped;engineTerminal=wrapped;
     return true;
   }
 
@@ -162,13 +173,15 @@
   }
 
   function schedule(delay=420){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refresh().catch(console.error),delay)}
+  function ensureTerminal(){installPhotoPlan();installApi();installEngineTerminal()}
 
   function install(){
     const root=document.getElementById('locations')||document.body;
-    installPhotoPlan();installApi();installEngineTerminal();enforceOptionalReason(root);refreshPhotoCopy(root);
+    ensureTerminal();enforceOptionalReason(root);refreshPhotoCopy(root);
     root.addEventListener('input',event=>{if(event.target?.matches?.('[data-field="listingUrl"],[data-field="objectSourceOther"],[data-field="inspectionPurpose"],[data-field="inspectionResult"]'))schedule(700)},true);
     root.addEventListener('change',event=>{if(event.target?.matches?.('[data-field="objectSource"],[data-field="decision"]'))schedule(180)},true);
-    new MutationObserver(()=>{installPhotoPlan();installApi();installEngineTerminal();enforceOptionalReason(root);refreshPhotoCopy(root)}).observe(root,{childList:true,subtree:true});
+    new MutationObserver(()=>{ensureTerminal();enforceOptionalReason(root);refreshPhotoCopy(root)}).observe(root,{childList:true,subtree:true});
+    [0,120,280,520,900,1500,2500,4000,7000].forEach(delay=>setTimeout(ensureTerminal,delay));
     schedule(0);
   }
 
