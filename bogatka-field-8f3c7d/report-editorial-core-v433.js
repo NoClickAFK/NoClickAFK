@@ -2,6 +2,7 @@
 'use strict';
 const VERSION='4.3.3';
 const clean=value=>String(value??'').replace(/[\s\u00a0]+/g,' ').trim();
+const preserve=value=>String(value??'').replace(/\r\n?/g,'\n').trim();
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function safeName(value){
   const normalized=String(value||'location').normalize('NFKD').replace(/[\u0300-\u036f]/g,'');
@@ -21,7 +22,7 @@ function fieldMap(root){
   const values=new Map();
   root?.querySelectorAll('.report-field').forEach(field=>{
     const label=clean(field.querySelector('span')?.textContent);
-    const value=clean(field.querySelector('strong')?.textContent);
+    const value=preserve(field.querySelector('strong')?.textContent);
     if(label&&!values.has(label))values.set(label,{label,value,node:field});
   });
   return values;
@@ -72,7 +73,7 @@ function contextData(location){
   const recommendation=clean(header?.querySelector('.report-status')?.textContent);
   return{
     title:clean(header?.querySelector('h2')?.textContent)||'Локация',
-    address:clean(header?.querySelector('p:not(.report-eyebrow)')?.textContent),
+    address:preserve(header?.querySelector('p:not(.report-eyebrow)')?.textContent),
     recommendation,statusNode:header?.querySelector('.report-status')?.cloneNode(true)||null,decision,metrics:metricItems(header||location),
     reason:firstValue(decisionFields,['Причина решения']),system:firstValue(decisionFields,['Комментарий системы']),
     strengths:firstValue(conclusionFields,['Плюсы'])||firstValue(competitorFields,['Сильные стороны']),
@@ -84,5 +85,5 @@ function sectionSubtitle(title){return({'Основные сведения':'К�
 function makeMetric(doc,item){const wrapper=node(doc,'div','report-hero-metric-v433');append(wrapper,node(doc,'strong','',item.value||'—'),node(doc,'span','',item.label||'Показатель'));return wrapper}
 function makeLabeledValue(doc,label,value,className=''){const wrapper=node(doc,'div',`report-labeled-value-v433 ${className}`.trim());append(wrapper,node(doc,'span','',label),node(doc,'strong','',value||'Не зафиксировано'));return wrapper}
 function pickLeadPhoto(location){return location.querySelector('.report-photo img')?.closest('.report-photo')||null}
-window.BogatkaReportCoreV433={VERSION,clean,wait,safeName,node,append,isSingle,sectionTitle,findSection,fieldMap,firstValue,firstSentence,parseNumber,statusClass,makePill,metricItems,removeNoise,updateGeneratorMetadata,contextData,sectionSubtitle,makeMetric,makeLabeledValue,pickLeadPhoto};
+window.BogatkaReportCoreV433={VERSION,clean,preserve,wait,safeName,node,append,isSingle,sectionTitle,findSection,fieldMap,firstValue,firstSentence,parseNumber,statusClass,makePill,metricItems,removeNoise,updateGeneratorMetadata,contextData,sectionSubtitle,makeMetric,makeLabeledValue,pickLeadPhoto};
 })();
