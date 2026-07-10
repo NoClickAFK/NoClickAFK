@@ -117,3 +117,10 @@ test('portfolio keeps completion KPI when zero score and weight are pruned',asyn
   expect(result.riskCompletion).toBe(generated.completion);
   expect(result.summaryAverage).not.toBe('—');
 });
+
+test('repository fallback provenance points at the last functional report head',async({page})=>{
+  await openApp(page);
+  const source=await page.evaluate(async()=>await (await fetch('./version-authority-v426.js',{cache:'no-store'})).text());
+  expect(source).toContain("sourceCommit:'5d294f1efe64c8150a7985548da7969190406b2e'");
+  expect(source).not.toContain("sourceCommit:'c5c755fb8489b16f98f55cb3d7593c32c491718b'");
+});
