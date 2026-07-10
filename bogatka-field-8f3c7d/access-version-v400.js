@@ -1,9 +1,10 @@
 (function(){
+  // v4.3.2 compatibility marker; the active repository fallback is v4.3.3.
   import('./version-authority-v426.js')
     .then(module=>module.installVersionAuthority())
     .catch(error=>{
       console.error('Не удалось запустить автоматическое версионирование.',error);
       const label=document.getElementById('versionLabel');
-      if(label)label.textContent='4.3.2';
+      if(label)label.textContent='4.3.3';
     });
 })();
