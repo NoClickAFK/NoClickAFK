@@ -85,5 +85,21 @@ function sectionSubtitle(title){return({'Основные сведения':'К�
 function makeMetric(doc,item){const wrapper=node(doc,'div','report-hero-metric-v433');append(wrapper,node(doc,'strong','',item.value||'—'),node(doc,'span','',item.label||'Показатель'));return wrapper}
 function makeLabeledValue(doc,label,value,className=''){const wrapper=node(doc,'div',`report-labeled-value-v433 ${className}`.trim());append(wrapper,node(doc,'span','',label),node(doc,'strong','',value||'Не зафиксировано'));return wrapper}
 function pickLeadPhoto(location){return location.querySelector('.report-photo img')?.closest('.report-photo')||null}
-window.BogatkaReportCoreV433={VERSION,clean,preserve,wait,safeName,node,append,isSingle,sectionTitle,findSection,fieldMap,firstValue,firstSentence,parseNumber,statusClass,makePill,metricItems,removeNoise,updateGeneratorMetadata,contextData,sectionSubtitle,makeMetric,makeLabeledValue,pickLeadPhoto};
+function installLocationExportGuard(){
+  if(document.documentElement.dataset.reportExportGuardV433==='true')return;
+  document.documentElement.dataset.reportExportGuardV433='true';
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('[data-action="export-location-html"]');
+    if(!button)return;
+    const card=button.closest('[data-location-card]');
+    const locationId=card?.dataset.locationCard;
+    const exporter=window.BogatkaReportFinalizeV433?.exportLocationHtmlReport;
+    if(!locationId||typeof exporter!=='function')return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    Promise.resolve(exporter(locationId)).catch(error=>console.error('Location report export failed.',error));
+  },true);
+}
+window.BogatkaReportCoreV433={VERSION,clean,preserve,wait,safeName,node,append,isSingle,sectionTitle,findSection,fieldMap,firstValue,firstSentence,parseNumber,statusClass,makePill,metricItems,removeNoise,updateGeneratorMetadata,contextData,sectionSubtitle,makeMetric,makeLabeledValue,pickLeadPhoto,installLocationExportGuard};
+installLocationExportGuard();
 })();
