@@ -25,6 +25,8 @@ async function openApp(page){
   await page.waitForFunction(()=>document.querySelectorAll('[data-location-card]').length>1,{timeout:15000});
 }
 
+const reportLocationCount=doc=>doc.querySelectorAll('[data-report-location-id],.report-location-dossier-v433').length;
+
 test('semantic live report keeps current locations and removes editing controls; Новый динамический раздел is not leaked',async({page})=>{
   await openApp(page);
 
@@ -43,7 +45,7 @@ test('semantic live report keeps current locations and removes editing controls;
     return {
       source,
       report:{
-        cards:doc.querySelectorAll('.report-location').length,
+        cards:doc.querySelectorAll('[data-report-location-id],.report-location-dossier-v433').length,
         controls:doc.querySelectorAll('input,select,textarea,button:not(.report-actions button):not(.report-accordion-summary-v432)').length,
         rawDetails:doc.querySelectorAll('details').length,
         appCards:doc.querySelectorAll('.report-location-card').length,
@@ -160,7 +162,7 @@ test('individual HTML action exports only the selected location without geolocat
       buttons:[...document.querySelectorAll('[data-location-card] .location-action-buttons-v448')].map(group=>[...group.children].map(node=>node.textContent.trim())),
       name,
       unsafeName:/[<>:"/\\|?*]/.test(name),
-      locationCards:doc.querySelectorAll('.report-location').length,
+      locationCards:doc.querySelectorAll('[data-report-location-id],.report-location-dossier-v433').length,
       selectedTitle:doc.body.textContent.includes(selected.title||selected.address),
       selectedAddress:doc.body.textContent.includes(selected.address),
       selectedReason:doc.body.textContent.includes(selectedReason),
@@ -171,7 +173,7 @@ test('individual HTML action exports only the selected location without geolocat
       comparison:Boolean(doc.querySelector('.report-comparison')),
       globalSummary:[...doc.querySelectorAll('h2')].some(node=>node.textContent.trim()==='Общая сводка'),
       lightboxScript:html.includes('report-photo')&&html.includes('window.open'),
-      globalCards:globalDoc.querySelectorAll('.report-location').length,
+      globalCards:globalDoc.querySelectorAll('[data-report-location-id],.report-location-dossier-v433').length,
       activeCards:document.querySelectorAll('[data-location-card]:not(.hidden)').length,
       globalComparison:Boolean(globalDoc.querySelector('.report-comparison')),
     };
