@@ -49,18 +49,32 @@ test('viewer role disables editing controls',async({page})=>{
 
 test('app shell registers versioned service worker and remains usable after controller activation',async({page})=>{
   await openApp(page);
+  await page.waitForFunction(async()=>{
+    if(!('serviceWorker'in navigator)||!('caches'in window))return false;
+    const registration=await navigator.serviceWorker.getRegistration();
+    const keys=await caches.keys();
+    return Boolean(
+      registration?.active?.scriptURL?.includes('v=434')&&
+      navigator.serviceWorker.controller?.scriptURL?.includes('v=434')&&
+      keys.some(key=>key.includes('bogatka-location-v434'))
+    );
+  },null,{timeout:20000});
   const state=await page.evaluate(async()=>{
-    if(!('serviceWorker'in navigator))return {supported:false,controlled:false,cacheReady:false};
-    const registration=await navigator.serviceWorker.ready;
-    for(let index=0;index<50&&!navigator.serviceWorker.controller;index++)await new Promise(resolve=>setTimeout(resolve,100));
-    let cacheReady=false;
-    if('caches'in window){
-      const keys=await caches.keys();
-      cacheReady=keys.some(key=>key.includes('bogatka-location-v434'));
-    }
-    return {supported:true,controlled:Boolean(navigator.serviceWorker.controller),cacheReady,scope:registration.scope};
+    const registration=await navigator.serviceWorker.getRegistration();
+    const keys=await caches.keys();
+    return{
+      supported:'serviceWorker'in navigator,
+      controlled:Boolean(navigator.serviceWorker.controller),
+      activeScript:registration?.active?.scriptURL||'',
+      controllerScript:navigator.serviceWorker.controller?.scriptURL||'',
+      cacheReady:keys.some(key=>key.includes('bogatka-location-v434')),
+      scope:registration?.scope||'',
+    };
   });
   expect(state.supported).toBe(true);
+  expect(state.controlled).toBe(true);
+  expect(state.activeScript).toContain('v=434');
+  expect(state.controllerScript).toContain('v=434');
   expect(state.cacheReady).toBe(true);
   await expect(page.locator('#app')).toBeVisible({timeout:10000});
   await expect(page.locator('#versionLabel')).toHaveText(/^4\.3\.4$/);
