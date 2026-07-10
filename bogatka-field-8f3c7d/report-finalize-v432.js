@@ -196,7 +196,7 @@ function install(){
   }
   if(!current.__reportFinalizeV431){if(attempts<160)setTimeout(install,250);return}
   const baseBuild=current;
-  const wrapped=async function(){const html=await baseBuild();claim(wrapped);return finalizeHtml(html)};
+  const wrapped=async function(){const html=await base.renderReport();claim(wrapped);return finalizeHtml(html)};
   Object.assign(wrapped,baseBuild,{__reportFinalizeV433:true,__reportFinalizeV432:true,__reportFinalizeV431:true,__reportStabilityV429:true,__reportAuthorityV428:true,__reportPolishV428:true,__liveReportFinalV427:true,__base:baseBuild});
   wrapped.__htmlAction=async()=>{if(typeof showSaving==='function')showSaving();const html=await wrapped();downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),`bogatka-premium-report-${new Date().toISOString().slice(0,10)}.html`);if(typeof showSaved==='function')showSaved();return html};
   wrapped.__pdfAction=async()=>{const reportWindow=window.open('','_blank');if(!reportWindow)return alert('Браузер заблокировал новое окно. Разрешите всплывающие окна для создания PDF.');reportWindow.document.write('<p style="font-family:Arial;padding:30px">Формируется полный отчёт…</p>');try{const html=await wrapped();reportWindow.document.open();reportWindow.document.write(html);reportWindow.document.close();await wait(220);reportWindow.focus();reportWindow.print()}catch(error){reportWindow.close();throw error}};
