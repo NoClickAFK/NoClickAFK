@@ -6,7 +6,7 @@ async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
     status:200,
     contentType:'application/json',
-    body:JSON.stringify({version:'4.3.4',versionToken:'434',sourceCommit:'e07ebf93a19d3386f35f0c16df762a847ba27bfb',ahead:1}),
+    body:JSON.stringify({version:'4.3.4',versionToken:'434',sourceCommit:'ce2eaee682c77b2c953310ea4c61fdfc1245efcb',ahead:1}),
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
