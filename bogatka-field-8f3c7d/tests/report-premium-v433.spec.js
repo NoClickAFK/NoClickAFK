@@ -153,6 +153,6 @@ test('weak recommendation keeps non-green risk semantics',async({page,context})=
 test('repository fallback provenance points at the current functional runtime head',async({page})=>{
   await openApp(page);
   const source=await page.evaluate(async()=>await (await fetch('./version-authority-v426.js',{cache:'no-store'})).text());
-  expect(source).toContain("sourceCommit:'ce2eaee682c77b2c953310ea4c61fdfc1245efcb'");
-  expect(source).not.toContain("sourceCommit:'e07ebf93a19d3386f35f0c16df762a847ba27bfb'");
+  expect(source).toContain("sourceCommit:'bef605836f4012dfb5f0c21a8b52d7f0df54374b'");
+  expect(source).not.toContain("sourceCommit:'ce2eaee682c77b2c953310ea4c61fdfc1245efcb'");
 });
