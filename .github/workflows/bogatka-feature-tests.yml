@@ -53,7 +53,7 @@ jobs:
               bogatka-field-8f3c7d/tests/traffic-competitors-v453.spec.mjs \
               bogatka-field-8f3c7d/tests/traffic-competitors-v453-integration.spec.mjs >> /tmp/selected-tests.txt
           fi
-          if echo "$CHANGED" | grep -Eq 'launch|opening-project'; then
+          if echo "$CHANGED" | grep -Eq 'bogatka-field-8f3c7d/(launch-gate-v454|opening-project-v455|opening-project-persistence-v455)\.(js|css)$'; then
             printf '%s\n' bogatka-field-8f3c7d/tests/launch-gate-v454.spec.mjs bogatka-field-8f3c7d/tests/opening-project-v455.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'report|pdf'; then
