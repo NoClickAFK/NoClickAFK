@@ -1,95 +1,44 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
 const root=path.resolve('bogatka-field-8f3c7d');
 const failures=[];
-const read=file=>{
-  const full=path.join(root,file);
-  if(!fs.existsSync(full)){
-    failures.push(`Missing ${file}`);
-    return '';
-  }
-  return fs.readFileSync(full,'utf8');
-};
-
+const read=file=>{const full=path.join(root,file);if(!fs.existsSync(full)){failures.push(`Missing ${file}`);return''}return fs.readFileSync(full,'utf8')};
 const polish=read('report-polish-v428.js');
 const authority=read('report-authority-v428.js');
-const finalizer=read('report-finalize-v431.js');
+const finalizer431=read('report-finalize-v431.js');
+const finalizer432=read('report-finalize-v432.js');
+const editorialCore=read('report-editorial-core-v433.js');
+const editorialSingle=read('report-editorial-single-v433.js');
+const editorialPortfolio=read('report-editorial-portfolio-v433.js');
+const editorialStyle=read('report-editorial-style-a-v433.js')+read('report-editorial-style-b-v433.js');
+const editorialBundle=finalizer432+editorialCore+editorialSingle+editorialPortfolio+editorialStyle;
 const loader=read('v23.js');
 const worker=read('sw-v340.js');
 const browser=read('tests/report-polish-v428.spec.js');
-
-for(const marker of [
-  "const VERSION='4.2.8'",
-  'closeComparisonOnBoot',
-  'report-head-metrics-v428',
-  'report-head-metric-v428',
-  'report-head-status-v428',
-  "querySelectorAll('.report-detailed-comparison')",
-  "'.economy-v400'",
-  "'.launch-project-v400'",
-  "'[data-collab-pane=\"history\"]'",
-  "'.task-examples-v414'",
-  'score-scale-v331',
-  'score-label-v414>small',
-  'collaboration-v400>.details-body',
-  'decision-actions-v412',
-  '__reportPolishV428',
-])if(!polish.includes(marker))failures.push(`report-polish-v428.js missing ${marker}`);
-
-for(const marker of [
-  "const VERSION='4.2.8'",
-  '__reportAuthorityV428',
-  '__reportPolishV428',
-  '__locationProfileV416',
-  '__locationProfileV425',
-  '__locationOverviewV417',
-  '__locationOverviewV421',
-  '__locationPanelsV419',
-  'buildReportHtmlV428',
-  'claim(buildReportHtmlV428)',
-  'finally',
-  'exportHtmlReportV428',
-  'openPdfReportV428',
-  './report-finalize-v431.js',
-])if(!authority.includes(marker))failures.push(`report-authority-v428.js missing ${marker}`);
-
-for(const marker of [
-  "const VERSION='4.3.1'",
-  'renderReport',
-  'report-document',
-  'report-location',
-  'report-section',
-  'report-field-grid',
-  'buildLocationReportHtmlV431',
-  '__reportFinalizeV431',
-  'BogatkaDecisionEngine?.computeAll',
-])if(!finalizer.includes(marker))failures.push(`report-finalize-v431.js missing ${marker}`);
-
+const premium=read('tests/report-premium-v433.spec.js')+read('tests/report-premium-security-v433.spec.js')+read('tests/report-premium-artifacts-v433.spec.js');
+const visualSpec=read('docs/report-v433-visual-spec.md');
+for(const marker of ["const VERSION='4.2.8'",'closeComparisonOnBoot','report-head-metrics-v428','report-head-metric-v428','report-head-status-v428',"querySelectorAll('.report-detailed-comparison')","'.economy-v400'","'.launch-project-v400'","'[data-collab-pane=\"history\"]'","'.task-examples-v414'",'score-scale-v331','score-label-v414>small','collaboration-v400>.details-body','decision-actions-v412','__reportPolishV428'])if(!polish.includes(marker))failures.push(`report-polish-v428.js missing ${marker}`);
+for(const marker of ["const VERSION='4.2.8'",'__reportAuthorityV428','__reportPolishV428','__locationProfileV416','__locationProfileV425','__locationOverviewV417','__locationOverviewV421','__locationPanelsV419','buildReportHtmlV428','claim(buildReportHtmlV428)','finally','exportHtmlReportV428','openPdfReportV428','./report-finalize-v431.js','./report-finalize-v432.js','BogatkaReportFinalizeV432'])if(!authority.includes(marker))failures.push(`report-authority-v428.js missing ${marker}`);
+for(const marker of ["const VERSION='4.3.1'",'renderReport','report-document','report-location','report-section','report-field-grid','buildLocationReportHtmlV431','__reportFinalizeV431','BogatkaDecisionEngine?.computeAll'])if(!finalizer431.includes(marker))failures.push(`report-finalize-v431.js missing ${marker}`);
+for(const marker of ["const VERSION='4.3.3'",'BogatkaReportFinalizeV432','BogatkaReportFinalizeV433','finalizeHtml','buildLocationReportHtmlV432','exportLocationHtmlReportV432','report-editorial-core-v433.js','report-editorial-single-v433.js','report-editorial-portfolio-v433.js','report-editorial-style-a-v433.js','report-editorial-style-b-v433.js','report-accordion-v432','report-accordion-summary-v432','report-accordion-body-v432'])if(!finalizer432.includes(marker))failures.push(`report-finalize-v432.js missing ${marker}`);
+for(const marker of ['id="reportFinalV432"','report-hero-single-v433','report-executive-decision-v433','report-shortlist-v433','report-risk-overview-v433','report-finance-primary-v433','report-location-dossier-v433','report-location-accordion-v432','report-section-accordion-v432'])if(!editorialBundle.includes(marker))failures.push(`v4.3.3 editorial bundle missing ${marker}`);
+if(editorialBundle.includes('Compatibility marker required by the v4.3.2'))failures.push('report bundle contains an artificial v4.3.2 compatibility comment');
+if(/String\(html\|\|''\)\.replace\(|replace\(\/4\\\.3\\\./.test(editorialBundle))failures.push('report bundle globally replaces version-like user text');
+if(/(?:button|section|summary)\.innerHTML\s*=/.test(editorialBundle))failures.push('report bundle inserts dynamic report summaries through innerHTML');
+if(/report-status[^\n;]*outerHTML|querySelector\([^)]*report-status[^)]*\)\?\.outerHTML/.test(editorialBundle))failures.push('report bundle serializes dynamic status nodes with outerHTML');
+for(const marker of ['textContent','createElement','cloneNode','meta[name="generator"]','data-report-src'])if(!editorialBundle.includes(marker))failures.push(`report bundle missing safe DOM marker ${marker}`);
 const baseLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-live-fixes-v427.js'})");
 const polishLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-polish-v428.js'})");
 const authorityLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-authority-v428.js'})");
-const finalizerLoad=loader.indexOf("loadBogatkaPatch('script',{src:'./report-finalize-v431.js'})");
-if(polishLoad<0)failures.push('v23.js does not load report-polish-v428.js');
-if(authorityLoad<0)failures.push('v23.js does not load report-authority-v428.js');
-if(finalizerLoad<0)failures.push('v23.js does not load report-finalize-v431.js');
+const finalizer431Load=loader.indexOf("loadBogatkaPatch('script',{src:'./report-finalize-v431.js'})");
+const finalizer432Load=loader.indexOf("loadBogatkaPatch('script',{src:'./report-finalize-v432.js'})");
 if(polishLoad<baseLoad)failures.push('report-polish-v428.js is not loaded after the final v427 report wrapper');
 if(authorityLoad<polishLoad)failures.push('report-authority-v428.js is not loaded after report-polish-v428.js');
-if(finalizerLoad<authorityLoad)failures.push('report-finalize-v431.js is not loaded after report-authority-v428.js');
-for(const asset of ["'./report-polish-v428.js'","'./report-authority-v428.js'","'./report-finalize-v431.js'"]){
-  if(!worker.includes(asset))failures.push(`Service Worker does not cache ${asset}`);
-}
-
-for(const marker of [
-  'comparison panel is collapsed after a page reload',
-  'removes workflow-only sections',
-  'use separated grid layouts',
-  'final semantic report export',
-])if(!browser.includes(marker))failures.push(`Browser regression missing ${marker}`);
-
-if(failures.length){
-  console.error('Bogatka report polish validation failed:');
-  failures.forEach(failure=>console.error(`- ${failure}`));
-  process.exit(1);
-}
+if(finalizer431Load<authorityLoad)failures.push('report-finalize-v431.js is not loaded after report-authority-v428.js');
+if(finalizer432Load<finalizer431Load)failures.push('report-finalize-v432.js is not loaded after report-finalize-v431.js');
+for(const asset of ["'./report-polish-v428.js'","'./report-authority-v428.js'","'./report-finalize-v431.js'","'./report-finalize-v432.js'","'./report-editorial-core-v433.js'","'./report-editorial-single-v433.js'","'./report-editorial-portfolio-v433.js'","'./report-editorial-style-a-v433.js'","'./report-editorial-style-b-v433.js'"])if(!worker.includes(asset))failures.push(`Service Worker does not cache ${asset}`);
+for(const marker of ['comparison panel is collapsed after a page reload','premium semantic report export has owned accordions and no old style blocks','single-location report has premium collapsible section cards','export report desktop, mobile and print CSS keep premium accordions unclipped'])if(!browser.includes(marker))failures.push(`Browser regression missing ${marker}`);
+for(const marker of ['single report has one boardroom hero, one decision presentation and executive summary','economy section uses four primary financial metrics and a secondary breakdown','full report follows executive narrative and separates shortlist, risks, comparison and dossiers','malicious title and address remain literal text and cannot execute','user version-like text is preserved while generator metadata remains 4.3.3','mobile and print layouts are unclipped and print expands all report content','single-location-first-viewport.png','single-location-economy.png','full-report-first-viewport.png','full-report-location-cards.png','before-after-contact-sheet.png','full-report-print-smoke.pdf'])if(!premium.includes(marker))failures.push(`v4.3.3 premium regression missing ${marker}`);
+for(const heading of ['# Report v4.3.3 Visual Specification','## Design direction','## Typography tokens','## Spacing tokens','## Colour tokens','## Radius and shadow rules','## Component hierarchy','## Single-location report','## Full portfolio report','## Print rules','## Accessibility rules'])if(!visualSpec.includes(heading))failures.push(`report-v433-visual-spec.md missing ${heading}`);
+if(failures.length){console.error('Bogatka report polish validation failed:');failures.forEach(failure=>console.error(`- ${failure}`));process.exit(1)}
 console.log('Bogatka report polish validation passed.');

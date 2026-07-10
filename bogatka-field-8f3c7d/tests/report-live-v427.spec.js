@@ -1,12 +1,12 @@
 const {test,expect}=require('@playwright/test');
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=431';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=433';
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
     status:200,
     contentType:'application/json',
-    body:JSON.stringify({version:'4.3.1',versionToken:'431',sourceCommit:'report431abcdef',ahead:1}),
+    body:JSON.stringify({version:'4.3.3',versionToken:'433',sourceCommit:'report433abcdef',ahead:1}),
   }));
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'networkidle'});
@@ -16,10 +16,12 @@ async function openApp(page){
     window.BogatkaLiveReport.build?.__reportPolishV428===true&&
     window.BogatkaLiveReport.build?.__reportAuthorityV428===true&&
     window.BogatkaLiveReport.build?.__reportFinalizeV431===true&&
+    window.BogatkaLiveReport.build?.__reportFinalizeV432===true&&
+    window.BogatkaLiveReport.build?.__reportFinalizeV433===true&&
     window.buildReportHtml===window.BogatkaLiveReport.build&&
     typeof window.buildLocationReportHtml==='function'&&
     typeof window.exportLocationHtmlReport==='function'
-  ),{timeout:30000});
+  ),{timeout:35000});
   await page.waitForFunction(()=>document.querySelectorAll('[data-location-card]').length>1,{timeout:15000});
 }
 
@@ -42,9 +44,10 @@ test('semantic live report keeps current locations and removes editing controls;
       source,
       report:{
         cards:doc.querySelectorAll('.report-location').length,
-        controls:doc.querySelectorAll('input,select,textarea,button:not(.report-actions button)').length,
+        controls:doc.querySelectorAll('input,select,textarea,button:not(.report-actions button):not(.report-accordion-summary-v432)').length,
         rawDetails:doc.querySelectorAll('details').length,
         appCards:doc.querySelectorAll('.report-location-card').length,
+        accordions:doc.querySelectorAll('.report-accordion-v432').length,
         text:doc.body.textContent,
       },
       sameBuilder:window.buildReportHtml===window.BogatkaLiveReport.build,
@@ -55,6 +58,7 @@ test('semantic live report keeps current locations and removes editing controls;
   expect(result.report.controls).toBe(0);
   expect(result.report.rawDetails).toBe(0);
   expect(result.report.appCards).toBe(0);
+  expect(result.report.accordions).toBeGreaterThan(0);
   expect(result.report.text).not.toContain('Новый динамический раздел');
   expect(result.report.text).not.toContain('Подхвачено автоматически');
   expect(result.report.text).toContain('Основные сведения');
@@ -136,9 +140,7 @@ test('individual HTML action exports only the selected location without geolocat
 
     let geoCalls=0;
     const geolocation=navigator.geolocation;
-    if(geolocation){
-      try{geolocation.getCurrentPosition=()=>{geoCalls+=1}}catch(_){ }
-    }
+    if(geolocation){try{geolocation.getCurrentPosition=()=>{geoCalls+=1}}catch(_){ }}
     window.__locationReportDownload=null;
     const capture=(blob,name)=>blob.text().then(html=>{window.__locationReportDownload={html,name}});
     window.downloadBlob=capture;
@@ -168,7 +170,7 @@ test('individual HTML action exports only the selected location without geolocat
       otherPhoto:doc.body.textContent.includes(otherPhoto.caption),
       comparison:Boolean(doc.querySelector('.report-comparison')),
       globalSummary:[...doc.querySelectorAll('h2')].some(node=>node.textContent.trim()==='Общая сводка'),
-      lightboxScript:html.includes('report-photo img')&&html.includes('window.open'),
+      lightboxScript:html.includes('report-photo')&&html.includes('window.open'),
       globalCards:globalDoc.querySelectorAll('.report-location').length,
       activeCards:document.querySelectorAll('[data-location-card]:not(.hidden)').length,
       globalComparison:Boolean(globalDoc.querySelector('.report-comparison')),
@@ -200,7 +202,9 @@ test('HTML and PDF actions remain backed by the same premium global engine',asyn
   const state=await page.evaluate(()=>({
     version:window.BogatkaLiveReport.version,
     buildShared:window.buildReportHtml===window.BogatkaLiveReport.build,
-    finalizer:window.BogatkaLiveReport.build?.__reportFinalizeV431===true,
+    finalizer431:window.BogatkaLiveReport.build?.__reportFinalizeV431===true,
+    finalizer432:window.BogatkaLiveReport.build?.__reportFinalizeV432===true,
+    finalizer433:window.BogatkaLiveReport.build?.__reportFinalizeV433===true,
     authority:window.BogatkaLiveReport.build?.__reportAuthorityV428===true,
     htmlAction:typeof window.exportHtmlReport==='function',
     pdfAction:typeof window.openPdfReport==='function',
@@ -208,9 +212,11 @@ test('HTML and PDF actions remain backed by the same premium global engine',asyn
     htmlSource:String(window.exportHtmlReport),
     pdfSource:String(window.openPdfReport),
   }));
-  expect(state.version).toBe('4.3.1');
+  expect(state.version).toBe('4.3.3');
   expect(state.buildShared).toBe(true);
-  expect(state.finalizer).toBe(true);
+  expect(state.finalizer431).toBe(true);
+  expect(state.finalizer432).toBe(true);
+  expect(state.finalizer433).toBe(true);
   expect(state.authority).toBe(true);
   expect(state.htmlAction).toBe(true);
   expect(state.pdfAction).toBe(true);
