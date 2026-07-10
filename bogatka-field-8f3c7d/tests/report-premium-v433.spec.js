@@ -4,6 +4,7 @@ const path=require('path');
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=433';
 const ARTIFACT_DIR=path.resolve('test-results/report-v433-review');
+// This exact-head test also owns the final review artifact contract for v4.3.3.
 
 async function openApp(page){
   await page.route('**/functions/v1/bogatka-version',route=>route.fulfill({
