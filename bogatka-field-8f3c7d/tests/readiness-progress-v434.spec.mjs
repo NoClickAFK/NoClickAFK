@@ -54,6 +54,22 @@ async function openProgressPlan(card){
   if(await plan.getAttribute('aria-expanded')!=='true')await plan.click();
 }
 
+async function collapseTopPanels(card){
+  for(const selector of ['.inspection-card-v416','.landlord-card-v416']){
+    const toggle=card.locator(`${selector} > .panel-toggle-v419`);
+    if(await toggle.getAttribute('aria-expanded')==='true')await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded','false');
+  }
+}
+
+async function expectControlInViewport(control){
+  const visible=await control.evaluate(node=>{
+    const rect=node.getBoundingClientRect();
+    return rect.width>0&&rect.height>0&&rect.top>=0&&rect.left>=0&&rect.bottom<=window.innerHeight&&rect.right<=window.innerWidth;
+  });
+  expect(visible).toBe(true);
+}
+
 async function screenshotCard(card,name){
   await mkdir(ARTIFACT_DIR,{recursive:true});
   await card.screenshot({path:path.join(ARTIFACT_DIR,name),animations:'disabled'});
@@ -62,10 +78,12 @@ async function screenshotCard(card,name){
 const completeInspection={status:'Осмотрен',objectType:'Торговое помещение',date:'2026-07-10',time:'12:00',floorLocation:'1 этаж',premiseCondition:'Готово',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',inspectionPurpose:'Первичный осмотр',inspectionResult:'Параметры подтверждены'};
 const completeLandlord={ownerName:'ООО Собственник',contactRole:'Собственник',contact:'Иван Иванов',contactPhone:'+375290000000'};
 
-test('listing URL belongs to landlord and recalculates idempotently on the same loaded card',async({page})=>{
+test('listing and other-source readiness actions open the final landlord panel and exact field',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await patchData(page,id,{...completeInspection,...completeLandlord,objectSource:'Объявление',listingUrl:'',objectSourceOther:'',inspectionParticipants:''});
+  await page.waitForTimeout(7200);
+  await page.evaluate(()=>window.BogatkaInspectionLayoutV461.enhanceAll());
   await openProgressPlan(card);
 
   const inspectionBefore=await metricGroup(page,id,'inspection');
@@ -73,19 +91,29 @@ test('listing URL belongs to landlord and recalculates idempotently on the same 
   expect(inspectionBefore.missingLabels).not.toContain('ссылка на объявление');
   expect(inspectionBefore.missingLabels).not.toContain('источник объекта');
   expect(landlordBefore.missingLabels).toEqual(['ссылка на объявление']);
+  expect(landlordBefore.missingFields).toEqual(['listingUrl']);
   expect(landlordBefore.title).toBe('Арендодатель и условия');
 
+  await collapseTopPanels(card);
   const landlordItem=card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])');
   await expect(landlordItem).toHaveCount(1);
   await expect(landlordItem.locator('.fill-plan-copy-v448 strong')).toHaveText('Арендодатель и условия');
   await expect(landlordItem.locator('.fill-plan-copy-v448 small')).toContainText('ссылка на объявление');
   await landlordItem.locator('[data-progress-target-v448="landlord"]').click();
-  await expect(card.locator('.landlord-card-v416')).toHaveClass(/progress-target-flash-v448/);
-  await expect(card.locator('.landlord-card-v416 [data-field="listingUrl"]')).toHaveCount(1);
+
+  const landlordToggle=card.locator('.landlord-card-v416 > .panel-toggle-v419');
+  const inspectionToggle=card.locator('.inspection-card-v416 > .panel-toggle-v419');
+  await expect(landlordToggle).toHaveAttribute('aria-expanded','true');
+  await expect(inspectionToggle).toHaveAttribute('aria-expanded','false');
+  const listing=card.locator('.landlord-card-v416 .landlord-grid-v416 [data-field="listingUrl"]');
+  await expect(listing).toHaveCount(1);
+  await expect(listing).toBeVisible();
+  await expect(listing).toBeFocused();
+  await expectControlInViewport(listing);
+  await expect(listing.locator('xpath=..')).toHaveClass(/progress-target-flash-v448/);
   await screenshotCard(card,'01-listing-url-missing-landlord.png');
 
   const initialTotal=landlordBefore.total;
-  const listing=card.locator('.landlord-card-v416 [data-field="listingUrl"]');
   await listing.fill('https://example.com/location-card');
   await listing.blur();
   await page.waitForFunction(locationId=>{
@@ -126,9 +154,27 @@ test('listing URL belongs to landlord and recalculates idempotently on the same 
   expect(idempotence.privateCache).toBe(false);
 
   await patchData(page,id,{objectSource:'Другое',objectSourceOther:'',listingUrl:''});
+  await openProgressPlan(card);
   const landlordOther=await metricGroup(page,id,'landlord');
   expect(landlordOther.missingLabels).toContain('уточнение источника объекта');
+  expect(landlordOther.missingFields).toEqual(['objectSourceOther']);
   expect(landlordOther.missingLabels).not.toContain('ссылка на объявление');
+  await collapseTopPanels(card);
+  const otherItem=card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])');
+  await otherItem.locator('[data-progress-target-v448="landlord"]').click();
+  await expect(landlordToggle).toHaveAttribute('aria-expanded','true');
+  await expect(inspectionToggle).toHaveAttribute('aria-expanded','false');
+  const other=card.locator('.landlord-card-v416 .landlord-grid-v416 [data-field="objectSourceOther"]');
+  await expect(other).toBeVisible();
+  await expect(other).toBeFocused();
+  await expectControlInViewport(other);
+  await other.fill('Управляющая компания');
+  await other.blur();
+  await page.waitForFunction(locationId=>{
+    const group=(window.BogatkaDecisionUI?.lastMetrics||[]).find(item=>item.id===locationId)?.progressGroups?.find(item=>item.key==='landlord');
+    return group&&!group.missingLabels.includes('уточнение источника объекта');
+  },id,{timeout:10000});
+  await expect(card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])')).toHaveCount(0);
 });
 
 test('minimum photo plan is exactly 13 and caps completion at 100 percent',async({page})=>{
@@ -199,7 +245,60 @@ test('decision alone completes conclusion and reason remains optional and persis
   await expect(card.locator('[data-field="decisionReason"]')).toHaveValue('Существующая аргументация решения');
 });
 
+test('final v4.3.4 completion re-ranks tied locations and rank sorting stays stable',async({page})=>{
+  await openApp(page);
+  const ids=await page.evaluate(()=>locations.filter(item=>!item.archivedAt).slice(0,2).map(item=>item.id));
+  expect(ids).toHaveLength(2);
+  await page.evaluate(async([first,second])=>{
+    const scores=Object.fromEntries(Object.keys(window.BogatkaDecisionEngine.WEIGHTS).map(key=>[key,3]));
+    const common={
+      status:'Осмотрен',objectType:'Торговое помещение',date:'2026-07-10',time:'12:00',floorLocation:'1 этаж',premiseCondition:'Готово',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',inspectionPurpose:'Первичный осмотр',inspectionResult:'Параметры подтверждены',
+      ownerName:'ООО Собственник',contactRole:'Собственник',contact:'Иван Иванов',contactPhone:'+375290000000',objectSource:'Собственник',objectSourceOther:'',listingUrl:'',inspectionParticipants:'',
+      tech:{totalArea:'100',rentPerMonth:'2500',powerKw:'15',requiredPowerKw:'15',openingHours:'09:00–21:00',utilities:'500',repairEstimate:'10000'},
+      score:scores,criticalDealConditions:{},pros:'',cons:'',risks:'',questions:'',decisionReason:'',updatedAt:new Date().toISOString(),
+    };
+    await idbPut(STORE,{...common,decision:''},`location:${first}`);
+    await idbPut(STORE,{...common,decision:'Оставить'},`location:${second}`);
+    await window.BogatkaDecisionUI.refresh();
+    const sort=document.getElementById('locationSortMode');
+    sort.value='rank';
+    sort.dispatchEvent(new Event('change',{bubbles:true}));
+  },ids);
+
+  const snapshots=await page.evaluate(async([first,second])=>{
+    const result=[];
+    for(let index=0;index<5;index++){
+      await window.BogatkaDecisionUI.refresh();
+      const sort=document.getElementById('locationSortMode');
+      sort.value='rank';
+      sort.dispatchEvent(new Event('change',{bubbles:true}));
+      const metrics=window.BogatkaDecisionUI.lastMetrics;
+      const firstMetric=metrics.find(item=>item.id===first);
+      const secondMetric=metrics.find(item=>item.id===second);
+      const order=[...document.querySelectorAll('#locations > [data-location-card]')].map(card=>card.dataset.locationCard).filter(id=>id===first||id===second);
+      result.push({
+        first:{rank:firstMetric.rank,completion:firstMetric.completion,ratingScore:firstMetric.ratingScore,rawScore:firstMetric.rawScore,label:document.querySelector(`[data-location-card="${CSS.escape(first)}"] [data-auto-rank]`)?.textContent||''},
+        second:{rank:secondMetric.rank,completion:secondMetric.completion,ratingScore:secondMetric.ratingScore,rawScore:secondMetric.rawScore,label:document.querySelector(`[data-location-card="${CSS.escape(second)}"] [data-auto-rank]`)?.textContent||''},
+        order,
+      });
+    }
+    return result;
+  },ids);
+
+  for(const snapshot of snapshots){
+    expect(snapshot.first.ratingScore).toBe(snapshot.second.ratingScore);
+    expect(snapshot.first.rawScore).toBe(snapshot.second.rawScore);
+    expect(snapshot.second.completion).toBeGreaterThan(snapshot.first.completion);
+    expect(snapshot.second.rank).toBe(1);
+    expect(snapshot.first.rank).toBe(2);
+    expect(snapshot.second.label).toBe('Рейтинг #1');
+    expect(snapshot.first.label).toBe('Рейтинг #2');
+    expect(snapshot.order).toEqual([ids[1],ids[0]]);
+  }
+  expect(new Set(snapshots.map(item=>JSON.stringify(item))).size).toBe(1);
+});
+
 test.afterAll(async()=>{
   await mkdir(ARTIFACT_DIR,{recursive:true});
-  await writeFile(path.join(ARTIFACT_DIR,'evidence.json'),JSON.stringify({version:'4.3.4',photoPlan:{street:2,entrance:2,parking:1,traffic:1,competitors:1,interior:2,storage:1,engineering:2,documents:1,other:0,total:13},conclusionRequirements:['decision'],listingUrlOwner:'landlord'},null,2));
+  await writeFile(path.join(ARTIFACT_DIR,'evidence.json'),JSON.stringify({version:'4.3.4',photoPlan:{street:2,entrance:2,parking:1,traffic:1,competitors:1,interior:2,storage:1,engineering:2,documents:1,other:0,total:13},conclusionRequirements:['decision'],listingUrlOwner:'landlord',sourceNavigation:['listingUrl','objectSourceOther'],finalRanking:'post-v434-completion'},null,2));
 });
