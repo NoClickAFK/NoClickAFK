@@ -37,7 +37,7 @@ function parseNumber(value){const match=String(value||'').replace(/\s/g,'').repl
 function statusClass(value){
   const text=clean(value).toLowerCase();
   if(/стоп|отклон|исключ/.test(text))return'stop';
-  if(/риск|уточн|средн/.test(text))return'risk';
+  if(/риск|уточн|средн|слаб/.test(text))return'risk';
   if(/перспектив|приоритет|хорош|остав/.test(text))return'good';
   return'empty';
 }
