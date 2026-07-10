@@ -20,7 +20,9 @@ async function seedFixtures(page){
     if(second&&second.id!==selected.id){const d=await getLocationData(second.id);Object.assign(d,{decision:'Уточнить',decisionReason:'Требуется подтвердить трафик и условия аренды.',status:'На проверке',score:{housing:3,occupied:3,foot:2,car:3,parking:2,stop:3,anchor:2,visibility:3,sign:2,loading:2,condition:3,storage:2,competition:2,overall:3},tech:{totalArea:'72',rentPerMonth:'3400'},economy:{monthlyRevenue:'42000',grossMarginPct:'35',taxRatePct:'5',payroll:'4800',initialStock:'16000'},risks:'Трафик пока подтверждён только одним замером.'});await idbPut(STORE,d,`location:${second.id}`)}
     if(third&&third.id!==selected.id&&third.id!==second.id){const d=await getLocationData(third.id);Object.assign(d,{decision:'',status:'',score:{},tech:{},economy:{},questions:'Провести первичный осмотр и замер трафика.'});await idbPut(STORE,d,`location:${third.id}`)}
     if(typeof updateSummary==='function')await updateSummary();
-    return{selectedId:selected.id,single:await window.BogatkaReportFinalizeV433.buildLocationReportHtml(selected.id),full:await window.BogatkaLiveReport.build()};
+    const single=await window.BogatkaReportFinalizeV433.buildLocationReportHtml(selected.id);
+    const baseFull=await window.BogatkaReportFinalizeV431.renderReport();
+    return{selectedId:selected.id,single,full:window.BogatkaReportFinalizeV433.finalizeHtml(baseFull)};
   });
 }
 async function pageFromHtml(context,html,{width=1440,height=1000,print=false}={}){const report=await context.newPage();await report.setViewportSize({width,height});await report.setContent(html,{waitUntil:'load'});if(print)await report.emulateMedia({media:'print'});return report}
