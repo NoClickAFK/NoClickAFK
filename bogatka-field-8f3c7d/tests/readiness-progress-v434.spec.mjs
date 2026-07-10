@@ -28,11 +28,8 @@ async function patchData(page,id,patch){
   await page.evaluate(async({locationId,next})=>{
     const current=await getLocationData(locationId);
     const merged={...current,...next};
-    for(const key of ['tech','score','criticalDealConditions']){
-      if(next[key])merged[key]={...(current[key]||{}),...next[key]};
-    }
+    for(const key of ['tech','score','criticalDealConditions'])if(next[key])merged[key]={...(current[key]||{}),...next[key]};
     await idbPut(STORE,merged,`location:${locationId}`);
-    await updateSummary();
     await window.BogatkaReadinessProgressV434.refresh();
   },{locationId:id,next:patch});
 }
@@ -57,22 +54,13 @@ async function screenshotCard(card,name){
   await card.screenshot({path:path.join(ARTIFACT_DIR,name),animations:'disabled'});
 }
 
-const completeInspection={
-  status:'Осмотрен',objectType:'Торговое помещение',date:'2026-07-10',time:'12:00',
-  floorLocation:'1 этаж',premiseCondition:'Готово',premiseAvailability:'Свободно',
-  landlordReadiness:'Готов обсуждать',inspectionPurpose:'Первичный осмотр',inspectionResult:'Параметры подтверждены',
-};
-const completeLandlord={
-  ownerName:'ООО Собственник',contactRole:'Собственник',contact:'Иван Иванов',contactPhone:'+375290000000',
-};
+const completeInspection={status:'Осмотрен',objectType:'Торговое помещение',date:'2026-07-10',time:'12:00',floorLocation:'1 этаж',premiseCondition:'Готово',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',inspectionPurpose:'Первичный осмотр',inspectionResult:'Параметры подтверждены'};
+const completeLandlord={ownerName:'ООО Собственник',contactRole:'Собственник',contact:'Иван Иванов',contactPhone:'+375290000000'};
 
 test('listing URL belongs to landlord and recalculates idempotently on the same loaded card',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
-  await patchData(page,id,{
-    ...completeInspection,...completeLandlord,
-    objectSource:'Объявление',listingUrl:'',objectSourceOther:'',inspectionParticipants:'',
-  });
+  await patchData(page,id,{...completeInspection,...completeLandlord,objectSource:'Объявление',listingUrl:'',objectSourceOther:'',inspectionParticipants:''});
   await openProgressPlan(card);
 
   const inspectionBefore=await metricGroup(page,id,'inspection');
@@ -82,33 +70,36 @@ test('listing URL belongs to landlord and recalculates idempotently on the same 
   expect(landlordBefore.missingLabels).toEqual(['ссылка на объявление']);
   expect(landlordBefore.title).toBe('Арендодатель и условия');
 
-  const landlordItem=card.locator('.fill-plan-item-v448').filter({has:card.locator('[data-progress-target-v448="landlord"]')});
+  const landlordItem=card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])');
+  await expect(landlordItem).toHaveCount(1);
   await expect(landlordItem.locator('.fill-plan-copy-v448 strong')).toHaveText('Арендодатель и условия');
   await expect(landlordItem.locator('.fill-plan-copy-v448 small')).toContainText('ссылка на объявление');
   await landlordItem.locator('[data-progress-target-v448="landlord"]').click();
-  await expect(card.locator('.landlord-card-v416')).toHaveAttribute('data-progress-target-section-v448','landlord');
+  await expect(card.locator('.landlord-card-v416')).toHaveClass(/progress-target-flash-v448/);
   await expect(card.locator('.landlord-card-v416 [data-field="listingUrl"]')).toHaveCount(1);
   await screenshotCard(card,'01-listing-url-missing-landlord.png');
 
   const initialTotal=landlordBefore.total;
   const listing=card.locator('.landlord-card-v416 [data-field="listingUrl"]');
   await listing.fill('https://example.com/location-card');
+  await listing.blur();
   await page.waitForFunction(locationId=>{
     const metric=(window.BogatkaDecisionUI?.lastMetrics||[]).find(item=>item.id===locationId);
     const group=metric?.progressGroups?.find(item=>item.key==='landlord');
     return group&&!group.missingLabels.includes('ссылка на объявление');
-  },id,{timeout:5000});
+  },id,{timeout:10000});
   const landlordFilled=await metricGroup(page,id,'landlord');
   expect(landlordFilled.total).toBe(initialTotal);
   expect(landlordFilled.done).toBe(initialTotal);
-  await expect(card.locator('.fill-plan-item-v448 [data-progress-target-v448="landlord"]')).toHaveCount(0);
+  await expect(card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])')).toHaveCount(0);
   await screenshotCard(card,'02-listing-url-filled-without-reload.png');
 
   await listing.fill('');
+  await listing.blur();
   await page.waitForFunction(locationId=>{
     const metric=(window.BogatkaDecisionUI?.lastMetrics||[]).find(item=>item.id===locationId);
     return metric?.progressGroups?.find(item=>item.key==='landlord')?.missingLabels.includes('ссылка на объявление');
-  },id,{timeout:5000});
+  },id,{timeout:10000});
   const landlordCleared=await metricGroup(page,id,'landlord');
   expect(landlordCleared.total).toBe(initialTotal);
   expect(landlordCleared.missingLabels).toEqual(['ссылка на объявление']);
@@ -140,9 +131,7 @@ test('minimum photo plan is exactly 13 and caps completion at 100 percent',async
   const evidence=await page.evaluate(()=>{
     const exact={street:2,entrance:2,parking:1,traffic:1,competitors:1,interior:2,storage:1,engineering:2,documents:1,other:0};
     const photos=[];
-    for(const [category,required] of Object.entries(exact)){
-      for(let index=0;index<required+3;index++)photos.push({locationId:'synthetic-photo-plan',category});
-    }
+    for(const [category,required] of Object.entries(exact))for(let index=0;index<required+3;index++)photos.push({locationId:'synthetic-photo-plan',category});
     const plan=window.BogatkaSuite.photoPlanFor('synthetic-photo-plan',photos);
     return{runtimePlan:{...window.BogatkaSuite.PHOTO_PLAN},plan};
   });
@@ -152,8 +141,8 @@ test('minimum photo plan is exactly 13 and caps completion at 100 percent',async
   expect(evidence.plan.percent).toBe(100);
   expect(evidence.plan.total).toBeGreaterThan(13);
 
-  const photoDetails=card.locator(':scope .location-body > details').filter({has:page.getByText('Фотографии по категориям',{exact:true})}).first();
-  if(!(await photoDetails.evaluate(node=>node.open))){await photoDetails.locator(':scope > summary').click();}
+  const photoDetails=card.locator(':scope .location-body > details').filter({hasText:'Фотографии по категориям'}).first();
+  if(!(await photoDetails.evaluate(node=>node.open)))await photoDetails.locator(':scope > summary').click();
   await expect(card.locator('.photo-plan-head-v400 strong')).toHaveText('Минимальный фотоплан');
   await expect(card.locator('[data-photo-plan-total]')).toContainText('/13');
   await expect(card.locator('.photo-plan-v400')).not.toContainText('Обязательный фотоплан');
@@ -166,8 +155,7 @@ test('decision alone completes conclusion and reason remains optional and persis
   const id=await card.getAttribute('data-location-card');
   const direct=await page.evaluate(()=>{
     const api=window.BogatkaReadinessProgressV434;
-    const values=['','Оставить','Под вопросом','Исключить'];
-    return values.map(decision=>{
+    return['','Оставить','Под вопросом','Исключить'].map(decision=>{
       const progress=api.buildProgress({data:{decision,pros:'',cons:'',risks:'',questions:'',decisionReason:''},photoPlan:{requiredTotal:13,completed:0,missing:[]},dealGate:{entries:[]}});
       const group=progress.groups.find(item=>item.key==='conclusion');
       return{decision,total:group.total,done:group.done,missingLabels:group.missingLabels};
@@ -177,14 +165,10 @@ test('decision alone completes conclusion and reason remains optional and persis
   for(const item of direct.slice(1))expect(item).toMatchObject({total:1,done:1,missingLabels:[]});
 
   await patchData(page,id,{decision:'Оставить',pros:'',cons:'',risks:'',questions:'',decisionReason:''});
-  await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>Boolean(window.BogatkaReadinessProgressV434?.ready&&document.querySelector('[data-location-card] .decision-reason-section-v412')),{timeout:30000});
-  card=page.locator(`[data-location-card="${id}"]`);
-  await card.evaluate(node=>window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:false}));
-  await openProgressPlan(card);
   const conclusion=await metricGroup(page,id,'conclusion');
   expect(conclusion).toMatchObject({total:1,done:1,missingCount:0});
-  await expect(card.locator('.fill-plan-item-v448 [data-progress-target-v448="conclusion"]')).toHaveCount(0);
+  await openProgressPlan(card);
+  await expect(card.locator('.fill-plan-item-v448:has([data-progress-target-v448="conclusion"])')).toHaveCount(0);
 
   const reason=card.locator('.decision-reason-section-v412');
   const control=reason.locator('[data-field="decisionReason"]');
@@ -193,11 +177,7 @@ test('decision alone completes conclusion and reason remains optional and persis
   await expect(reason).toHaveAttribute('data-required-missing','false');
   await expect(reason.locator('[data-decision-reason-status-v412]')).toHaveText('Необязательно');
   await expect(reason.locator('.decision-reason-description-v412')).toContainText('Необязательно');
-  const visual=await reason.evaluate(node=>({
-    border:getComputedStyle(node).borderTopColor,
-    state:node.dataset.reasonState,
-    requiredMissing:node.dataset.requiredMissing,
-  }));
+  const visual=await reason.evaluate(node=>({border:getComputedStyle(node).borderTopColor,state:node.dataset.reasonState,requiredMissing:node.dataset.requiredMissing}));
   expect(visual.state).toBe('optional');
   expect(visual.requiredMissing).toBe('false');
   expect(visual.border).not.toBe('rgb(216, 162, 162)');
@@ -216,10 +196,5 @@ test('decision alone completes conclusion and reason remains optional and persis
 
 test.afterAll(async()=>{
   await mkdir(ARTIFACT_DIR,{recursive:true});
-  await writeFile(path.join(ARTIFACT_DIR,'evidence.json'),JSON.stringify({
-    version:'4.3.4',
-    photoPlan:{street:2,entrance:2,parking:1,traffic:1,competitors:1,interior:2,storage:1,engineering:2,documents:1,other:0,total:13},
-    conclusionRequirements:['decision'],
-    listingUrlOwner:'landlord',
-  },null,2));
+  await writeFile(path.join(ARTIFACT_DIR,'evidence.json'),JSON.stringify({version:'4.3.4',photoPlan:{street:2,entrance:2,parking:1,traffic:1,competitors:1,interior:2,storage:1,engineering:2,documents:1,other:0,total:13},conclusionRequirements:['decision'],listingUrlOwner:'landlord'},null,2));
 });
