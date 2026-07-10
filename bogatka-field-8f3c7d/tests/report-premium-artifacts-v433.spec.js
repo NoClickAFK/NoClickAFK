@@ -17,15 +17,17 @@ test('creates exact-head premium report review artifacts',async({page,context,br
   if(await economy.getAttribute('data-open')!=='true')await economy.locator('.report-accordion-summary-v432').click();
   await economy.screenshot({path:path.join(ARTIFACT_DIR,'single-location-economy.png')});
 
-  const full=await pageFromHtml(context,generated.full,{width:1440,height:1000});
-  await full.screenshot({path:path.join(ARTIFACT_DIR,'full-report-first-viewport.png')});
-  await full.setViewportSize({width:1440,height:1600});
+  const full=await pageFromHtml(context,generated.full,{width:1440,height:1600});
   await full.screenshot({path:path.join(ARTIFACT_DIR,'full-report-premium.png'),fullPage:true});
-  const cards=full.locator('.report-location-dossier-v433');
-  const firstBox=await cards.first().boundingBox();
-  const lastVisibleBox=await cards.nth(Math.min(3,await cards.count()-1)).boundingBox();
-  if(firstBox&&lastVisibleBox){
-    await full.screenshot({path:path.join(ARTIFACT_DIR,'full-report-location-cards.png'),clip:{x:Math.max(0,firstBox.x-20),y:Math.max(0,firstBox.y-20),width:Math.min(1440,firstBox.width+40),height:Math.min(1800,lastVisibleBox.y+lastVisibleBox.height-firstBox.y+40)}});
+  await full.setViewportSize({width:1440,height:1000});
+  await full.evaluate(()=>window.scrollTo(0,0));
+  await full.screenshot({path:path.join(ARTIFACT_DIR,'full-report-first-viewport.png')});
+  const firstCard=full.locator('.report-location-dossier-v433').first();
+  if(await firstCard.count()){
+    const toggle=firstCard.locator('.report-location-summary-v433');
+    if(await toggle.getAttribute('aria-expanded')==='true')await toggle.click();
+    await firstCard.scrollIntoViewIfNeeded();
+    await full.screenshot({path:path.join(ARTIFACT_DIR,'full-report-location-cards.png')});
   }
 
   const beforeHtml=fs.readFileSync(BEFORE_FIXTURE,'utf8');
