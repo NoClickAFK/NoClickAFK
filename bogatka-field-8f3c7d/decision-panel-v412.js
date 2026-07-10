@@ -6,6 +6,7 @@
     'Исключить':'не рассматривать дальше',
   };
   const stateKey=id=>`bogatka_decision_reason_open_v412:${id}`;
+  const OPTIONAL_HINT='Необязательно — можно кратко зафиксировать аргументы решения';
   let observerFrame=0;
   const filled=value=>String(value||'').trim()!=='';
   const currentRole=()=>{
@@ -88,48 +89,40 @@
     const current=String(control?.value??'');
     const persisted=persistedValue(control);
     const dirty=current!==persisted;
-    if(dirty)return{label:'Есть изменения',semantic:'dirty',dirty,missing:filled(decision)&&!filled(current),decision,current};
+    if(dirty)return{label:'Есть изменения',semantic:'dirty',dirty,missing:false,decision,current};
     if(filled(current))return{label:'Сохранено',semantic:'saved',dirty,missing:false,decision,current};
-    if(filled(decision))return{label:'Нужно заполнить',semantic:'required',dirty,missing:true,decision,current};
-    return{label:'Не выбрано',semantic:'empty',dirty,missing:false,decision,current};
+    if(filled(decision))return{label:'Необязательно',semantic:'optional',dirty,missing:false,decision,current};
+    return{label:'Не заполнено',semantic:'empty',dirty,missing:false,decision,current};
   }
-  function syncReasonState(card,{validate=false,message=''}={}){
+  function syncReasonState(card,{message=''}={}){
     const section=card?.querySelector('.decision-reason-section-v412');
     const control=reasonControl(card);
     if(!section||!control)return;
     const model=reasonStatusModel(card,control);
-    const focused=document.activeElement===control;
     const status=section.querySelector('[data-decision-reason-status-v412]');
     if(status){
       if(status.textContent!==model.label)status.textContent=model.label;
       setData(status,'state',model.semantic);
     }
     setData(section,'reasonState',model.semantic);
-    setData(section,'requiredMissing',String(model.missing&&validate&&!focused));
-    const required=filled(model.decision);
-    setRequired(control,required);
-    setAttr(control,'aria-required',String(required));
+    setData(section,'requiredMissing','false');
+    setRequired(control,false);
+    setAttr(control,'aria-required','false');
     const save=section.querySelector('[data-decision-reason-save-v412]');
-    setDisabled(save,isViewer()||!model.dirty||(model.missing&&!filled(model.current)));
+    setDisabled(save,isViewer()||!model.dirty);
     setDisabled(control,isViewer());
+    section.querySelector('.decision-reason-warning-v452')?.setAttribute('hidden','');
     if(message)setMessage(section,message,model.semantic);
     else if(model.dirty)setMessage(section,'Есть несохранённые изменения','dirty');
-    else if(model.missing&&validate&&!focused)setMessage(section,'Укажите причину выбранного решения.','error');
     else if(model.semantic==='saved')setMessage(section,'Причина сохранена','saved');
-    else setMessage(section,'Причина пока не заполнена','idle');
+    else setMessage(section,OPTIONAL_HINT,'optional');
   }
   async function flushReason(card,{explicit=true}={}){
     const section=card?.querySelector('.decision-reason-section-v412');
     const control=reasonControl(card);
     if(!section||!control||isViewer())return false;
-    const decision=decisionValue(card);
-    if(filled(decision)&&!filled(control.value)){
-      setOpen(section,true);
-      syncReasonState(card,{validate:true,message:'Укажите причину выбранного решения.'});
-      return false;
-    }
     if(control.value===persistedValue(control)){
-      syncReasonState(card,{validate:true});
+      syncReasonState(card);
       return true;
     }
     clearTimeout(control._locationDataSaveTimerV452);
@@ -141,7 +134,7 @@
       if(typeof saveField!=='function')throw new Error('Не найдена функция сохранения поля.');
       await saveField(control);
       setPersisted(control,control.value);
-      syncReasonState(card,{validate:true,message:'Причина сохранена'});
+      syncReasonState(card,{message:filled(control.value)?'Причина сохранена':OPTIONAL_HINT});
       return true;
     }catch(error){
       setOpen(section,true);
@@ -164,11 +157,14 @@
     control.dataset.locationDataV452='1';
     control.rows=5;
     control.placeholder='Например:\n— подходящий поток и район;\n— приемлемая аренда;\n— требуется письменное подтверждение разгрузки.';
+    control.required=false;
+    control.setAttribute('aria-required','false');
     old.querySelector('.decision-reason-warning-v452')?.remove();
     const section=document.createElement('details');
     section.className='decision-reason-section-v412 decision-reason-v452';
     section.dataset.decisionReasonV412='1';
-    section.innerHTML='<summary class="decision-reason-toggle-v412" aria-expanded="false"><span class="decision-reason-copy-v412"><strong class="decision-reason-title-v412">Причина решения</strong><span class="decision-reason-description-v412">Зафиксируйте ключевые аргументы, которые повлияли на решение по локации.</span></span><span class="decision-reason-status-v412" data-decision-reason-status-v412>Не выбрано</span><i class="decision-reason-chevron-v412" aria-hidden="true"></i></summary><div class="decision-reason-body-v412" hidden aria-hidden="true"><p class="decision-reason-helper-v412">Укажите основные причины решения. Если причин несколько, запишите каждую с новой строки.</p><div class="decision-reason-control-v412"></div><small class="decision-reason-warning-v452" hidden>Укажите причину выбранного решения.</small><div class="decision-reason-actions-v412"><button type="button" class="btn secondary small decision-reason-save-v412" data-decision-reason-save-v412>Сохранить причину</button><small data-decision-reason-feedback-v412>Причина пока не заполнена</small></div></div>';
+    section.dataset.requiredMissing='false';
+    section.innerHTML='<summary class="decision-reason-toggle-v412" aria-expanded="false"><span class="decision-reason-copy-v412"><strong class="decision-reason-title-v412">Причина решения</strong><span class="decision-reason-description-v412">Необязательно — можно кратко зафиксировать аргументы решения.</span></span><span class="decision-reason-status-v412" data-decision-reason-status-v412>Не заполнено</span><i class="decision-reason-chevron-v412" aria-hidden="true"></i></summary><div class="decision-reason-body-v412" hidden aria-hidden="true"><p class="decision-reason-helper-v412">Необязательно — можно кратко зафиксировать аргументы решения.</p><div class="decision-reason-control-v412"></div><div class="decision-reason-actions-v412"><button type="button" class="btn secondary small decision-reason-save-v412" data-decision-reason-save-v412>Сохранить причину</button><small data-decision-reason-feedback-v412>Необязательно — можно кратко зафиксировать аргументы решения</small></div></div>';
     section.querySelector('.decision-reason-control-v412').append(control);
     old.replaceWith(section);
     try{section.open=localStorage.getItem(stateKey(locationId))==='1'}catch(_){section.open=false}
@@ -178,15 +174,14 @@
       try{localStorage.setItem(stateKey(locationId),section.open?'1':'0')}catch(_){ }
     });
     control.addEventListener('input',()=>syncReasonState(card));
-    control.addEventListener('blur',()=>syncReasonState(card,{validate:true}));
+    control.addEventListener('blur',()=>syncReasonState(card));
     section.querySelector('[data-decision-reason-save-v412]').addEventListener('click',()=>flushReason(card));
     card.querySelectorAll('input[type="radio"][data-field="decision"]').forEach(radio=>{
       if(radio.dataset.decisionReasonSectionBoundV412==='1')return;
       radio.dataset.decisionReasonSectionBoundV412='1';
       radio.addEventListener('change',()=>{
         refresh(radio.closest('.decision'));
-        if(filled(decisionValue(card))&&!filled(control.value))setOpen(section,true);
-        syncReasonState(card,{validate:true});
+        syncReasonState(card);
       });
     });
     return section;
@@ -207,13 +202,12 @@
         if(control.value!==stored)control.value=stored;
         setPersisted(control,stored);
       }
+      control.required=false;
+      control.setAttribute('aria-required','false');
     }
-    if(filled(decisionValue(card))&&!filled(control?.value)&&section.dataset.initialMissingOpenedV412!=='1'){
-      section.dataset.initialMissingOpenedV412='1';
-      setOpen(section,true,{persist:false});
-    }
+    section.dataset.requiredMissing='false';
     syncOpenState(section);
-    syncReasonState(card,{validate:false});
+    syncReasonState(card);
     return true;
   }
   async function enhanceAll(){for(const card of document.querySelectorAll('[data-location-card]'))await enhanceCard(card)}
