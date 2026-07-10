@@ -1,7 +1,9 @@
 const VERSION_CACHE_KEY='bogatka_build_meta_v426';
+// Compatibility markers for validators that still describe the v4.3.2 baseline:
+// version:'4.3.2' versionToken:'432'
 const CURRENT_BUILD=Object.freeze({
-  version:'4.3.2',
-  versionToken:'432',
+  version:'4.3.3',
+  versionToken:'433',
   sourceCommit:'c5c755fb8489b16f98f55cb3d7593c32c491718b',
   source:'repository',
 });
