@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=434';
+const PUBLIC_REPORT='http://127.0.0.1:4173/bogatka-field-8f3c7d/report/index.html?token=photo-plan-v434';
 
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -90,4 +91,39 @@ test('viewer restrictions, optional reason persistence and premium report access
   for(const field of ['objectSource','listingUrl','inspectionPurpose','inspectionResult','decisionReason'])await expect(card.locator(`[data-field="${field}"]`)).toBeDisabled();
   const stored=await page.evaluate(locationId=>getLocationData(locationId),id);
   expect(stored.decisionReason).toBe('Сохранённая необязательная аргументация');
+});
+
+test('built-in self-test accepts the 13-photo minimum plan',async({page})=>{
+  await openApp(page);
+  await page.waitForFunction(()=>Boolean(window.BogatkaSelftest?.run),null,{timeout:30000});
+  const photoCheck=await page.evaluate(async()=>{
+    const result=await window.BogatkaSelftest.run();
+    return result.checks.find(item=>item.name==='photo plan');
+  });
+  expect(photoCheck).toMatchObject({ok:true});
+  expect(photoCheck.details).toContain('"requiredTotal":13');
+});
+
+test('public snapshot report uses the same 13-photo minimum plan',async({page})=>{
+  await page.route('**/bogatka-public-report?*',route=>route.fulfill({
+    status:200,
+    contentType:'application/json',
+    body:JSON.stringify({
+      name:'Проверка фотоплана 4.3.4',
+      created_at:'2026-07-10T17:00:00.000Z',
+      snapshot:{
+        project:{name:'Богатка'},
+        global:{},
+        locations:[{id:'public-v434',title:'Тестовая локация',address:'Гродно',status:'Новый объект',form_data:{}}],
+        photos:[],
+      },
+    }),
+  }));
+  await page.goto(PUBLIC_REPORT,{waitUntil:'networkidle'});
+  const root=page.locator('#reportRoot');
+  await expect(root).toContainText('Минимальный фотоплан: 0/13');
+  await expect(root).not.toContainText('/24');
+  await expect(root).toContainText('Улица и окружение: 0/2');
+  await expect(root).toContainText('Вход и вывеска: 0/2');
+  await expect(root).toContainText('Инженерия и безопасность: 0/2');
 });
