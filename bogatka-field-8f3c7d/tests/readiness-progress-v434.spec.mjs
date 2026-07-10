@@ -54,9 +54,12 @@ async function metricGroup(page,id,key){
 }
 
 async function openProgressPlan(card){
+  await card.evaluate(node=>window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:false}));
   const progress=card.locator('.progress-card-toggle-v462');
+  await expect(progress).toBeVisible();
   if(await progress.getAttribute('aria-expanded')!=='true')await progress.click();
   const plan=card.locator('.fill-plan-toggle-v462');
+  await expect(plan).toBeVisible();
   if(await plan.getAttribute('aria-expanded')!=='true')await plan.click();
 }
 
