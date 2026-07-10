@@ -118,6 +118,38 @@ test('portfolio keeps completion KPI when zero score and weight are pruned',asyn
   expect(result.summaryAverage).not.toBe('—');
 });
 
+test('executive shortlist ranks all candidates before limiting to three',async({page,context})=>{
+  await openApp(page);
+  const html=await page.evaluate(()=>{
+    const location=(title,score,weight,completion,statusClass='good',status='Перспективно')=>`<article class="report-location"><header class="report-location-header"><div><h2>${title}</h2><p>${title} address</p></div><div class="report-metrics"><div><strong>${score}</strong><span>/70 балл</span></div><div><strong>${weight}</strong><span>/100 вес</span></div><div><strong>${completion}%</strong><span>заполнено</span></div><span class="report-status ${statusClass}">${status}</span></div></header><section class="report-section"><div class="report-section-title"><h3>Основные сведения</h3></div><div class="report-section-body"><div class="report-field-grid"><div class="report-field"><span>Адрес</span><strong>${title} address</strong></div></div></div></section></article>`;
+    const base=`<!doctype html><html><head></head><body><main class="report-document"><section class="report-cover"><h1>Portfolio</h1></section><section class="report-summary report-section"><h2>Общая сводка</h2></section><section class="report-comparison report-section"><h2>Сравнение локаций</h2><div class="report-table-wrap"><table><tbody><tr><td>data</td></tr></tbody></table></div></section>${location('A first',30,40,90)}${location('B second',42,60,80)}${location('C third',38,50,75)}${location('D strongest',65,95,88)}</main></body></html>`;
+    return window.BogatkaReportFinalizeV433.finalizeHtml(base);
+  });
+  const report=await pageFromHtml(context,html,{width:1440,height:1000});
+  const result=await report.evaluate(()=>({titles:[...document.querySelectorAll('.report-shortlist-card-v433 h3')].map(node=>node.textContent.trim()),ranks:[...document.querySelectorAll('.report-shortlist-rank-v433')].map(node=>node.textContent.trim())}));
+  expect(result.titles).toEqual(['D strongest','B second','C third']);
+  expect(result.ranks).toEqual(['01','02','03']);
+});
+
+test('weak recommendation keeps non-green risk semantics',async({page,context})=>{
+  await openApp(page);
+  const html=await page.evaluate(()=>{
+    const location=(title,statusClass,status)=>`<article class="report-location"><header class="report-location-header"><div><h2>${title}</h2><p>${title} address</p></div><div class="report-metrics"><div><strong>40</strong><span>/70 балл</span></div><div><strong>55</strong><span>/100 вес</span></div><div><strong>70%</strong><span>заполнено</span></div><span class="report-status ${statusClass}">${status}</span></div></header><section class="report-section"><div class="report-section-title"><h3>Основные сведения</h3></div><div class="report-section-body"><div class="report-field-grid"><div class="report-field"><span>Адрес</span><strong>${title} address</strong></div></div></div></section></article>`;
+    const base=`<!doctype html><html><head></head><body><main class="report-document"><section class="report-cover"><h1>Portfolio</h1></section><section class="report-summary report-section"><h2>Общая сводка</h2></section><section class="report-comparison report-section"><h2>Сравнение локаций</h2><div class="report-table-wrap"><table><tbody><tr><td>data</td></tr></tbody></table></div></section>${location('Weak location','weak','Слабая')}${location('Good location','good','Перспективно')}</main></body></html>`;
+    return window.BogatkaReportFinalizeV433.finalizeHtml(base);
+  });
+  const report=await pageFromHtml(context,html,{width:1440,height:1000});
+  const result=await report.evaluate(()=>{
+    const weak=document.querySelector('.report-status.weak');
+    const good=document.querySelector('.report-status.good');
+    return{weakText:weak?.textContent.trim()||'',weakRisk:weak?.classList.contains('risk')||false,weakBackground:weak?getComputedStyle(weak).backgroundColor:'',weakColor:weak?getComputedStyle(weak).color:'',goodBackground:good?getComputedStyle(good).backgroundColor:'',goodColor:good?getComputedStyle(good).color:''};
+  });
+  expect(result.weakText).toBe('Слабая');
+  expect(result.weakRisk).toBe(true);
+  expect(result.weakBackground).not.toBe(result.goodBackground);
+  expect(result.weakColor).not.toBe(result.goodColor);
+});
+
 test('repository fallback provenance points at the last functional report head',async({page})=>{
   await openApp(page);
   const source=await page.evaluate(async()=>await (await fetch('./version-authority-v426.js',{cache:'no-store'})).text());
