@@ -12,9 +12,12 @@ function loadScript(src){
   });
 }
 async function ensureDependencies(){
-  if(!window.BogatkaReportCoreV433?.ready)await loadScript('./report-editorial-core-v433.js');
-  if(!window.BogatkaReportStyleV433?.ready)await loadScript('./report-editorial-style-v433.js');
-  return Boolean(window.BogatkaReportCoreV433?.ready&&window.BogatkaReportStyleV433?.ready);
+  if(!window.BogatkaReportCoreV433)await loadScript('./report-editorial-core-v433.js');
+  if(!window.BogatkaReportCoreV433?.buildSingleHero)await loadScript('./report-editorial-single-v433.js');
+  if(!window.BogatkaReportCoreV433?.ready)await loadScript('./report-editorial-portfolio-v433.js');
+  if(!window.BogatkaReportStyleAV433)await loadScript('./report-editorial-style-a-v433.js');
+  if(!window.BogatkaReportStyleBV433?.ready)await loadScript('./report-editorial-style-b-v433.js');
+  return Boolean(window.BogatkaReportCoreV433?.ready&&window.BogatkaReportStyleAV433&&window.BogatkaReportStyleBV433?.ready);
 }
 function clean(...args){return window.BogatkaReportCoreV433.clean(...args)}
 function wait(...args){return window.BogatkaReportCoreV433.wait(...args)}
@@ -34,7 +37,7 @@ function makeComparisonAccordion(...args){return window.BogatkaReportCoreV433.ma
 function wrapFullLocations(...args){return window.BogatkaReportCoreV433.wrapFullLocations(...args)}
 function addReportClasses(...args){return window.BogatkaReportCoreV433.addReportClasses(...args)}
 function updateGeneratorMetadata(...args){return window.BogatkaReportCoreV433.updateGeneratorMetadata(...args)}
-function styles(){return window.BogatkaReportStyleV433.styles()}
+function styles(){return window.BogatkaReportStyleAV433.css+window.BogatkaReportStyleBV433.css}
 function reportScript(){return `<script>(function(){
 let states=[];
 function hydrate(root){(root||document).querySelectorAll('img[data-report-src]').forEach(img=>{img.src=img.dataset.reportSrc;delete img.dataset.reportSrc})}
