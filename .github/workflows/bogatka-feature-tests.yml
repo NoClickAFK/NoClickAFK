@@ -86,9 +86,10 @@ jobs:
             echo bogatka-field-8f3c7d/tests/backup-v400.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq '^(\.github/workflows/bogatka-feature-tests\.yml|\.github/scripts/resolve-feature-diff-base\.sh|bogatka-field-8f3c7d/tests/feature-workflow-diff-base\.spec\.mjs)$'; then
-            printf '%s\n' \
-              bogatka-field-8f3c7d/tests/feature-workflow-diff-base.spec.mjs \
-              bogatka-field-8f3c7d/tests/readiness-progress-v434.spec.mjs >> /tmp/selected-tests.txt
+            echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
+            echo bogatka-field-8f3c7d/tests/readiness-progress-v434.spec.mjs >> /tmp/selected-tests.txt
+          else
+            echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
           fi
           sort -u /tmp/selected-tests.txt -o /tmp/selected-tests.txt
           COUNT="$(wc -l < /tmp/selected-tests.txt | tr -d ' ')"
@@ -96,7 +97,7 @@ jobs:
           cat /tmp/selected-tests.txt
 
       - name: Install Chromium and WebKit
-        if: steps.select.outputs.count != '0'
+        if: steps.select.outputs.count != '0' || steps.select.outputs.workflow_changed == 'true'
         run: |
           npm install --no-save --silent @playwright/test@1.52.0
           npx playwright install --with-deps chromium webkit > /tmp/playwright-install.log 2>&1
@@ -113,6 +114,12 @@ jobs:
             sleep 1
           done
           xargs -a /tmp/selected-tests.txt npx playwright test --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-feature-tests.log
+
+      - name: Run diff-base resolver regression
+        if: steps.select.outputs.workflow_changed == 'true'
+        run: |
+          set -o pipefail
+          npx playwright test bogatka-field-8f3c7d/tests/feature-workflow-diff-base.spec.mjs --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-workflow-resolver-tests.log
 
       - name: Upload readiness v4.3.4 review artifacts
         if: always()
@@ -143,6 +150,7 @@ jobs:
           name: bogatka-feature-test-diagnostics
           path: |
             /tmp/bogatka-feature-tests.log
+            /tmp/bogatka-workflow-resolver-tests.log
             /tmp/bogatka-http.log
             /tmp/playwright-install.log
           if-no-files-found: warn
