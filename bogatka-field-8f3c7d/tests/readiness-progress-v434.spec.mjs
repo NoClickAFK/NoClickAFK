@@ -30,6 +30,11 @@ async function patchData(page,id,patch){
     const merged={...current,...next};
     for(const key of ['tech','score','criticalDealConditions'])if(next[key])merged[key]={...(current[key]||{}),...next[key]};
     await idbPut(STORE,merged,`location:${locationId}`);
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    if(card&&Object.hasOwn(next,'decision')){
+      card.querySelectorAll('[data-field="decision"]').forEach(control=>{control.checked=control.value===next.decision});
+      await window.BogatkaDecisionPanel?.enhanceCard?.(card);
+    }
     await window.BogatkaReadinessProgressV434.refresh();
   },{locationId:id,next:patch});
 }
