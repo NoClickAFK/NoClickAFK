@@ -6,7 +6,13 @@ on:
     paths:
       - 'bogatka-field-8f3c7d/**'
       - '.github/workflows/bogatka-feature-tests.yml'
+      - '.github/scripts/resolve-feature-diff-base.sh'
   workflow_dispatch:
+    inputs:
+      base_sha:
+        description: 'Optional comparison base commit SHA. Defaults to the merge base with origin/main, then HEAD^.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -27,10 +33,18 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Resolve changed-file diff base
+        id: diff
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          WORKFLOW_INPUT_BASE_SHA: ${{ inputs.base_sha || '' }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+        run: bash .github/scripts/resolve-feature-diff-base.sh
+
       - name: Select tests for changed domains
         id: select
         run: |
-          CHANGED="$(git diff --name-only '${{ github.event.pull_request.base.sha }}'...HEAD | tr '[:upper:]' '[:lower:]')"
+          CHANGED="$(tr '[:upper:]' '[:lower:]' < /tmp/bogatka-changed-files.txt)"
           : > /tmp/selected-tests.txt
           if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|readiness|progress|recommendation|decision-panel|photo-plan'; then
             printf '%s\n' \
@@ -70,6 +84,11 @@ jobs:
           fi
           if echo "$CHANGED" | grep -Eq 'backup|restore'; then
             echo bogatka-field-8f3c7d/tests/backup-v400.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          if echo "$CHANGED" | grep -Eq '^(\.github/workflows/bogatka-feature-tests\.yml|\.github/scripts/resolve-feature-diff-base\.sh|bogatka-field-8f3c7d/tests/feature-workflow-diff-base\.spec\.mjs)$'; then
+            printf '%s\n' \
+              bogatka-field-8f3c7d/tests/feature-workflow-diff-base.spec.mjs \
+              bogatka-field-8f3c7d/tests/readiness-progress-v434.spec.mjs >> /tmp/selected-tests.txt
           fi
           sort -u /tmp/selected-tests.txt -o /tmp/selected-tests.txt
           COUNT="$(wc -l < /tmp/selected-tests.txt | tr -d ' ')"
@@ -115,7 +134,7 @@ jobs:
 
       - name: No mapped feature tests
         if: steps.select.outputs.count == '0'
-        run: echo 'The pull request did not change a mapped application domain.'
+        run: echo "A valid diff was evaluated for ${{ github.event_name }} against base ${{ steps.diff.outputs.base_sha }}; no mapped application domains changed."
 
       - name: Upload feature diagnostics
         if: failure()
