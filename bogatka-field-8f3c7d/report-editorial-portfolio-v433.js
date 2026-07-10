@@ -73,7 +73,7 @@ function wrapFullLocations(doc,locations){
 }
 function addReportClasses(doc){
   const single=isSingle(doc);doc.documentElement.classList.add('report-html-v433');doc.body.classList.add('report-body-v433');doc.querySelector('.report-document')?.classList.add('report-document-v433',single?'report-document-single-v433':'report-document-full-v433');
-  doc.querySelectorAll('.report-status').forEach(status=>status.classList.add('report-status-v433'));
+  doc.querySelectorAll('.report-status').forEach(status=>{status.classList.add('report-status-v433');if(status.classList.contains('weak'))status.classList.add('risk')});
   doc.querySelectorAll('.report-field').forEach(field=>{field.classList.add('report-data-row-v433');const label=clean(field.querySelector('span')?.textContent),value=clean(field.querySelector('strong')?.textContent);if(/причина|комментарий|основание|вывод|наблюден|плюсы|минусы|риски|вопрос/i.test(label)||value.length>110)field.classList.add('report-narrative-row-v433','report-field-wide')});
   doc.querySelectorAll('.report-photo').forEach(photo=>photo.classList.add('report-photo-v433'));
 }
