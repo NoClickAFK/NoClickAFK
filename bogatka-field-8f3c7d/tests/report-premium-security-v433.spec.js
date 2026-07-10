@@ -13,7 +13,7 @@ test('malicious title and address remain literal text and cannot execute',async(
     await idbPut(STORE,data,`location:${selected.id}`);
     if(typeof saveLocations==='function')await saveLocations();
     if(typeof updateSummary==='function')await updateSummary();
-    return window.buildLocationReportHtml(selected.id);
+    return window.BogatkaReportFinalizeV433.buildLocationReportHtml(selected.id);
   });
   const report=await pageFromHtml(context,generated,{width:1280,height:900});
   const state=await report.evaluate(()=>({
@@ -45,7 +45,7 @@ test('user version-like text is preserved while generator metadata remains 4.3.3
     data.decisionReason=text;
     await idbPut(STORE,data,`location:${selected.id}`);
     if(typeof updateSummary==='function')await updateSummary();
-    return window.buildLocationReportHtml(selected.id);
+    return window.BogatkaReportFinalizeV433.buildLocationReportHtml(selected.id);
   },text);
   const report=await pageFromHtml(context,html);
   const result=await report.evaluate(()=>({body:document.body.textContent,generator:document.querySelector('meta[name="generator"]')?.content,version:document.querySelector('.report-version-v433')?.textContent}));
@@ -65,10 +65,14 @@ test('mobile and print layouts are unclipped and print expands all report conten
   expect(mobileState.titleSize).toBeGreaterThanOrEqual(36);
   expect(mobileState.pills.every(rect=>rect.right<=390&&rect.left>=0)).toBe(true);
   const printed=await pageFromHtml(context,generated.full,{width:1440,height:1000,print:true});
-  const printState=await printed.evaluate(()=>({collapsed:[...document.querySelectorAll('.report-accordion-body-v432[hidden]')].map(node=>getComputedStyle(node).display),chevrons:[...document.querySelectorAll('.report-chevron-v432')].map(node=>getComputedStyle(node).display),overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,wholeLocationAvoid:getComputedStyle(document.querySelector('.report-location-dossier-v433')).breakInside,pageStyle:/@page\s*\{[^}]*size\s*:\s*A4/i.test(document.querySelector('#reportFinalV432')?.textContent||'')}));
+  const printState=await printed.evaluate(()=>{
+    const dossier=document.querySelector('.report-location-dossier-v433');
+    return{collapsed:[...document.querySelectorAll('.report-accordion-body-v432[hidden]')].map(node=>getComputedStyle(node).display),chevrons:[...document.querySelectorAll('.report-chevron-v432')].map(node=>getComputedStyle(node).display),overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,dossierCount:document.querySelectorAll('.report-location-dossier-v433').length,wholeLocationAvoid:dossier?getComputedStyle(dossier).breakInside:'missing',pageStyle:/@page\s*\{[^}]*size\s*:\s*A4/i.test(document.querySelector('#reportFinalV432')?.textContent||'')};
+  });
+  expect(printState.dossierCount).toBeGreaterThan(0);
   expect(printState.collapsed.every(value=>value==='block')).toBe(true);
   expect(printState.chevrons.every(value=>value==='none')).toBe(true);
   expect(printState.overflow).toBeLessThanOrEqual(1);
-  expect(printState.wholeLocationAvoid).not.toMatch(/avoid/);
+  expect(printState.wholeLocationAvoid).not.toMatch(/avoid|missing/);
   expect(printState.pageStyle).toBe(true);
 });
