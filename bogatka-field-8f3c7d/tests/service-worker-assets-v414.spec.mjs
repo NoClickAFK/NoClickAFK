@@ -9,7 +9,7 @@ test('versioned service worker asset list is unique and complete',()=>{
   const assets=[...list.matchAll(/'([^']+)'/g)].map(match=>match[1]);
   expect(new Set(assets).size).toBe(assets.length);
   expect(source).toContain("searchParams.get('v')");
-  expect(source).toContain("||'434'");
+  expect(source).toContain("||'435'");
   expect(source).toContain('bogatka-location-v${BUILD_TOKEN}');
   for(const asset of [
     './version-authority-v426.js','./critical-deal-schema-v430.js','./critical-deal-v430.css','./compare-v430.js',
