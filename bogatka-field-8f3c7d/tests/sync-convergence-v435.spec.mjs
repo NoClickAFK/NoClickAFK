@@ -32,9 +32,17 @@ test('transport normalization matches JSON semantics without losing explicit res
   const result=await page.evaluate(()=>{
     const Merge=window.BogatkaSyncMerge;
     const input={removed:undefined,empty:'',nil:null,flag:false,count:0,reset:[],nested:{keep:'yes',drop:undefined},ids:[{id:'task-1',title:'A'},{id:'task-2',deleted:false}],arrayValues:[undefined,false,0,'',null],deletedTaskIds:['task-3']};
-    return {normalized:Merge.transportNormalize(input),equalsTransport:Merge.same(input,JSON.parse(JSON.stringify(input))),canonical:Merge.canonical(input)};
+    return {
+      normalized:Merge.transportNormalize(input),
+      equalsTransport:Merge.same(input,JSON.parse(JSON.stringify(input))),
+      timestampOnlyEqual:Merge.same({contact:'Анна',updatedAt:'2026-07-11T10:00:00Z'},{contact:'Анна',updatedAt:'2099-01-01T00:00:00Z'}),
+      contentDifference:Merge.same({contact:'Анна',updatedAt:'2026-07-11T10:00:00Z'},{contact:'Ирина',updatedAt:'2026-07-11T10:00:00Z'}),
+      canonical:Merge.canonical(input),
+    };
   });
   expect(result.equalsTransport).toBe(true);
+  expect(result.timestampOnlyEqual).toBe(true);
+  expect(result.contentDifference).toBe(false);
   expect(result.normalized).toEqual({empty:'',nil:null,flag:false,count:0,reset:[],nested:{keep:'yes'},ids:[{id:'task-1',title:'A'},{id:'task-2',deleted:false}],arrayValues:[null,false,0,'',null],deletedTaskIds:['task-3']});
   expect(result.canonical).toContain('"deletedTaskIds"');
   writeEvidence('01-transport-normalization.json',result);
@@ -100,6 +108,65 @@ test('single-flight coalesces local and realtime requests into one follow-up wit
   writeEvidence('05-single-flight.json',result);
 });
 
+test('timestamp-only local changes do not trigger a cloud location write',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async()=>{
+    const item=locations[0];
+    locations=[item];
+    window.BogatkaCloudStability?.markStartupHandled?.();
+    clearTimeout(cloudSyncTimer);clearTimeout(cloudRealtimeTimer);
+    const remoteTime='2026-07-11T09:00:00.000Z';
+    const remote={id:'remote-timestamp',project_id:'project-timestamp',client_id:item.id,title:item.title,address:item.address,note:item.note||null,status:null,object_type:null,form_data:{contact:'UNCHANGED',updatedAt:remoteTime},sort_order:0,revision:9,updated_at:remoteTime,archived_at:null};
+    const localTime='2099-01-01T00:00:00.000Z';
+    await window.BogatkaSyncState.rawPut()(STORE,{contact:'UNCHANGED',updatedAt:localTime,cloudId:remote.id,cloudRevision:remote.revision,cloudUpdatedAt:remote.updated_at},`location:${item.id}`);
+    await window.BogatkaSyncState.writeBase(item.id,{revision:remote.revision,updatedAt:remote.updated_at,formData:structuredClone(remote.form_data),meta:{title:item.title||item.address||'',address:item.address||'',note:item.note||'',sortOrder:0,archivedAt:null}});
+    cloudSession={user:{id:'timestamp-user'}};
+    cloudProjectId=remote.project_id;
+    const syncState={dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},metaDirty:false,stateDirty:false,knownLocationIds:[item.id],knownPhotoIds:[]};
+    const context=await window.BogatkaSyncCompatibility._test.buildContext(item,0,remote,syncState);
+    const desired=window.BogatkaSyncCompatibility._test.comparable(context.payload);
+    const current=window.BogatkaSyncCompatibility._test.comparable(remote);
+    let databaseCalls=0;
+    cloudClient={from(){databaseCalls++;throw new Error('Unexpected cloud write for timestamp-only difference')}};
+    const rows=await cloudPushLocations([remote],syncState);
+    return {needsPush:context.needsPush,differences:window.BogatkaSyncCompatibility._test.differencePaths(desired,current),databaseCalls,rowCount:rows.length,localUpdatedAt:(await getLocationData(item.id)).updatedAt};
+  });
+  expect(result.needsPush).toBe(false);
+  expect(result.differences).toEqual([]);
+  expect(result.databaseCalls).toBe(0);
+  expect(result.rowCount).toBe(1);
+  expect(result.localUpdatedAt).toBe('2099-01-01T00:00:00.000Z');
+  writeEvidence('06-timestamp-only-noop.json',result);
+});
+
+test('background sync cannot replace or overwrite an active form control',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async()=>{
+    const item=locations[0];locations=[item];
+    const selector=`[data-location="${item.id}"][data-field="contact"]`;
+    const input=document.querySelector(selector);
+    if(!input)return {missing:true};
+    const localTime='2026-07-11T10:00:00.000Z';
+    const remoteTime='2026-07-11T10:01:00.000Z';
+    await window.BogatkaSyncState.rawPut()(STORE,{contact:'LOCAL',updatedAt:localTime,cloudId:'remote-active',cloudRevision:1,cloudUpdatedAt:localTime},`location:${item.id}`);
+    await window.BogatkaSyncState.writeBase(item.id,{revision:1,updatedAt:localTime,formData:{contact:'LOCAL',updatedAt:localTime},meta:{title:item.title||item.address||'',address:item.address||'',note:item.note||'',sortOrder:0,archivedAt:null}});
+    cloudSession={user:{id:'active-user'}};cloudProjectId='project-active';cloudRole='owner';
+    const remote={id:'remote-active',project_id:'project-active',client_id:item.id,title:item.title,address:item.address,note:item.note||null,status:null,object_type:null,form_data:{contact:'REMOTE',updatedAt:remoteTime},sort_order:0,revision:2,updated_at:remoteTime,archived_at:null};
+    input.focus();input.value='ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ';const original=input;
+    await cloudApplyRemote([remote],[],null,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[item.id],knownPhotoIds:[]});
+    const current=document.querySelector(selector);
+    const stored=await getLocationData(item.id);
+    return {missing:false,sameNode:current===original,active:document.activeElement===original,visibleValue:original.value,storedValue:stored.contact,suppressed:window.BogatkaCloudStability?.suppressedUiRefreshes||0};
+  });
+  expect(result.missing).toBe(false);
+  expect(result.sameNode).toBe(true);
+  expect(result.active).toBe(true);
+  expect(result.visibleValue).toBe('ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ');
+  expect(result.storedValue).toBe('REMOTE');
+  expect(result.suppressed).toBeGreaterThan(0);
+  writeEvidence('07-active-editor-protection.json',result);
+});
+
 test('cloud error UI has one explanation and clears after recovery',async({page})=>{
   await openApp(page);mkdirSync(ARTIFACT_DIR,{recursive:true});const message='Сетевая ошибка синхронизации. Локальные изменения сохранены.';
   await page.evaluate(message=>{
@@ -116,12 +183,12 @@ test('cloud error UI has one explanation and clears after recovery',async({page}
   await expect(shell.locator('#cloudMessage')).toContainText(message);
   await expect(shell.locator('[data-cloud-retry-sync]')).toBeVisible();
   expect(await shell.getByText(message,{exact:true}).count()).toBe(1);
-  await shell.screenshot({path:path.join(ARTIFACT_DIR,'06-single-cloud-error.png')});
+  await shell.screenshot({path:path.join(ARTIFACT_DIR,'08-single-cloud-error.png')});
   await page.evaluate(()=>{window.BogatkaSyncCompatibility._test.clearSyncError();cloudSetStatus('ready')});
   await expect(shell.locator('#cloudStatusTitle')).toHaveText('Облако: синхронизировано');
   await expect(shell.locator('#cloudMessage')).not.toHaveClass(/error/);
   await expect(shell.locator('#cloudMessage')).toContainText('Синхронизация завершена');
-  await shell.screenshot({path:path.join(ARTIFACT_DIR,'07-synchronized-after-retry.png')});
+  await shell.screenshot({path:path.join(ARTIFACT_DIR,'09-synchronized-after-retry.png')});
   const diagnostics=await page.evaluate(()=>({mergeVersion:window.BogatkaSyncMerge.version,transportVersion:window.BogatkaSyncMerge.transportVersion,compatibilityVersion:window.BogatkaSyncCompatibility.version,diagnostics:window.BogatkaSyncCompatibility.diagnostics,visibleVersion:window.BOGATKA_BUILD?.version||document.querySelector('#versionLabel')?.textContent||'',token:window.BOGATKA_BUILD?.versionToken||''}));
-  writeEvidence('08-runtime-summary.json',diagnostics);
+  writeEvidence('10-runtime-summary.json',diagnostics);
 });
