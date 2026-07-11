@@ -12,9 +12,10 @@ function writeEvidence(name,value){
 
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
-  await page.goto(APP_URL,{waitUntil:'domcontentloaded'});
+  await page.goto(APP_URL,{waitUntil:'load'});
   await page.waitForFunction(()=>window.BogatkaSyncMerge?.transportVersion==='4.3.5');
   await page.waitForFunction(()=>window.BogatkaSyncCompatibility?.version==='4.3.5');
+  await page.waitForFunction(()=>typeof cloudSyncing==='undefined'||cloudSyncing===false);
 }
 
 function row({revision=7403,formData={},title='ул. Лидская, 34, ТЦ «Лидский»'}={}){
