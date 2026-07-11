@@ -30,7 +30,7 @@ if (!failures.length) {
   if (!serviceWorker.includes("||'436'")) failures.push('Service Worker fallback build token is not v436');
   if (!serviceWorker.includes('updateViaCache') && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
   const versionAuthority = read('version-authority-v426.js');
-  for (const marker of ["version:'4.3.6'","versionToken:'436'","sourceCommit:'68e2d77d77a74176ae36ceff55cab122e57201e6'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
+  for (const marker of ["version:'4.3.6'","versionToken:'436'","sourceCommit:'c2f64e8e933074e0465834919d6ee0ef49eec311'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
   if (versionAuthority.includes("version:'4.3.5'") || versionAuthority.includes("versionToken:'435'")) failures.push('version-authority-v426.js still contains stale v4.3.5 production markers');
   const accessVersion = read('access-version-v400.js');
   if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.6')) failures.push('access-version-v400.js does not activate the centralized 4.3.6 version authority');
@@ -38,8 +38,10 @@ if (!failures.length) {
   for(const marker of ['transportNormalize','canonical','transportVersion','NON_SEMANTIC_KEYS'])if(!syncMerge.includes(marker))failures.push(`sync-merge-v412.js is missing ${marker}`);
   const syncUi=read('sync-ui-v412.js');
   for(const marker of ['persistLocation','noOpUpdatesAccepted','revisionRebases','inFlightLocalMerges','coalescedRequests','singleFlightCloudSync','cloudRetrySync','BogatkaFieldIntegrityV416?.enqueueLocation'])if(!syncUi.includes(marker))failures.push(`sync-ui-v412.js is missing ${marker}`);
+  const syncCompat=read('sync-field-compat-v416.js');
+  for(const marker of ['hydrateRow','object_type','form.objectType','form.status','wrapFetch','wrapApply','archive-state-v436.js','installArchiveGate','waitForArchiveReady','archiveStateGateV436','archiveBootstrapV436'])if(!syncCompat.includes(marker))failures.push(`sync-field-compat-v416.js is missing ${marker}`);
   const archiveState=read('archive-state-v436.js');
-  for(const marker of ['normalizeArchiveTime','normalizeArchiveFields','archiveState','inferLegacyRestore','archiveAwareApply','archiveAwarePush','BogatkaArchiveStateV436'])if(!archiveState.includes(marker))failures.push(`archive-state-v436.js is missing ${marker}`);
+  for(const marker of ['normalizeArchiveTime','normalizeArchiveFields','archiveState','inferLegacyRestore','archiveAwareApply','archiveAwarePush','BogatkaArchiveStateV436','BogatkaSyncCompatibility?.ready','denyViewerRestore','canEdit','__bogatkaArchiveStateInstallingV436'])if(!archiveState.includes(marker))failures.push(`archive-state-v436.js is missing ${marker}`);
   const readiness = read('readiness-progress-v434.js');
   for (const marker of ['BogatkaReadinessProgressV434','inspectionPurpose','inspectionResult','objectSource','listingUrl','objectSourceOther','Минимальный фотоплан','VALID_DECISIONS','applyMetric']) if (!readiness.includes(marker)) failures.push(`readiness-progress-v434.js is missing ${marker}`);
   if (!readiness.includes('street:2') || !readiness.includes('entrance:2') || !readiness.includes('engineering:2') || !readiness.includes('documents:1')) failures.push('readiness-progress-v434.js does not contain the canonical 13-photo plan');
@@ -63,8 +65,6 @@ if (!failures.length) {
   for (const marker of ['pendingEmptyResets','persistIntentionalEmpty','objectTypeResetPendingV421','handleObjectTypeChange',"version:'4.2.1'"]) if (!objectNormalize.includes(marker)) failures.push(`object-type-normalize-v416.js is missing ${marker}`);
   const renderHook = read('location-panels-render-v419.js');
   for (const marker of ['installRenderHook','scheduleRefresh','refreshAfterRender','__locationPanelsRenderV419','BogatkaLocationPanelsRenderV419']) if (!renderHook.includes(marker)) failures.push(`location-panels-render-v419.js is missing ${marker}`);
-  const syncCompat = read('sync-field-compat-v416.js');
-  for (const marker of ['hydrateRow','object_type','form.objectType','form.status','wrapFetch','wrapApply']) if (!syncCompat.includes(marker)) failures.push(`sync-field-compat-v416.js is missing ${marker}`);
   const fieldIntegrity = read('field-integrity-v416.js');
   for (const marker of ['queues=new Map','installSaveQueue','stabilizeObjectTypeOptions','one-location-one-ordered-save-queue','BogatkaFieldIntegrityV416']) if (!fieldIntegrity.includes(marker)) failures.push(`field-integrity-v416.js is missing ${marker}`);
   const profile = read('location-profile-v416.js');
