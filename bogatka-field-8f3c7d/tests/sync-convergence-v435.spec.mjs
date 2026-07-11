@@ -143,7 +143,6 @@ test('background sync cannot replace or overwrite an active form control',async(
     const localTime='2026-07-11T10:00:00.000Z';
     const remoteTime='2026-07-11T10:01:00.000Z';
     await window.BogatkaSyncState.rawPut()(STORE,{tripNotes:'LOCAL',updatedAt:localTime},'global');
-    cloudSession={user:{id:'active-user'}};cloudProjectId='project-active';cloudRole='owner';
     window.__syncActiveRemoteState={project_id:'project-active',data:{tripNotes:'REMOTE',updatedAt:remoteTime},revision:2,updated_at:remoteTime};
   });
   const input=page.locator('[data-global="tripNotes"]');
@@ -156,6 +155,7 @@ test('background sync cannot replace or overwrite an active form control',async(
     element.value='ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ';
   });
   const result=await page.evaluate(async()=>{
+    cloudSession={user:{id:'active-user'}};cloudProjectId='project-active';cloudRole='owner';
     await cloudApplyRemote([],[],window.__syncActiveRemoteState,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},stateDirty:false,knownLocationIds:[],knownPhotoIds:[]});
     const current=document.querySelector('[data-global="tripNotes"]');
     const stored=await idbGet(STORE,'global');
