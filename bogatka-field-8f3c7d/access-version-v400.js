@@ -4,7 +4,7 @@
     .catch(error=>{
       console.error('Не удалось запустить автоматическое версирование.',error);
       const label=document.getElementById('versionLabel');
-      if(label)label.textContent='4.3.4';
+      if(label)label.textContent='4.3.5';
     });
 
   function installComparisonOpenCompatibility(){
