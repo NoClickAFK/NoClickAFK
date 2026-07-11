@@ -30,7 +30,7 @@ if (!failures.length) {
   if (!serviceWorker.includes("||'436'")) failures.push('Service Worker fallback build token is not v436');
   if (!serviceWorker.includes('updateViaCache') && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
   const versionAuthority = read('version-authority-v426.js');
-  for (const marker of ["version:'4.3.6'","versionToken:'436'","sourceCommit:'a8e39e5bc88ad2d29c2a0684d95521e10a0bbca1'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
+  for (const marker of ["version:'4.3.6'","versionToken:'436'","sourceCommit:'602da7af89dc7627bb79e5c90bb353cea0c89de2'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
   if (versionAuthority.includes("version:'4.3.5'") || versionAuthority.includes("versionToken:'435'")) failures.push('version-authority-v426.js still contains stale v4.3.5 production markers');
   const accessVersion = read('access-version-v400.js');
   if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.6')) failures.push('access-version-v400.js does not activate the centralized 4.3.6 version authority');
@@ -39,7 +39,8 @@ if (!failures.length) {
   const syncUi=read('sync-ui-v412.js');
   for(const marker of ['persistLocation','noOpUpdatesAccepted','revisionRebases','inFlightLocalMerges','coalescedRequests','singleFlightCloudSync','cloudRetrySync','BogatkaFieldIntegrityV416?.enqueueLocation'])if(!syncUi.includes(marker))failures.push(`sync-ui-v412.js is missing ${marker}`);
   const syncCompat=read('sync-field-compat-v416.js');
-  for(const marker of ['hydrateRow','object_type','form.objectType','form.status','wrapFetch','wrapApply','archive-state-v436.js','installArchiveGate','waitForArchiveReady','archiveStateGateV436','archiveBootstrapV436'])if(!syncCompat.includes(marker))failures.push(`sync-field-compat-v416.js is missing ${marker}`);
+  for(const marker of ['hydrateRow','object_type','form.objectType','form.status','wrapFetch','wrapApply','archive-state-v436.js','installArchiveGate','waitForArchiveReady','archiveStateGateV436','archiveBootstrapV436','ARCHIVE_READY_TIMEOUT_MS=30000','archiveBootstrapPersistent:true','archiveReadyTimeoutMs'])if(!syncCompat.includes(marker))failures.push(`sync-field-compat-v416.js is missing ${marker}`);
+  if(syncCompat.includes('archiveBootstrapAttempts<400'))failures.push('sync-field-compat-v416.js still stops archive bootstrap after a fixed attempt count');
   const archiveState=read('archive-state-v436.js');
   for(const marker of ['normalizeArchiveTime','normalizeArchiveFields','archiveState','inferLegacyRestore','archiveAwareApply','archiveAwarePush','BogatkaArchiveStateV436','BogatkaSyncCompatibility?.ready','denyViewerRestore','canEdit','__bogatkaArchiveStateInstallingV436','scheduleInstall','installerPersistent:true','enqueueLocation','queuedLocationWrites','expectedPreviousState','inFlightArchiveIntents'])if(!archiveState.includes(marker))failures.push(`archive-state-v436.js is missing ${marker}`);
   if(archiveState.includes('installAttempts<400'))failures.push('archive-state-v436.js still stops bootstrap retries after a fixed attempt count');
