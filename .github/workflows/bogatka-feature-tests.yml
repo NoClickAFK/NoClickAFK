@@ -77,11 +77,14 @@ jobs:
               bogatka-field-8f3c7d/tests/report-premium-security-v433.spec.js \
               bogatka-field-8f3c7d/tests/report-premium-artifacts-v433.spec.js >> /tmp/selected-tests.txt
           fi
-          if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|select'; then
+          if echo "$CHANGED" | grep -Eq 'sync|cloud|stability'; then
             echo "sync_changed=true" >> "$GITHUB_OUTPUT"
             echo bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs >> /tmp/selected-tests.txt
           else
             echo "sync_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$CHANGED" | grep -Eq 'select'; then
+            echo bogatka-field-8f3c7d/tests/browser-select-sync.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'backup|restore'; then
             echo bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs >> /tmp/selected-tests.txt
@@ -135,8 +138,6 @@ jobs:
             --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
           npx playwright test bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs \
             --grep 'backup contains|field-wise sync merge' \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/browser-select-sync.spec.mjs \
             --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
 
       - name: Run diff-base resolver regression
