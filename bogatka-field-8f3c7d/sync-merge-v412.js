@@ -1,6 +1,7 @@
 (function(){
   if(window.BogatkaSyncMerge?.merge)return;
   const ABSENT=Symbol('absent');
+  const NON_SEMANTIC_KEYS=new Set(['updatedAt']);
   const isObject=value=>value&&typeof value==='object'&&!Array.isArray(value)&&!(value instanceof Blob);
   const clone=value=>value===ABSENT?ABSENT:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
 
@@ -25,7 +26,10 @@
   function canonicalNormalized(value){
     if(value===ABSENT)return '__ABSENT__';
     if(Array.isArray(value))return `[${value.map(canonicalNormalized).join(',')}]`;
-    if(isObject(value))return `{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonicalNormalized(value[key])}`).join(',')}}`;
+    if(isObject(value)){
+      const keys=Object.keys(value).filter(key=>!NON_SEMANTIC_KEYS.has(key)).sort();
+      return `{${keys.map(key=>`${JSON.stringify(key)}:${canonicalNormalized(value[key])}`).join(',')}}`;
+    }
     return JSON.stringify(value);
   }
   function canonical(value){return canonicalNormalized(transportNormalize(value));}
