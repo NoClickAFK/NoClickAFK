@@ -46,6 +46,7 @@
     if(typeof value==='string'&&Number.isFinite(Date.parse(value)))return{kind:'archived',known:true,value};
     return{kind:'invalid',known:true,value:raw};
   }
+
   const sameState=(left,right)=>left?.kind===right?.kind&&original.same(left?.value,right?.value);
   function applyState(target,key,state){
     if(!target||typeof target!=='object')return target;
@@ -59,10 +60,12 @@
   }
   function cohereRow(row){
     if(!row||typeof row!=='object')return row;
-    row.form_data=normalizeArchiveFields(row.form_data||{});
-    const state=stateFromRow(row);
-    if(state.known){applyState(row,'archived_at',state);applyState(row.form_data,'archivedAt',state)}
-    return row;
+    const next={...row,form_data:normalizeArchiveFields(row.form_data||{})};
+    if(has(next,'archived_at')){
+      next.archived_at=normalizeArchiveTime(next.archived_at);
+      if(next.archived_at!==null||has(next.form_data,'archivedAt'))next.form_data.archivedAt=next.archived_at;
+    }else if(has(next.form_data,'archivedAt'))next.form_data.archivedAt=normalizeArchiveTime(next.form_data.archivedAt);
+    return next;
   }
   function stripArchive(value){
     const result=normalizeArchiveFields(clone(value)||{});
@@ -115,8 +118,7 @@
     if(remote.kind!=='archived')return false;
     const activity=latestArchiveActivity(data);
     if(activity?.kind!=='active'||!activity.time)return false;
-    const remoteTime=Date.parse(remote.value)||0;
-    return activity.time>remoteTime;
+    return activity.time>(Date.parse(remote.value)||0);
   }
 
   function markDirty(id,syncState){
@@ -127,6 +129,10 @@
       if(!stored.dirtyLocations.includes(id))stored.dirtyLocations.push(id);
       cloudWriteState(stored);
     }
+  }
+
+  function relevantRow(row,data,item){
+    return Boolean(row?.archived_at!==null&&row?.archived_at!==undefined)||has(row?.form_data,'archivedAt')||has(data,'archivedAt')||has(item,'archivedAt')||Boolean(latestArchiveActivity(data));
   }
 
   async function canonicalizeBase(id){
@@ -143,14 +149,12 @@
 
   async function writeLocalState(id,item,state,{writeBaseRow=null}={}){
     const data=normalizeArchiveFields(await getLocationData(id)||{});
-    applyState(data,'archivedAt',state);
-    applyState(item,'archivedAt',state);
+    applyState(data,'archivedAt',state);applyState(item,'archivedAt',state);
     await State.rawPut()(STORE,data,`location:${id}`);
     if(writeBaseRow){
       const row=cohereRow(writeBaseRow);
       const base={revision:Number(row.revision||0),updatedAt:row.updated_at||'',formData:Merge.clean(row.form_data||{}),meta:{title:row.title||'',address:row.address||'',note:row.note||'',sortOrder:Number(row.sort_order||0)}};
-      applyState(base.formData,'archivedAt',stateFromRow(row));
-      applyState(base.meta,'archivedAt',stateFromRow(row));
+      const remoteState=stateFromRow(row);applyState(base.formData,'archivedAt',remoteState);applyState(base.meta,'archivedAt',remoteState);
       await State.writeBase(id,base);
     }
   }
@@ -162,69 +166,64 @@
 
   const baseApply=cloudApplyRemote;
   cloudApplyRemote=async function archiveAwareApply(remoteLocations,remotePhotos,remoteState,syncState){
-    remoteLocations=(remoteLocations||[]).map(row=>cohereRow(row));
-    syncState=syncState&&typeof syncState==='object'?syncState:{};
-    syncState.dirtyLocations||=[];
-    const intents=new Map();
+    syncState=syncState&&typeof syncState==='object'?syncState:{};syncState.dirtyLocations||=[];
+    const sourceRows=remoteLocations||[];
+    const relevant=[];
+    for(const row of sourceRows){
+      const id=row.client_id||row.id,item=locations.find(entry=>entry.id===id),data=item?await getLocationData(id):{};
+      if(relevantRow(row,data,item))relevant.push({id,item,data,row:cohereRow(row)});
+    }
+    if(!relevant.length)return baseApply(sourceRows,remotePhotos,remoteState,syncState);
+    const replacement=new Map(relevant.map(entry=>[entry.id,entry.row]));
+    const rows=sourceRows.map(row=>replacement.get(row.client_id||row.id)||row);
     let metaChanged=false;
-    for(const row of remoteLocations){
-      const id=row.client_id||row.id;
-      let item=locations.find(entry=>entry.id===id);
-      const data=item?await getLocationData(id):{};
+    for(const entry of relevant){
+      const {id,item,data,row}=entry;if(!item)continue;
       await canonicalizeBase(id);
-      if(item&&inferLegacyRestore(data,item,row)){
-        const active={kind:'active',known:true,value:null};
-        applyState(data,'archivedAt',active);applyState(item,'archivedAt',active);
-        await State.rawPut()(STORE,data,`location:${id}`);
-        markDirty(id,syncState);intents.set(id,active);metaChanged=true;diagnostics.legacyRestores++;
-      }else if(item&&syncState.dirtyLocations.includes(id)){
+      if(inferLegacyRestore(data,item,row)){
+        const active={kind:'active',known:true,value:null};applyState(data,'archivedAt',active);applyState(item,'archivedAt',active);
+        await State.rawPut()(STORE,data,`location:${id}`);markDirty(id,syncState);metaChanged=true;diagnostics.legacyRestores++;
+      }else if(syncState.dirtyLocations.includes(id)){
         const resolved=resolveLocalState(data,item);
         if(resolved.ambiguous)throw new Error(`Не удалось определить состояние архива локации «${item.title||id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
         assertValidState(item.title||id,resolved.state);
-        if(resolved.state?.known){intents.set(id,resolved.state);diagnostics.explicitIntentsPreserved++}
+        if(resolved.state?.known)diagnostics.explicitIntentsPreserved++;
       }
     }
     if(metaChanged)await State.rawPut()(STORE,locations,'meta:locations');
-    await baseApply(remoteLocations,remotePhotos,remoteState,syncState);
-    for(const row of remoteLocations){
-      const id=row.client_id||row.id,item=locations.find(entry=>entry.id===id);
-      if(!item)continue;
-      const intent=intents.get(id);
-      if(intent){await writeLocalState(id,item,intent);continue}
-      const remoteArchive=stateFromRow(row);assertValidState(item.title||id,remoteArchive);
-      if(remoteArchive.known){await writeLocalState(id,item,remoteArchive,{writeBaseRow:row});diagnostics.remoteStatesApplied++}
-    }
-    if(remoteLocations.length)await State.rawPut()(STORE,locations,'meta:locations');
+    return baseApply(rows,remotePhotos,remoteState,syncState);
   };
   cloudApplyRemote.__archiveStateV436=true;
 
   const basePush=cloudPushLocations;
   cloudPushLocations=async function archiveAwarePush(remoteLocations,syncState){
-    remoteLocations=(remoteLocations||[]).map(row=>cohereRow(row));
-    syncState=syncState&&typeof syncState==='object'?syncState:{};
-    syncState.dirtyLocations||=[];
+    syncState=syncState&&typeof syncState==='object'?syncState:{};syncState.dirtyLocations||=[];
+    const sourceRows=remoteLocations||[];
+    const relevantIds=new Set();
+    const rows=[];
+    for(const row of sourceRows){
+      const id=row.client_id||row.id,item=locations.find(entry=>entry.id===id),data=item?await getLocationData(id):{};
+      if(relevantRow(row,data,item)){relevantIds.add(id);rows.push(cohereRow(row));await canonicalizeBase(id)}else rows.push(row);
+    }
     for(const item of locations){
-      await canonicalizeBase(item.id);
-      const data=await getLocationData(item.id);
-      const resolved=resolveLocalState(data,item);
-      if(resolved.ambiguous&&syncState.dirtyLocations.includes(item.id))throw new Error(`Не удалось определить состояние архива локации «${item.title||item.id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
-      if(resolved.state?.known){
-        assertValidState(item.title||item.id,resolved.state);
-        if(syncState.dirtyLocations.includes(item.id)){
-          applyState(data,'archivedAt',resolved.state);applyState(item,'archivedAt',resolved.state);
-          await State.rawPut()(STORE,data,`location:${item.id}`);
-        }
-      }
+      if(!syncState.dirtyLocations.includes(item.id))continue;
+      const data=await getLocationData(item.id),resolved=resolveLocalState(data,item);
+      if(!resolved.state?.known&&!resolved.ambiguous)continue;
+      relevantIds.add(item.id);
+      if(resolved.ambiguous)throw new Error(`Не удалось определить состояние архива локации «${item.title||item.id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
+      assertValidState(item.title||item.id,resolved.state);applyState(data,'archivedAt',resolved.state);applyState(item,'archivedAt',resolved.state);
+      await State.rawPut()(STORE,data,`location:${item.id}`);diagnostics.explicitIntentsPreserved++;
+    }
+    if(!relevantIds.size)return basePush(sourceRows,syncState);
+    await State.rawPut()(STORE,locations,'meta:locations');
+    const result=await basePush(rows,syncState);
+    for(const row of result||[]){
+      const id=row.client_id||row.id;if(!relevantIds.has(id))continue;
+      const item=locations.find(entry=>entry.id===id),state=stateFromRow(cohereRow(row));if(!item||!state.known)continue;
+      assertValidState(item.title||id,state);await writeLocalState(id,item,state,{writeBaseRow:row});diagnostics.remoteStatesApplied++;
     }
     await State.rawPut()(STORE,locations,'meta:locations');
-    const rows=(await basePush(remoteLocations,syncState)||[]).map(row=>cohereRow(row));
-    for(const row of rows){
-      const id=row.client_id||row.id,item=locations.find(entry=>entry.id===id);if(!item)continue;
-      const state=stateFromRow(row);assertValidState(item.title||id,state);
-      if(state.known)await writeLocalState(id,item,state,{writeBaseRow:row});
-    }
-    await State.rawPut()(STORE,locations,'meta:locations');
-    return rows;
+    return result;
   };
   cloudPushLocations.__archiveStateV436=true;
 
@@ -233,12 +232,10 @@
     const baseArchive=Suite.archiveLocation;
     if(typeof baseArchive==='function'&&!baseArchive.__archiveStateV436){
       const wrapped=async function(id){
-        const result=await baseArchive.call(this,id);
-        const item=locations.find(entry=>entry.id===id);if(!item)return result;
-        const data=await getLocationData(id);const state=resolveLocalState(data,item).state;
+        const result=await baseArchive.call(this,id),item=locations.find(entry=>entry.id===id);if(!item)return result;
+        const data=await getLocationData(id),state=resolveLocalState(data,item).state;
         if(state?.kind==='archived'){
-          const canonical={kind:'archived',known:true,value:normalizeArchiveTime(state.value)};
-          applyState(data,'archivedAt',canonical);applyState(item,'archivedAt',canonical);
+          const canonical={kind:'archived',known:true,value:normalizeArchiveTime(state.value)};applyState(data,'archivedAt',canonical);applyState(item,'archivedAt',canonical);
           await idbPut(STORE,data,`location:${id}`);await saveLocations();
         }
         return result;
@@ -249,11 +246,10 @@
     if(typeof restore==='function'&&!restore.__archiveStateV436){
       const wrapped=async function(id){
         const item=locations.find(entry=>entry.id===id);if(!item)return;
-        const data=await getLocationData(id);const previous=has(data,'archivedAt')?data.archivedAt:item.archivedAt;
+        const data=await getLocationData(id),previous=has(data,'archivedAt')?data.archivedAt:item.archivedAt;
         data.archivedAt=null;item.archivedAt=null;delete data.archivedBy;
         Suite.appendActivityToData?.(data,{action:'Локация восстановлена из архива',field:'archivedAt',label:'Архив',from:previous,to:'Активна'});
-        data.updatedAt=new Date().toISOString();
-        await idbPut(STORE,data,`location:${id}`);await saveLocations();renderLocations();
+        data.updatedAt=new Date().toISOString();await idbPut(STORE,data,`location:${id}`);await saveLocations();renderLocations();
       };
       wrapped.__archiveStateV436=true;wrapped.__base=restore;Suite.restoreArchivedLocation=wrapped;
     }
@@ -263,12 +259,7 @@
   window.cloudApplyRemote=cloudApplyRemote;window.cloudPushLocations=cloudPushLocations;
   try{cloudApplyRemote=window.cloudApplyRemote;cloudPushLocations=window.cloudPushLocations}catch(_){ }
   installSuiteActions();
-  const timer=setInterval(()=>{if(installSuiteActions())clearInterval(timer)},100);
-  setTimeout(()=>clearInterval(timer),10000);
+  const timer=setInterval(()=>{if(installSuiteActions())clearInterval(timer)},100);setTimeout(()=>clearInterval(timer),10000);
 
-  window.BogatkaArchiveStateV436={
-    version:'4.3.6',ready:true,normalizeArchiveTime,normalizeArchiveFields,archiveState,stateFromRow,cohereRow,stripArchive,latestArchiveActivity,resolveLocalState,inferLegacyRestore,
-    get diagnostics(){return{...diagnostics}},
-    _test:{sameState,applyState,canonicalizeBase,writeLocalState,markDirty},
-  };
+  window.BogatkaArchiveStateV436={version:'4.3.6',ready:true,normalizeArchiveTime,normalizeArchiveFields,archiveState,stateFromRow,cohereRow,stripArchive,latestArchiveActivity,resolveLocalState,inferLegacyRestore,get diagnostics(){return{...diagnostics}},_test:{sameState,applyState,canonicalizeBase,writeLocalState,markDirty}};
 })();
