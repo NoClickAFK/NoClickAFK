@@ -37,7 +37,7 @@ if (!failures.length) {
   const syncMerge=read('sync-merge-v412.js');
   for(const marker of ['transportNormalize','canonical','transportVersion'])if(!syncMerge.includes(marker))failures.push(`sync-merge-v412.js is missing ${marker}`);
   const syncUi=read('sync-ui-v412.js');
-  for(const marker of ['persistLocation','noOpUpdatesAccepted','revisionRebases','coalescedRequests','singleFlightCloudSync','data-cloud-retry-sync'])if(!syncUi.includes(marker))failures.push(`sync-ui-v412.js is missing ${marker}`);
+  for(const marker of ['persistLocation','noOpUpdatesAccepted','revisionRebases','coalescedRequests','singleFlightCloudSync','cloudRetrySync'])if(!syncUi.includes(marker))failures.push(`sync-ui-v412.js is missing ${marker}`);
   const readiness = read('readiness-progress-v434.js');
   for (const marker of ['BogatkaReadinessProgressV434','inspectionPurpose','inspectionResult','objectSource','listingUrl','objectSourceOther','Минимальный фотоплан','VALID_DECISIONS','applyMetric']) if (!readiness.includes(marker)) failures.push(`readiness-progress-v434.js is missing ${marker}`);
   if (!readiness.includes('street:2') || !readiness.includes('entrance:2') || !readiness.includes('engineering:2') || !readiness.includes('documents:1')) failures.push('readiness-progress-v434.js does not contain the canonical 13-photo plan');
