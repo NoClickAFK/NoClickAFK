@@ -111,7 +111,7 @@ test('active editor survives remote apply and idle apply refreshes the same fiel
   const result=await page.evaluate(async()=>{
     const item=locations[0];locations=[item];const id=item.id;const selector=`[data-location="${id}"][data-field="contact"]`;const input=document.querySelector(selector);const now=new Date().toISOString();
     cloudSession={user:{id:'fixture-user',email:'fixture@example.com'}};cloudProjectId='project-active';cloudRole='owner';
-    await cloudOriginalIdbPut(STORE,{contact:'LOCAL',updatedAt:now,cloudRevision:1,cloudUpdatedAt:now},`location:${id}`);
+    await window.BogatkaSyncState.rawPut()(STORE,{contact:'LOCAL',updatedAt:now,cloudRevision:1,cloudUpdatedAt:now},`location:${id}`);
     const remote={id:'remote-active',project_id:'project-active',client_id:id,title:item.title,address:item.address,note:item.note,status:null,object_type:null,form_data:{contact:'REMOTE',updatedAt:now},sort_order:0,revision:2,updated_at:now,archived_at:null};
     input.focus();input.value='ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ';const original=input;
     await cloudApplyRemote([remote],[],null,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{}});
