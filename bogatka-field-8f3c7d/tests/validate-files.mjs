@@ -30,14 +30,14 @@ if (!failures.length) {
   if (!serviceWorker.includes("||'435'")) failures.push('Service Worker fallback build token is not v435');
   if (!serviceWorker.includes('updateViaCache') && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
   const versionAuthority = read('version-authority-v426.js');
-  for (const marker of ["version:'4.3.5'","versionToken:'435'","sourceCommit:'3ce095693bb0e9d34955d3fd79d48ae1830f0ec8'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
+  for (const marker of ["version:'4.3.5'","versionToken:'435'","sourceCommit:'f3b1eb5c1d7d3e8ad78f4632a78a7cca735060a6'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
   if (versionAuthority.includes("version:'4.3.4'") || versionAuthority.includes("versionToken:'434'")) failures.push('version-authority-v426.js still contains stale v4.3.4 production markers');
   const accessVersion = read('access-version-v400.js');
   if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.5')) failures.push('access-version-v400.js does not activate the centralized 4.3.5 version authority');
   const syncMerge=read('sync-merge-v412.js');
   for(const marker of ['transportNormalize','canonical','transportVersion','NON_SEMANTIC_KEYS'])if(!syncMerge.includes(marker))failures.push(`sync-merge-v412.js is missing ${marker}`);
   const syncUi=read('sync-ui-v412.js');
-  for(const marker of ['persistLocation','noOpUpdatesAccepted','revisionRebases','coalescedRequests','singleFlightCloudSync','cloudRetrySync'])if(!syncUi.includes(marker))failures.push(`sync-ui-v412.js is missing ${marker}`);
+  for(const marker of ['persistLocation','noOpUpdatesAccepted','revisionRebases','inFlightLocalMerges','coalescedRequests','singleFlightCloudSync','cloudRetrySync'])if(!syncUi.includes(marker))failures.push(`sync-ui-v412.js is missing ${marker}`);
   const readiness = read('readiness-progress-v434.js');
   for (const marker of ['BogatkaReadinessProgressV434','inspectionPurpose','inspectionResult','objectSource','listingUrl','objectSourceOther','Минимальный фотоплан','VALID_DECISIONS','applyMetric']) if (!readiness.includes(marker)) failures.push(`readiness-progress-v434.js is missing ${marker}`);
   if (!readiness.includes('street:2') || !readiness.includes('entrance:2') || !readiness.includes('engineering:2') || !readiness.includes('documents:1')) failures.push('readiness-progress-v434.js does not contain the canonical 13-photo plan');
