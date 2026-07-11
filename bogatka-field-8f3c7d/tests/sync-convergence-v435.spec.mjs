@@ -18,7 +18,21 @@ async function openApp(page){
   await page.waitForFunction(()=>typeof cloudSyncing==='undefined'||cloudSyncing===false);
 }
 
-function row({revision=7403,formData={},title='ул. Лидская, 34, ТЦ «Лидский»'}={}){
+async function expandFirstCard(page){
+  await page.evaluate(async()=>{
+    const card=document.querySelector('[data-location-card]');
+    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
+    await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
+    const landlord=card?.querySelector('.landlord-card-v416');
+    if(landlord){
+      landlord.dataset.panelOpenV419='1';
+      landlord.classList.remove('panel-closed-v419');
+      landlord.querySelector('.panel-toggle-v419')?.setAttribute('aria-expanded','true');
+    }
+  });
+}
+
+function row({revision=7403,formData={},title='ул. Лидская, 34, ТЦ «Лидский»'}={} ){
   return {
     id:'remote-lidskaya-34',project_id:'project-fixture',client_id:'lidskaya-34',title,
     address:'Гродно, ул. Лидская, 34',note:null,status:'Собираем информацию',object_type:'Торговый центр',
@@ -141,6 +155,7 @@ test('timestamp-only local changes do not trigger a cloud location write',async(
 
 test('background sync cannot replace or overwrite an active form control',async({page})=>{
   await openApp(page);
+  await expandFirstCard(page);
   const result=await page.evaluate(async()=>{
     const item=locations[0];locations=[item];
     const selector=`[data-location="${item.id}"][data-field="contact"]`;
