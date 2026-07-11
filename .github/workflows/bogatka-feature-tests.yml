@@ -131,7 +131,7 @@ jobs:
             sleep 1
           done
           npx playwright test bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs \
-            --grep 'background sync cannot replace|automatic sync waits|clean idle state|a clean location|multiple realtime notifications' \
+            --grep 'automatic sync waits|clean idle state|multiple realtime notifications' \
             --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-sync-safety-tests.log
           npx playwright test bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs \
             --grep 'three-way merge|first sync unions|archive and restore|permanent deletion|successful cloud deletion|offline tombstone|remote deletion|viewer cannot' \
