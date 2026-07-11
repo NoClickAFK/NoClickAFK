@@ -1,6 +1,9 @@
 import {test,expect} from '@playwright/test';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import path from 'node:path';
 
 const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=435';
+const ARTIFACT_DIR=path.resolve('review-artifacts/sync-v435-review');
 
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -76,4 +79,7 @@ test('cloud result preserves edits made after the write snapshot was captured',a
   });
   expect(result.dirtyLocations).toContain(result.id);
   expect(result.diagnostics.inFlightLocalMerges).toBe(1);
+
+  mkdirSync(ARTIFACT_DIR,{recursive:true});
+  writeFileSync(path.join(ARTIFACT_DIR,'11-inflight-local-edit.json'),JSON.stringify(result,null,2));
 });
