@@ -32,7 +32,7 @@ async function expandFirstCard(page){
   });
 }
 
-function row({revision=7403,formData={},title='ул. Лидская, 34, ТЦ «Лидский»'}={} ){
+function row({revision=7403,formData={},title='ул. Лидская, 34, ТЦ «Лидский»'}={}){
   return {
     id:'remote-lidskaya-34',project_id:'project-fixture',client_id:'lidskaya-34',title,
     address:'Гродно, ул. Лидская, 34',note:null,status:'Собираем информацию',object_type:'Торговый центр',
@@ -125,8 +125,7 @@ test('single-flight coalesces local and realtime requests into one follow-up wit
 test('timestamp-only local changes do not trigger a cloud location write',async({page})=>{
   await openApp(page);
   const result=await page.evaluate(async()=>{
-    const item=locations[0];
-    locations=[item];
+    const item=locations[0];locations=[item];
     window.BogatkaCloudStability?.markStartupHandled?.();
     clearTimeout(cloudSyncTimer);clearTimeout(cloudRealtimeTimer);
     const remoteTime='2026-07-11T09:00:00.000Z';
@@ -134,8 +133,7 @@ test('timestamp-only local changes do not trigger a cloud location write',async(
     const localTime='2099-01-01T00:00:00.000Z';
     await window.BogatkaSyncState.rawPut()(STORE,{contact:'UNCHANGED',updatedAt:localTime,cloudId:remote.id,cloudRevision:remote.revision,cloudUpdatedAt:remote.updated_at},`location:${item.id}`);
     await window.BogatkaSyncState.writeBase(item.id,{revision:remote.revision,updatedAt:remote.updated_at,formData:structuredClone(remote.form_data),meta:{title:item.title||item.address||'',address:item.address||'',note:item.note||'',sortOrder:0,archivedAt:null}});
-    cloudSession={user:{id:'timestamp-user'}};
-    cloudProjectId=remote.project_id;
+    cloudSession={user:{id:'timestamp-user'}};cloudProjectId=remote.project_id;
     const syncState={dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},metaDirty:false,stateDirty:false,knownLocationIds:[item.id],knownPhotoIds:[]};
     const context=await window.BogatkaSyncCompatibility._test.buildContext(item,0,remote,syncState);
     const desired=window.BogatkaSyncCompatibility._test.comparable(context.payload);
@@ -156,24 +154,32 @@ test('timestamp-only local changes do not trigger a cloud location write',async(
 test('background sync cannot replace or overwrite an active form control',async({page})=>{
   await openApp(page);
   await expandFirstCard(page);
-  const result=await page.evaluate(async()=>{
+  const locationId=await page.evaluate(async()=>{
     const item=locations[0];locations=[item];
-    const selector=`[data-location="${item.id}"][data-field="contact"]`;
-    const input=document.querySelector(selector);
-    if(!input)return {missing:true};
     const localTime='2026-07-11T10:00:00.000Z';
     const remoteTime='2026-07-11T10:01:00.000Z';
     await window.BogatkaSyncState.rawPut()(STORE,{contact:'LOCAL',updatedAt:localTime,cloudId:'remote-active',cloudRevision:1,cloudUpdatedAt:localTime},`location:${item.id}`);
     await window.BogatkaSyncState.writeBase(item.id,{revision:1,updatedAt:localTime,formData:{contact:'LOCAL',updatedAt:localTime},meta:{title:item.title||item.address||'',address:item.address||'',note:item.note||'',sortOrder:0,archivedAt:null}});
     cloudSession={user:{id:'active-user'}};cloudProjectId='project-active';cloudRole='owner';
-    const remote={id:'remote-active',project_id:'project-active',client_id:item.id,title:item.title,address:item.address,note:item.note||null,status:null,object_type:null,form_data:{contact:'REMOTE',updatedAt:remoteTime},sort_order:0,revision:2,updated_at:remoteTime,archived_at:null};
-    input.focus();input.value='ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ';const original=input;
-    await cloudApplyRemote([remote],[],null,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[item.id],knownPhotoIds:[]});
-    const current=document.querySelector(selector);
-    const stored=await getLocationData(item.id);
-    return {missing:false,sameNode:current===original,active:document.activeElement===original,visibleValue:original.value,storedValue:stored.contact,suppressed:window.BogatkaCloudStability?.suppressedUiRefreshes||0};
+    window.__syncActiveRemote={id:'remote-active',project_id:'project-active',client_id:item.id,title:item.title,address:item.address,note:item.note||null,status:null,object_type:null,form_data:{contact:'REMOTE',updatedAt:remoteTime},sort_order:0,revision:2,updated_at:remoteTime,archived_at:null};
+    return item.id;
   });
-  expect(result.missing).toBe(false);
+  const input=page.locator(`[data-location="${locationId}"][data-field="contact"]`);
+  await expect(input).toBeVisible();
+  await input.focus();
+  await expect(input).toBeFocused();
+  await input.evaluate(element=>{
+    window.__syncActiveInput=element;
+    window.__syncActiveFocusedBefore=document.activeElement===element;
+    element.value='ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ';
+  });
+  const result=await page.evaluate(async locationId=>{
+    await cloudApplyRemote([window.__syncActiveRemote],[],null,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[locationId],knownPhotoIds:[]});
+    const current=document.querySelector(`[data-location="${locationId}"][data-field="contact"]`);
+    const stored=await getLocationData(locationId);
+    return {focusedBefore:window.__syncActiveFocusedBefore,sameNode:current===window.__syncActiveInput,active:document.activeElement===window.__syncActiveInput,visibleValue:window.__syncActiveInput.value,storedValue:stored.contact,suppressed:window.BogatkaCloudStability?.suppressedUiRefreshes||0};
+  },locationId);
+  expect(result.focusedBefore).toBe(true);
   expect(result.sameNode).toBe(true);
   expect(result.active).toBe(true);
   expect(result.visibleValue).toBe('ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ');
@@ -187,8 +193,7 @@ test('cloud error UI has one explanation and clears after recovery',async({page}
   await page.evaluate(message=>{
     document.querySelector('#syncTestShell')?.remove();
     document.querySelectorAll('#cloudStatusTitle,#cloudStatusDetail,#cloudIndicator,#cloudMessage').forEach(node=>node.remove());
-    const shell=document.createElement('section');
-    shell.id='syncTestShell';
+    const shell=document.createElement('section');shell.id='syncTestShell';
     shell.innerHTML='<h2>Облачная синхронизация</h2><div class="cloud-panel"><div class="cloud-status-card"><div><strong id="cloudStatusTitle">Облачная синхронизация</strong><small id="cloudStatusDetail">Подготовка…</small></div><span class="cloud-indicator" id="cloudIndicator"></span></div><div class="cloud-message" id="cloudMessage"></div></div>';
     document.body.appendChild(shell);
     window.BogatkaSyncCompatibility._test.showSyncError(new Error(message));
