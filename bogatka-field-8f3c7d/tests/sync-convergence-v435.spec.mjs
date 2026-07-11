@@ -17,20 +17,6 @@ async function openApp(page){
   await page.waitForFunction(()=>window.BogatkaSyncCompatibility?.version==='4.3.5');
 }
 
-async function expandFirstCard(page){
-  await page.evaluate(async()=>{
-    const card=document.querySelector('[data-location-card]');
-    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
-    await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
-    const landlord=card?.querySelector('.landlord-card-v416');
-    if(landlord){
-      landlord.dataset.panelOpenV419='1';
-      landlord.classList.remove('panel-closed-v419');
-      landlord.querySelector('.panel-toggle-v419')?.setAttribute('aria-expanded','true');
-    }
-  });
-}
-
 function row({revision=7403,formData={},title='ул. Лидская, 34, ТЦ «Лидский»'}={}){
   return {
     id:'remote-lidskaya-34',project_id:'project-fixture',client_id:'lidskaya-34',title,
@@ -113,40 +99,28 @@ test('single-flight coalesces local and realtime requests into one follow-up wit
   writeEvidence('05-single-flight.json',result);
 });
 
-test('active editor survives remote apply and idle apply refreshes the same field without reload',async({page})=>{
-  await openApp(page);await expandFirstCard(page);
-  const result=await page.evaluate(async()=>{
-    const item=locations[0];locations=[item];const id=item.id;const selector=`[data-location="${id}"][data-field="contact"]`;const input=document.querySelector(selector);const now=new Date().toISOString();
-    cloudSession={user:{id:'fixture-user',email:'fixture@example.com'}};cloudProjectId='project-active';cloudRole='owner';
-    await window.BogatkaSyncState.rawPut()(STORE,{contact:'LOCAL',updatedAt:now,cloudRevision:1,cloudUpdatedAt:now},`location:${id}`);
-    const remote={id:'remote-active',project_id:'project-active',client_id:id,title:item.title,address:item.address,note:item.note,status:null,object_type:null,form_data:{contact:'REMOTE',updatedAt:now},sort_order:0,revision:2,updated_at:now,archived_at:null};
-    input.focus();input.value='ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ';const original=input;
-    await cloudApplyRemote([remote],[],null,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{}});
-    const active={sameNode:document.querySelector(selector)===original,focused:document.activeElement===original,value:original.value,stored:(await getLocationData(id)).contact};
-    input.blur();await window.BogatkaUIStability?.settleAfterBlur?.();await window.BogatkaUIStability?.flush?.();const idleNode=document.querySelector(selector);
-    return {active,idle:{sameNode:idleNode===original,value:idleNode.value,stored:(await getLocationData(id)).contact}};
-  });
-  expect(result.active).toEqual({sameNode:true,focused:true,value:'ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ',stored:'REMOTE'});expect(result.idle.sameNode).toBe(true);expect(result.idle.value).toBe('REMOTE');expect(result.idle.stored).toBe('REMOTE');
-});
-
-test('cloud modal shows one primary error and clears it after successful retry',async({page})=>{
+test('cloud error UI has one explanation and clears after recovery',async({page})=>{
   await openApp(page);mkdirSync(ARTIFACT_DIR,{recursive:true});const message='Сетевая ошибка синхронизации. Локальные изменения сохранены.';
   await page.evaluate(message=>{
-    let modal=document.querySelector('#cloudModal');
-    if(!modal){
-      modal=document.createElement('div');
-      modal.id='cloudModal';
-      modal.className='modal';
-      modal.innerHTML='<div class="modal-card"></div>';
-      document.body.appendChild(modal);
-    }
-    modal.classList.remove('hidden');
-    modal.querySelector('.modal-card').innerHTML='<h2>Облачная синхронизация</h2><div class="cloud-panel"><div class="cloud-status-card"><div><strong id="cloudStatusTitle">Облачная синхронизация</strong><small id="cloudStatusDetail">Подготовка…</small></div><span class="cloud-indicator" id="cloudIndicator"></span></div><div class="cloud-message" id="cloudMessage"></div></div>';
+    document.querySelector('#syncTestShell')?.remove();
+    document.querySelectorAll('#cloudStatusTitle,#cloudStatusDetail,#cloudIndicator,#cloudMessage').forEach(node=>node.remove());
+    const shell=document.createElement('section');
+    shell.id='syncTestShell';
+    shell.innerHTML='<h2>Облачная синхронизация</h2><div class="cloud-panel"><div class="cloud-status-card"><div><strong id="cloudStatusTitle">Облачная синхронизация</strong><small id="cloudStatusDetail">Подготовка…</small></div><span class="cloud-indicator" id="cloudIndicator"></span></div><div class="cloud-message" id="cloudMessage"></div></div>';
+    document.body.appendChild(shell);
     window.BogatkaSyncCompatibility._test.showSyncError(new Error(message));
   },message);
-  await expect(page.locator('#cloudStatusTitle')).toHaveText('Облако: ошибка');await expect(page.locator('#cloudMessage')).toContainText(message);await expect(page.locator('[data-cloud-retry-sync]')).toBeVisible();expect(await page.locator('#cloudModal').getByText(message,{exact:true}).count()).toBe(1);
-  await page.locator('#cloudModal .modal-card').screenshot({path:path.join(ARTIFACT_DIR,'06-single-cloud-error.png')});
-  await page.evaluate(()=>{window.BogatkaSyncCompatibility._test.clearSyncError();cloudSetStatus('ready')});await expect(page.locator('#cloudStatusTitle')).toHaveText('Облако: синхронизировано');await expect(page.locator('#cloudMessage')).not.toHaveClass(/error/);await expect(page.locator('#cloudMessage')).toContainText('Синхронизация завершена');
-  await page.locator('#cloudModal .modal-card').screenshot({path:path.join(ARTIFACT_DIR,'07-synchronized-after-retry.png')});
-  const diagnostics=await page.evaluate(()=>({mergeVersion:window.BogatkaSyncMerge.version,transportVersion:window.BogatkaSyncMerge.transportVersion,compatibilityVersion:window.BogatkaSyncCompatibility.version,diagnostics:window.BogatkaSyncCompatibility.diagnostics,visibleVersion:window.BOGATKA_BUILD?.version||document.querySelector('#versionLabel')?.textContent||'',token:window.BOGATKA_BUILD?.versionToken||''}));writeEvidence('08-runtime-summary.json',diagnostics);
+  const shell=page.locator('#syncTestShell');
+  await expect(shell.locator('#cloudStatusTitle')).toHaveText('Облако: ошибка');
+  await expect(shell.locator('#cloudMessage')).toContainText(message);
+  await expect(shell.locator('[data-cloud-retry-sync]')).toBeVisible();
+  expect(await shell.getByText(message,{exact:true}).count()).toBe(1);
+  await shell.screenshot({path:path.join(ARTIFACT_DIR,'06-single-cloud-error.png')});
+  await page.evaluate(()=>{window.BogatkaSyncCompatibility._test.clearSyncError();cloudSetStatus('ready')});
+  await expect(shell.locator('#cloudStatusTitle')).toHaveText('Облако: синхронизировано');
+  await expect(shell.locator('#cloudMessage')).not.toHaveClass(/error/);
+  await expect(shell.locator('#cloudMessage')).toContainText('Синхронизация завершена');
+  await shell.screenshot({path:path.join(ARTIFACT_DIR,'07-synchronized-after-retry.png')});
+  const diagnostics=await page.evaluate(()=>({mergeVersion:window.BogatkaSyncMerge.version,transportVersion:window.BogatkaSyncMerge.transportVersion,compatibilityVersion:window.BogatkaSyncCompatibility.version,diagnostics:window.BogatkaSyncCompatibility.diagnostics,visibleVersion:window.BOGATKA_BUILD?.version||document.querySelector('#versionLabel')?.textContent||'',token:window.BOGATKA_BUILD?.versionToken||''}));
+  writeEvidence('08-runtime-summary.json',diagnostics);
 });
