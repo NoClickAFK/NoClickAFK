@@ -173,6 +173,7 @@
     syncState=syncState&&typeof syncState==='object'?syncState:{};syncState.dirtyLocations||=[];
     const sourceRows=remoteLocations||[];
     const relevant=[];
+    const intents=new Map();
     for(const row of sourceRows){
       const id=row.client_id||row.id,item=locations.find(entry=>entry.id===id),data=item?await getLocationData(id):{};
       if(relevantRow(row,data,item))relevant.push({id,item,data,row:cohereRow(row)});
@@ -185,17 +186,24 @@
       const {id,item,data,row}=entry;if(!item)continue;
       await canonicalizeBase(id);
       if(inferLegacyRestore(data,item,row)){
-        const active={kind:'active',known:true,value:null};applyState(data,'archivedAt',active);applyState(item,'archivedAt',active);
-        await State.rawPut()(STORE,data,`location:${id}`);markDirty(id,syncState);metaChanged=true;diagnostics.legacyRestores++;
+        const active={kind:'active',known:true,value:null};
+        applyState(data,'archivedAt',active);applyState(item,'archivedAt',active);
+        await State.rawPut()(STORE,data,`location:${id}`);markDirty(id,syncState);intents.set(id,active);metaChanged=true;diagnostics.legacyRestores++;
       }else if(syncState.dirtyLocations.includes(id)){
         const resolved=resolveLocalState(data,item);
         if(resolved.ambiguous)throw new Error(`Не удалось определить состояние архива локации «${item.title||id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
         assertValidState(item.title||id,resolved.state);
-        if(resolved.state?.known)diagnostics.explicitIntentsPreserved++;
+        if(resolved.state?.known){intents.set(id,resolved.state);diagnostics.explicitIntentsPreserved++}
       }
     }
     if(metaChanged)await State.rawPut()(STORE,locations,'meta:locations');
-    return baseApply(rows,remotePhotos,remoteState,syncState);
+    const result=await baseApply(rows,remotePhotos,remoteState,syncState);
+    for(const [id,state] of intents){
+      const item=locations.find(entry=>entry.id===id);
+      if(item)await writeLocalState(id,item,state);
+    }
+    if(intents.size)await State.rawPut()(STORE,locations,'meta:locations');
+    return result;
   };
   cloudApplyRemote.__archiveStateV436=true;
 
@@ -260,10 +268,34 @@
     return true;
   }
 
+  function installSyncErrorTargetRecovery(){
+    const api=window.BogatkaSyncCompatibility?._test;
+    const baseClear=api?.clearSyncError;
+    if(typeof baseClear!=='function'||baseClear.__archiveStateV436)return Boolean(api);
+    const wrapped=function(){
+      const targets=[...document.querySelectorAll('#cloudMessage.error')];
+      const result=baseClear.apply(this,arguments);
+      for(const target of targets){
+        if(!target.isConnected)continue;
+        target.className='cloud-message show success';
+        target.replaceChildren();
+        target.textContent='Синхронизация завершена.';
+      }
+      return result;
+    };
+    wrapped.__archiveStateV436=true;wrapped.__base=baseClear;api.clearSyncError=wrapped;
+    return true;
+  }
+
   window.cloudApplyRemote=cloudApplyRemote;window.cloudPushLocations=cloudPushLocations;
   try{cloudApplyRemote=window.cloudApplyRemote;cloudPushLocations=window.cloudPushLocations}catch(_){ }
-  installSuiteActions();
-  const timer=setInterval(()=>{if(installSuiteActions())clearInterval(timer)},100);setTimeout(()=>clearInterval(timer),10000);
+  installSuiteActions();installSyncErrorTargetRecovery();
+  const timer=setInterval(()=>{
+    const suiteReady=installSuiteActions();
+    const syncReady=installSyncErrorTargetRecovery();
+    if(suiteReady&&syncReady)clearInterval(timer);
+  },100);
+  setTimeout(()=>clearInterval(timer),10000);
 
   window.BogatkaArchiveStateV436={version:'4.3.6',ready:true,normalizeArchiveTime,normalizeArchiveFields,archiveState,stateFromRow,cohereRow,stripArchive,latestArchiveActivity,resolveLocalState,inferLegacyRestore,get diagnostics(){return{...diagnostics}},_test:{sameState,applyState,canonicalizeBase,writeLocalState,markDirty}};
 })();
