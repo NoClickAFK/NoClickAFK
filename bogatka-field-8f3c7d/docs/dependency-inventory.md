@@ -10,9 +10,9 @@ Service Worker asset entries: **151**.
 
 ## Classification totals
 
-- `ACTIVE_CANONICAL`: 94
+- `ACTIVE_CANONICAL`: 95
 - `ACTIVE_BASE`: 21
-- `COMPATIBILITY_REQUIRED`: 24
+- `COMPATIBILITY_REQUIRED`: 23
 - `MERGE_INTO_CANONICAL`: 0
 - `TEST_ONLY`: 70
 - `REPORT_ONLY`: 10
