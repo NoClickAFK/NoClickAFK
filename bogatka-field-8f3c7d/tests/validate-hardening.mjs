@@ -18,7 +18,8 @@ const verify=(file,markers)=>{
 
 verify('sync-runtime-v412.js',['conditionalUpdate','three-way-field-merge-with-revision-checked-location-writes','BogatkaSyncIntegrity']);
 verify('sync-state-v412.js',['guardedIdbPut','readBase','writeBase']);
-verify('sync-merge-v412.js',['mergeIdArray','deletedTaskIds','preferLocal']);
+verify('sync-merge-v412.js',['mergeIdArray','deletedTaskIds','preferLocal','transportNormalize','canonical']);
+verify('sync-ui-v412.js',['persistLocation','noOpUpdatesAccepted','revisionRebases','coalescedRequests','singleFlightCloudSync','data-cloud-retry-sync']);
 verify('cloud-stability-v401.js',['event-driven-sync-with-no-idle-network-loop','hasPendingLocalChanges','eventDrivenPushLocations']);
 verify('field-integrity-v416.js',['one-location-one-ordered-save-queue','BogatkaFieldIntegrityV416']);
 verify('object-type-normalize-v416.js',['pendingEmptyResets','persistIntentionalEmpty','handleObjectTypeChange']);
@@ -32,10 +33,10 @@ verify('visual-v411.css',['.comparison-shell-v430','border:2px solid #d8b860!imp
 verify('workflow-v414.js',['checklist-guide-v414','structured-notes-v414','history-pagination-v414','BogatkaWorkflowV414']);
 verify('members-v32.js',['create_project_invite','update_project_member_role','remove_project_member']);
 verify('auth-signup-fix-v31.js',['accept_bogatka_project_invite','bogatkaInviteAcceptancePromise']);
-verify('version-authority-v426.js',["functions.invoke('bogatka-version')",'protectLegacyVersionWriters','window.BOGATKA_BUILD','window.BogatkaVersion','registerVersionedWorker','installVersionedBackup',"version:'4.3.4'","versionToken:'434'"]);
+verify('version-authority-v426.js',["functions.invoke('bogatka-version')",'protectLegacyVersionWriters','window.BOGATKA_BUILD','window.BogatkaVersion','registerVersionedWorker','installVersionedBackup',"version:'4.3.5'","versionToken:'435'"]);
 verify('readiness-progress-v434.js',['BogatkaReadinessProgressV434','PHOTO_PLAN','buildProgress','landlordRequirements','conclusionRequirements']);
 const versionAuthority=read('version-authority-v426.js');
-if(versionAuthority.includes("version:'4.3.3'")||versionAuthority.includes("versionToken:'433'"))failures.push('version-authority-v426.js contains stale v4.3.3 production markers');
+if(versionAuthority.includes("version:'4.3.4'")||versionAuthority.includes("versionToken:'434'"))failures.push('version-authority-v426.js contains stale v4.3.4 production markers');
 
 const functionPath=path.resolve('supabase/functions/bogatka-version/index.ts');
 if(!fs.existsSync(functionPath))failures.push('Missing Supabase version resolver source');
@@ -47,7 +48,7 @@ else{
 const sw=read('sw-v340.js');
 for(const asset of ['./version-authority-v426.js','./location-card-collapse-v422.js','./location-card-collapse-v422.css','./location-global-v421.js','./report-finalize-v432.js','./report-editorial-core-v433.js','./report-editorial-single-v433.js','./report-editorial-portfolio-v433.js','./report-editorial-style-a-v433.js','./report-editorial-style-b-v433.js','./readiness-progress-v434.js'])if(sw&&!sw.includes(`'${asset}'`))failures.push(`Service Worker does not cache ${asset}`);
 if(sw&&!sw.includes("searchParams.get('v')"))failures.push('Service Worker does not derive its cache revision from the resolved version token');
-if(sw&&!sw.includes("||'434'"))failures.push('Service Worker fallback build token is not v434');
+if(sw&&!sw.includes("||'435'"))failures.push('Service Worker fallback build token is not v435');
 
 for(const migration of ['supabase/migrations/20260626000200_secure_personal_invites_v408.sql','supabase/migrations/20260626000400_collaboration_controls_and_idempotent_invites_v410.sql','supabase/migrations/20260626000500_sync_integrity_v412.sql','supabase/migrations/20260627000100_remove_location_activity_log_v413.sql'])if(!fs.existsSync(path.resolve(migration)))failures.push(`Missing migration ${migration}`);
 
