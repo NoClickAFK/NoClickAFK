@@ -3,18 +3,28 @@
   if(window.__bogatkaArchiveStateInstallingV436)return;
   window.__bogatkaArchiveStateInstallingV436=true;
   let installAttempts=0;
+  let installTimer=null;
+
+  function scheduleInstall(){
+    clearTimeout(installTimer);
+    const delay=Math.min(250,25+Math.floor(installAttempts/40)*25);
+    installTimer=setTimeout(install,delay);
+  }
 
   function install(){
-    if(window.BogatkaArchiveStateV436?.ready){window.__bogatkaArchiveStateInstallingV436=false;return}
+    if(window.BogatkaArchiveStateV436?.ready){
+      clearTimeout(installTimer);
+      window.__bogatkaArchiveStateInstallingV436=false;
+      return;
+    }
     const Merge=window.BogatkaSyncMerge;
     const State=window.BogatkaSyncState;
     if(!Merge?.merge||!State?.ready||!window.BogatkaSyncCompatibility?.ready||typeof cloudApplyRemote!=='function'||typeof cloudPushLocations!=='function'){
       installAttempts+=1;
-      if(installAttempts<400){setTimeout(install,25);return}
-      window.__bogatkaArchiveStateInstallingV436=false;
-      console.error(new Error('Archive synchronization compatibility could not be installed before startup sync.'));
+      scheduleInstall();
       return;
     }
+    clearTimeout(installTimer);
 
     const ARCHIVE_KEYS=new Set(['archivedAt','archived_at']);
     const original={
@@ -24,9 +34,17 @@
       clean:Merge.clean.bind(Merge),
       merge:Merge.merge.bind(Merge),
     };
-    const diagnostics={normalized:0,invalid:0,legacyRestores:0,explicitIntentsPreserved:0,remoteStatesApplied:0,ambiguousStates:0};
+    const diagnostics={normalized:0,invalid:0,legacyRestores:0,explicitIntentsPreserved:0,remoteStatesApplied:0,ambiguousStates:0,queuedLocationWrites:0};
     const has=(value,key)=>Boolean(value&&typeof value==='object'&&Object.hasOwn(value,key));
     const clone=value=>value===undefined?undefined:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
+    const enqueueLocation=(id,task)=>{
+      const enqueue=window.BogatkaFieldIntegrityV416?.enqueueLocation;
+      if(typeof enqueue==='function'){
+        diagnostics.queuedLocationWrites+=1;
+        return enqueue(id,task);
+      }
+      return task();
+    };
 
     function currentRole(){
       let lexicalRole=null;
@@ -176,16 +194,27 @@
       return next;
     }
 
+    async function mutateLocationData(id,item,mutator,{writeBaseRow=null}={}){
+      return enqueueLocation(id,async()=>{
+        const data=normalizeArchiveFields(await getLocationData(id)||{});
+        const result=await mutator(data,item);
+        await State.rawPut()(STORE,data,`location:${id}`);
+        if(writeBaseRow){
+          const row=cohereRow(writeBaseRow);
+          const base={revision:Number(row.revision||0),updatedAt:row.updated_at||'',formData:Merge.clean(row.form_data||{}),meta:{title:row.title||'',address:row.address||'',note:row.note||'',sortOrder:Number(row.sort_order||0)}};
+          const remoteState=stateFromRow(row);applyState(base.formData,'archivedAt',remoteState);applyState(base.meta,'archivedAt',remoteState);
+          await State.writeBase(id,base);
+        }
+        return{data,result};
+      });
+    }
+
     async function writeLocalState(id,item,state,{writeBaseRow=null}={}){
-      const data=normalizeArchiveFields(await getLocationData(id)||{});
-      applyState(data,'archivedAt',state);applyState(item,'archivedAt',state);
-      await State.rawPut()(STORE,data,`location:${id}`);
-      if(writeBaseRow){
-        const row=cohereRow(writeBaseRow);
-        const base={revision:Number(row.revision||0),updatedAt:row.updated_at||'',formData:Merge.clean(row.form_data||{}),meta:{title:row.title||'',address:row.address||'',note:row.note||'',sortOrder:Number(row.sort_order||0)}};
-        const remoteState=stateFromRow(row);applyState(base.formData,'archivedAt',remoteState);applyState(base.meta,'archivedAt',remoteState);
-        await State.writeBase(id,base);
-      }
+      return mutateLocationData(id,item,(data,currentItem)=>{
+        applyState(data,'archivedAt',state);applyState(currentItem,'archivedAt',state);
+        if(state?.kind==='active')delete data.archivedBy;
+        return state;
+      },{writeBaseRow});
     }
 
     function assertValidState(id,state){
@@ -212,8 +241,7 @@
         await canonicalizeBase(id);
         if(inferLegacyRestore(data,item,row)){
           const active={kind:'active',known:true,value:null};
-          applyState(data,'archivedAt',active);applyState(item,'archivedAt',active);
-          await State.rawPut()(STORE,data,`location:${id}`);markDirty(id,syncState);intents.set(id,active);metaChanged=true;diagnostics.legacyRestores++;
+          await writeLocalState(id,item,active);markDirty(id,syncState);intents.set(id,active);metaChanged=true;diagnostics.legacyRestores++;
         }else if(syncState.dirtyLocations.includes(id)){
           const resolved=resolveLocalState(data,item);
           if(resolved.ambiguous)throw new Error(`Не удалось определить состояние архива локации «${item.title||id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
@@ -248,8 +276,8 @@
         if(!resolved.state?.known&&!resolved.ambiguous)continue;
         relevantIds.add(item.id);
         if(resolved.ambiguous)throw new Error(`Не удалось определить состояние архива локации «${item.title||item.id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
-        assertValidState(item.title||item.id,resolved.state);applyState(data,'archivedAt',resolved.state);applyState(item,'archivedAt',resolved.state);
-        await State.rawPut()(STORE,data,`location:${item.id}`);diagnostics.explicitIntentsPreserved++;
+        assertValidState(item.title||item.id,resolved.state);
+        await writeLocalState(item.id,item,resolved.state);diagnostics.explicitIntentsPreserved++;
       }
       if(!relevantIds.size)return basePush(sourceRows,syncState);
       await State.rawPut()(STORE,locations,'meta:locations');
@@ -272,8 +300,8 @@
           const result=await baseArchive.call(this,id),item=locations.find(entry=>entry.id===id);if(!item)return result;
           const data=await getLocationData(id),state=resolveLocalState(data,item).state;
           if(state?.kind==='archived'){
-            const canonical={kind:'archived',known:true,value:normalizeArchiveTime(state.value)};applyState(data,'archivedAt',canonical);applyState(item,'archivedAt',canonical);
-            await idbPut(STORE,data,`location:${id}`);await saveLocations();
+            const canonical={kind:'archived',known:true,value:normalizeArchiveTime(state.value)};
+            await writeLocalState(id,item,canonical);await saveLocations();
           }
           return result;
         };
@@ -284,11 +312,15 @@
         const wrapped=async function(id){
           if(!canEdit())return denyViewerRestore();
           const item=locations.find(entry=>entry.id===id);if(!item)return false;
-          const data=await getLocationData(id),previous=has(data,'archivedAt')?data.archivedAt:item.archivedAt;
-          data.archivedAt=null;item.archivedAt=null;delete data.archivedBy;
-          Suite.appendActivityToData?.(data,{action:'Локация восстановлена из архива',field:'archivedAt',label:'Архив',from:previous,to:'Активна'});
-          data.updatedAt=new Date().toISOString();await idbPut(STORE,data,`location:${id}`);await saveLocations();renderLocations();
-          return true;
+          const result=await mutateLocationData(id,item,(data,currentItem)=>{
+            const previous=has(data,'archivedAt')?data.archivedAt:currentItem.archivedAt;
+            data.archivedAt=null;currentItem.archivedAt=null;delete data.archivedBy;
+            Suite.appendActivityToData?.(data,{action:'Локация восстановлена из архива',field:'archivedAt',label:'Архив',from:previous,to:'Активна'});
+            data.updatedAt=new Date().toISOString();
+            return true;
+          });
+          await saveLocations();renderLocations();
+          return result.result;
         };
         wrapped.__archiveStateV436=true;wrapped.__base=restore;Suite.restoreArchivedLocation=wrapped;
       }
@@ -324,7 +356,7 @@
     },100);
     setTimeout(()=>clearInterval(timer),10000);
 
-    window.BogatkaArchiveStateV436={version:'4.3.6',ready:true,installAttempts,normalizeArchiveTime,normalizeArchiveFields,archiveState,stateFromRow,cohereRow,stripArchive,latestArchiveActivity,resolveLocalState,inferLegacyRestore,get diagnostics(){return{...diagnostics}},_test:{sameState,applyState,canonicalizeBase,writeLocalState,markDirty,currentRole,canEdit}};
+    window.BogatkaArchiveStateV436={version:'4.3.6',ready:true,installAttempts,installerPersistent:true,normalizeArchiveTime,normalizeArchiveFields,archiveState,stateFromRow,cohereRow,stripArchive,latestArchiveActivity,resolveLocalState,inferLegacyRestore,get diagnostics(){return{...diagnostics}},_test:{sameState,applyState,canonicalizeBase,writeLocalState,mutateLocationData,markDirty,currentRole,canEdit,enqueueLocation}};
     window.__bogatkaArchiveStateInstallingV436=false;
   }
 
