@@ -164,25 +164,29 @@
     return true;
   }
   async function saveLocal(id,data,row,baselineValue=null){
-    if(isPending(id))return false;
-    const current=await getLocationData(id);
-    const baseline=Merge.clean(baselineValue||{});
-    const currentData=Merge.clean(current);
-    const incoming=Merge.clean(data);
-    const inFlightChanged=Boolean(baselineValue)&&!Merge.same(currentData,baseline);
-    const merged=inFlightChanged
-      ?Merge.merge(baseline,currentData,incoming,{preferLocal:true,explicitReset:false})
-      :incoming;
-    const value={...merged};
-    if(row){value.cloudId=row.id;value.cloudRevision=row.revision;value.cloudUpdatedAt=row.updated_at}
-    if(current&&Merge.same(current,value))return {saved:false,inFlightChanged};
-    await State.rawPut()(STORE,value,`location:${id}`);
-    if(inFlightChanged){
-      diagnostics.inFlightLocalMerges++;
-      if(typeof cloudMarkLocationDirty==='function')cloudMarkLocationDirty(id);
-      else markPending(false);
-    }
-    return {saved:true,inFlightChanged};
+    const persist=async()=>{
+      if(isPending(id))return false;
+      const current=await getLocationData(id);
+      const baseline=Merge.clean(baselineValue||{});
+      const currentData=Merge.clean(current);
+      const incoming=Merge.clean(data);
+      const inFlightChanged=Boolean(baselineValue)&&!Merge.same(currentData,baseline);
+      const merged=inFlightChanged
+        ?Merge.merge(baseline,currentData,incoming,{preferLocal:true,explicitReset:false})
+        :incoming;
+      const value={...merged};
+      if(row){value.cloudId=row.id;value.cloudRevision=row.revision;value.cloudUpdatedAt=row.updated_at}
+      if(current&&Merge.same(current,value))return {saved:false,inFlightChanged};
+      await State.rawPut()(STORE,value,`location:${id}`);
+      if(inFlightChanged){
+        diagnostics.inFlightLocalMerges++;
+        if(typeof cloudMarkLocationDirty==='function')cloudMarkLocationDirty(id);
+        else markPending(false);
+      }
+      return {saved:true,inFlightChanged};
+    };
+    const enqueue=window.BogatkaFieldIntegrityV416?.enqueueLocation;
+    return typeof enqueue==='function'?enqueue(id,persist):persist();
   }
   function chooseMeta(base,item,row,index,preferLocal){
     return Merge.merge(base?.meta,localMeta(item,index),row?rowMeta(row):undefined,{preferLocal,explicitReset:false});
