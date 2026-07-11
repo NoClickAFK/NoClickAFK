@@ -2,7 +2,7 @@ const VERSION_CACHE_KEY='bogatka_build_meta_v426';
 const CURRENT_BUILD=Object.freeze({
   version:'4.3.6',
   versionToken:'436',
-  sourceCommit:'d2bc1288850e43da29be1ecda822271755fb4efa',
+  sourceCommit:'4516a19fcd8de9d8721f7af5264c615f32d3d84c',
   source:'repository',
 });
 const FALLBACK_BUILD=CURRENT_BUILD;
