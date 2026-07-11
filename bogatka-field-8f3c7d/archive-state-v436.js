@@ -34,7 +34,7 @@
       clean:Merge.clean.bind(Merge),
       merge:Merge.merge.bind(Merge),
     };
-    const diagnostics={normalized:0,invalid:0,legacyRestores:0,explicitIntentsPreserved:0,remoteStatesApplied:0,ambiguousStates:0,queuedLocationWrites:0};
+    const diagnostics={normalized:0,invalid:0,legacyRestores:0,explicitIntentsPreserved:0,remoteStatesApplied:0,ambiguousStates:0,queuedLocationWrites:0,inFlightArchiveIntents:0};
     const has=(value,key)=>Boolean(value&&typeof value==='object'&&Object.hasOwn(value,key));
     const clone=value=>value===undefined?undefined:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
     const enqueueLocation=(id,task)=>{
@@ -209,11 +209,23 @@
       });
     }
 
-    async function writeLocalState(id,item,state,{writeBaseRow=null}={}){
+    async function writeLocalState(id,item,state,{writeBaseRow=null,expectedPreviousState=null,syncState=null}={}){
       return mutateLocationData(id,item,(data,currentItem)=>{
-        applyState(data,'archivedAt',state);applyState(currentItem,'archivedAt',state);
-        if(state?.kind==='active')delete data.archivedBy;
-        return state;
+        let selected=state;
+        const current=resolveLocalState(data,currentItem);
+        const inFlightArchiveChanged=Boolean(
+          expectedPreviousState?.known&&
+          current.state?.known&&
+          !sameState(current.state,expectedPreviousState)
+        );
+        if(inFlightArchiveChanged){
+          selected=current.state;
+          diagnostics.inFlightArchiveIntents+=1;
+          if(syncState)markDirty(id,syncState);
+        }
+        applyState(data,'archivedAt',selected);applyState(currentItem,'archivedAt',selected);
+        if(selected?.kind==='active')delete data.archivedBy;
+        return{state:selected,inFlightArchiveChanged};
       },{writeBaseRow});
     }
 
@@ -241,19 +253,19 @@
         await canonicalizeBase(id);
         if(inferLegacyRestore(data,item,row)){
           const active={kind:'active',known:true,value:null};
-          await writeLocalState(id,item,active);markDirty(id,syncState);intents.set(id,active);metaChanged=true;diagnostics.legacyRestores++;
+          await writeLocalState(id,item,active);markDirty(id,syncState);intents.set(id,{state:active});metaChanged=true;diagnostics.legacyRestores++;
         }else if(syncState.dirtyLocations.includes(id)){
           const resolved=resolveLocalState(data,item);
           if(resolved.ambiguous)throw new Error(`Не удалось определить состояние архива локации «${item.title||id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
           assertValidState(item.title||id,resolved.state);
-          if(resolved.state?.known){intents.set(id,resolved.state);diagnostics.explicitIntentsPreserved++}
+          if(resolved.state?.known){intents.set(id,{state:resolved.state});diagnostics.explicitIntentsPreserved++}
         }
       }
       if(metaChanged)await State.rawPut()(STORE,locations,'meta:locations');
       const result=await baseApply(rows,remotePhotos,remoteState,syncState);
-      for(const [id,state] of intents){
+      for(const [id,intent] of intents){
         const item=locations.find(entry=>entry.id===id);
-        if(item)await writeLocalState(id,item,state);
+        if(item)await writeLocalState(id,item,intent.state,{expectedPreviousState:intent.state,syncState});
       }
       if(intents.size)await State.rawPut()(STORE,locations,'meta:locations');
       return result;
@@ -265,6 +277,7 @@
       syncState=syncState&&typeof syncState==='object'?syncState:{};syncState.dirtyLocations||=[];
       const sourceRows=remoteLocations||[];
       const relevantIds=new Set();
+      const pushedStates=new Map();
       const rows=[];
       for(const row of sourceRows){
         const id=row.client_id||row.id,item=locations.find(entry=>entry.id===id),data=item?await getLocationData(id):{};
@@ -277,7 +290,7 @@
         relevantIds.add(item.id);
         if(resolved.ambiguous)throw new Error(`Не удалось определить состояние архива локации «${item.title||item.id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
         assertValidState(item.title||item.id,resolved.state);
-        await writeLocalState(item.id,item,resolved.state);diagnostics.explicitIntentsPreserved++;
+        await writeLocalState(item.id,item,resolved.state);pushedStates.set(item.id,resolved.state);diagnostics.explicitIntentsPreserved++;
       }
       if(!relevantIds.size)return basePush(sourceRows,syncState);
       await State.rawPut()(STORE,locations,'meta:locations');
@@ -285,7 +298,9 @@
       for(const row of result||[]){
         const id=row.client_id||row.id;if(!relevantIds.has(id))continue;
         const item=locations.find(entry=>entry.id===id),state=stateFromRow(cohereRow(row));if(!item||!state.known)continue;
-        assertValidState(item.title||id,state);await writeLocalState(id,item,state,{writeBaseRow:row});diagnostics.remoteStatesApplied++;
+        assertValidState(item.title||id,state);
+        await writeLocalState(id,item,state,{writeBaseRow:row,expectedPreviousState:pushedStates.get(id)||null,syncState});
+        diagnostics.remoteStatesApplied++;
       }
       await State.rawPut()(STORE,locations,'meta:locations');
       return result;
