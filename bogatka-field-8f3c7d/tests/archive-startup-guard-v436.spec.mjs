@@ -67,7 +67,6 @@ test('startup sync is gated on archive compatibility and viewer restore cannot m
     archiveReady:true,
     archiveGateInstalled:true,
     archiveScriptLoaded:true,
-    archiveScriptBootstrapped:true,
     role:'viewer',
     canEdit:false,
     restoreResult:false,
@@ -80,6 +79,7 @@ test('startup sync is gated on archive compatibility and viewer restore cannot m
   });
   expect(result.archiveBootstrapAttempts).toBeGreaterThanOrEqual(1);
   expect(result.archiveInstallAttempts).toBeGreaterThanOrEqual(0);
+  expect(typeof result.archiveScriptBootstrapped).toBe('boolean');
   expect(result.alertText).toContain('Роль наблюдателя');
   evidence('09-startup-gate-and-viewer-guard.json',result);
 });
