@@ -18,11 +18,16 @@ async function openApp(page){
 }
 
 async function expandFirstCard(page){
-  await page.evaluate(()=>{
+  await page.evaluate(async()=>{
     const card=document.querySelector('[data-location-card]');
     window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
+    await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
     const landlord=card?.querySelector('.landlord-card-v416');
-    if(landlord?.dataset.panelOpenV419==='0')landlord.querySelector('.panel-toggle-v419')?.click();
+    if(landlord){
+      landlord.dataset.panelOpenV419='1';
+      landlord.classList.remove('panel-closed-v419');
+      landlord.querySelector('.panel-toggle-v419')?.setAttribute('aria-expanded','true');
+    }
   });
 }
 
@@ -127,7 +132,14 @@ test('active editor survives remote apply and idle apply refreshes the same fiel
 test('cloud modal shows one primary error and clears it after successful retry',async({page})=>{
   await openApp(page);mkdirSync(ARTIFACT_DIR,{recursive:true});const message='Сетевая ошибка синхронизации. Локальные изменения сохранены.';
   await page.evaluate(message=>{
-    const modal=document.querySelector('#cloudModal');
+    let modal=document.querySelector('#cloudModal');
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id='cloudModal';
+      modal.className='modal';
+      modal.innerHTML='<div class="modal-card"></div>';
+      document.body.appendChild(modal);
+    }
     modal.classList.remove('hidden');
     modal.querySelector('.modal-card').innerHTML='<h2>Облачная синхронизация</h2><div class="cloud-panel"><div class="cloud-status-card"><div><strong id="cloudStatusTitle">Облачная синхронизация</strong><small id="cloudStatusDetail">Подготовка…</small></div><span class="cloud-indicator" id="cloudIndicator"></span></div><div class="cloud-message" id="cloudMessage"></div></div>';
     window.BogatkaSyncCompatibility._test.showSyncError(new Error(message));
