@@ -84,7 +84,7 @@ jobs:
             echo "sync_changed=false" >> "$GITHUB_OUTPUT"
           fi
           if echo "$CHANGED" | grep -Eq 'backup|restore'; then
-            echo bogatka-field-8f3c7d/tests/backup-v400.spec.mjs >> /tmp/selected-tests.txt
+            echo bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq '^(\.github/workflows/bogatka-feature-tests\.yml|\.github/scripts/resolve-feature-diff-base\.sh|bogatka-field-8f3c7d/tests/feature-workflow-diff-base\.spec\.mjs)$'; then
             echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
@@ -133,9 +133,10 @@ jobs:
           npx playwright test bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs \
             --grep 'three-way merge|first sync unions|archive and restore|permanent deletion|successful cloud deletion|offline tombstone|remote deletion|viewer cannot' \
             --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test \
-            bogatka-field-8f3c7d/tests/sync-field-merge.spec.mjs \
-            bogatka-field-8f3c7d/tests/backup-v400.spec.mjs \
+          npx playwright test bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs \
+            --grep 'backup contains|field-wise sync merge' \
+            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
+          npx playwright test bogatka-field-8f3c7d/tests/browser-select-sync.spec.mjs \
             --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
 
       - name: Run diff-base resolver regression
