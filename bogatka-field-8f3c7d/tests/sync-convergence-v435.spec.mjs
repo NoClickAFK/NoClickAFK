@@ -21,6 +21,8 @@ async function expandFirstCard(page){
   await page.evaluate(()=>{
     const card=document.querySelector('[data-location-card]');
     window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
+    const landlord=card?.querySelector('.landlord-card-v416');
+    if(landlord?.dataset.panelOpenV419==='0')landlord.querySelector('.panel-toggle-v419')?.click();
   });
 }
 
