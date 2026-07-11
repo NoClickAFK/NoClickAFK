@@ -30,7 +30,7 @@ if (!failures.length) {
   if (!serviceWorker.includes("||'435'")) failures.push('Service Worker fallback build token is not v435');
   if (!serviceWorker.includes('updateViaCache') && !read('version-authority-v426.js').includes("updateViaCache:'none'")) failures.push('Service Worker update does not bypass the browser HTTP cache');
   const versionAuthority = read('version-authority-v426.js');
-  for (const marker of ["version:'4.3.5'","versionToken:'435'","sourceCommit:'358536152d1c4d9ced28833d56effce10f589d32'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
+  for (const marker of ["version:'4.3.5'","versionToken:'435'","sourceCommit:'e534c45dde86f90bfb2cd3919f2f50bca2da8eb7'","functions.invoke('bogatka-version')",'window.BOGATKA_BUILD','window.BogatkaVersion','upgradeV22Controls','enhancePremiumUi','exportBackup','serviceWorker.register','bogatka_build_meta_v426']) if (!versionAuthority.includes(marker)) failures.push(`version-authority-v426.js is missing ${marker}`);
   if (versionAuthority.includes("version:'4.3.4'") || versionAuthority.includes("versionToken:'434'")) failures.push('version-authority-v426.js still contains stale v4.3.4 production markers');
   const accessVersion = read('access-version-v400.js');
   if (!accessVersion.includes("import('./version-authority-v426.js')") || !accessVersion.includes('installVersionAuthority') || !accessVersion.includes('4.3.5')) failures.push('access-version-v400.js does not activate the centralized 4.3.5 version authority');
