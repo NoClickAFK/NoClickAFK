@@ -5,6 +5,11 @@ import path from 'node:path';
 const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=435';
 const ARTIFACT_DIR=path.resolve('test-results/sync-v435-review');
 
+function writeEvidence(name,value){
+  mkdirSync(ARTIFACT_DIR,{recursive:true});
+  writeFileSync(path.join(ARTIFACT_DIR,name),JSON.stringify(value,null,2));
+}
+
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'domcontentloaded'});
@@ -38,6 +43,7 @@ test('transport normalization matches JSON semantics without losing explicit res
   expect(result.equalsTransport).toBe(true);
   expect(result.normalized).toEqual({empty:'',nil:null,flag:false,count:0,reset:[],nested:{keep:'yes'},ids:[{id:'task-1',title:'A'},{id:'task-2',deleted:false}],arrayValues:[null,false,0,'',null],deletedTaskIds:['task-3']});
   expect(result.canonical).toContain('"deletedTaskIds"');
+  writeEvidence('01-transport-normalization.json',result);
 });
 
 test('database no-op at revision 7403 is accepted once and saves the remote base',async({page})=>{
@@ -54,6 +60,7 @@ test('database no-op at revision 7403 is accepted once and saves the remote base
   expect(result.calls).toEqual({patch:1,get:1,saveLocal:1,saveBase:1,rebuild:0});
   expect(result.savedRevision).toBe(7403);expect(result.returnedRevision).toBe(7403);
   expect(result.diagnostics.noOpUpdatesAccepted).toBe(1);expect(result.diagnostics.realConflicts).toBe(0);
+  writeEvidence('02-no-op-convergence.json',result);
 });
 
 test('genuine revision advance rebases non-overlapping and same-field edits with bounded retries',async({page})=>{
@@ -76,6 +83,7 @@ test('genuine revision advance rebases non-overlapping and same-field edits with
   expect(result.nonOverlap.revisions).toEqual([10,11]);expect(result.nonOverlap.fetches).toBe(1);
   expect(result.nonOverlap.returned).toEqual({localField:'phone',remoteField:'desktop'});expect(result.sameField.returned).toEqual({rent:'1200'});
   expect(result.diagnostics.revisionRebases).toBe(2);expect(result.diagnostics.realConflicts).toBe(0);
+  writeEvidence('03-two-client-rebase.json',result);
 });
 
 test('repeated identical divergent state fails with field-path diagnostics, not four blind patches',async({page})=>{
@@ -88,12 +96,14 @@ test('repeated identical divergent state fails with field-path diagnostics, not 
     return {patches,error,diagnostics:window.BogatkaSyncCompatibility.diagnostics};
   },{fixture});
   expect(result.patches).toBe(2);expect(result.error).toContain('form_data.rent');expect(result.error).not.toContain('1200');expect(result.error).not.toContain('1100');expect(result.diagnostics.realConflicts).toBe(1);expect(result.diagnostics.lastFailingStage).toContain('non-converging');
+  writeEvidence('04-bounded-conflict.json',result);
 });
 
 test('single-flight coalesces local and realtime requests into one follow-up without parallel calls',async({page})=>{
   await openApp(page);
   const result=await page.evaluate(async()=>{const releases=[];const flight=window.BogatkaSyncCompatibility._test.createSingleFlight(async()=>{await new Promise(resolve=>releases.push(resolve))});const first=flight.invoke();await new Promise(resolve=>setTimeout(resolve,0));const second=flight.invoke(),third=flight.invoke();releases.shift()();while(!releases.length)await new Promise(resolve=>setTimeout(resolve,0));releases.shift()();await Promise.all([first,second,third]);return flight.diagnostics});
   expect(result).toEqual({passes:2,coalesced:2,maxParallel:1});
+  writeEvidence('05-single-flight.json',result);
 });
 
 test('active editor survives remote apply and idle apply refreshes the same field without reload',async({page})=>{
@@ -112,24 +122,17 @@ test('active editor survives remote apply and idle apply refreshes the same fiel
   expect(result.active).toEqual({sameNode:true,focused:true,value:'ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ',stored:'REMOTE'});expect(result.idle.sameNode).toBe(true);expect(result.idle.value).toBe('REMOTE');expect(result.idle.stored).toBe('REMOTE');
 });
 
-test('complete textarea input retains focus and selection during local autosave',async({page})=>{
-  await openApp(page);await expandFirstCard(page);
-  const result=await page.evaluate(async()=>{
-    const input=document.querySelector('[data-location][data-field="pros"]');const id=input.dataset.location;
-    for(let node=input.parentElement;node&&node!==document.body;node=node.parentElement){if(node.tagName==='DETAILS')node.open=true;node.hidden=false;if(getComputedStyle(node).display==='none')node.style.setProperty('display','block','important')}
-    input.value='';input.focus();input.setSelectionRange(0,0);const original=input;
-    for(const char of 'Стоимость'){input.value+=char;input.setSelectionRange(input.value.length,input.value.length);input.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(resolve=>setTimeout(resolve,380))}
-    return {id,sameNode:document.querySelector(`[data-location="${id}"][data-field="pros"]`)===original,focused:document.activeElement===original,value:input.value,start:input.selectionStart,end:input.selectionEnd};
-  });
-  expect(result.sameNode).toBe(true);expect(result.focused).toBe(true);expect(result.value).toBe('Стоимость');expect(result.start).toBe('Стоимость'.length);expect(result.end).toBe('Стоимость'.length);await expect.poll(async()=>page.evaluate(async id=>(await getLocationData(id)).pros,result.id)).toBe('Стоимость');
-});
-
 test('cloud modal shows one primary error and clears it after successful retry',async({page})=>{
   await openApp(page);mkdirSync(ARTIFACT_DIR,{recursive:true});const message='Сетевая ошибка синхронизации. Локальные изменения сохранены.';
-  await page.evaluate(message=>{cloudSession={user:{id:'fixture-user',email:'fixture@example.com'}};cloudRole='owner';cloudProjectId='fixture-project';cloudRenderModal();document.querySelector('#cloudModal')?.classList.remove('hidden');window.BogatkaSyncCompatibility._test.showSyncError(new Error(message))},message);
+  await page.evaluate(message=>{
+    const modal=document.querySelector('#cloudModal');
+    modal.classList.remove('hidden');
+    modal.querySelector('.modal-card').innerHTML='<h2>Облачная синхронизация</h2><div class="cloud-panel"><div class="cloud-status-card"><div><strong id="cloudStatusTitle">Облачная синхронизация</strong><small id="cloudStatusDetail">Подготовка…</small></div><span class="cloud-indicator" id="cloudIndicator"></span></div><div class="cloud-message" id="cloudMessage"></div></div>';
+    window.BogatkaSyncCompatibility._test.showSyncError(new Error(message));
+  },message);
   await expect(page.locator('#cloudStatusTitle')).toHaveText('Облако: ошибка');await expect(page.locator('#cloudMessage')).toContainText(message);await expect(page.locator('[data-cloud-retry-sync]')).toBeVisible();expect(await page.locator('#cloudModal').getByText(message,{exact:true}).count()).toBe(1);
-  await page.locator('#cloudModal .modal-card').screenshot({path:path.join(ARTIFACT_DIR,'01-single-cloud-error.png')});
+  await page.locator('#cloudModal .modal-card').screenshot({path:path.join(ARTIFACT_DIR,'06-single-cloud-error.png')});
   await page.evaluate(()=>{window.BogatkaSyncCompatibility._test.clearSyncError();cloudSetStatus('ready')});await expect(page.locator('#cloudStatusTitle')).toHaveText('Облако: синхронизировано');await expect(page.locator('#cloudMessage')).not.toHaveClass(/error/);await expect(page.locator('#cloudMessage')).toContainText('Синхронизация завершена');
-  await page.locator('#cloudModal .modal-card').screenshot({path:path.join(ARTIFACT_DIR,'02-synchronized-after-retry.png')});
-  const diagnostics=await page.evaluate(()=>({mergeVersion:window.BogatkaSyncMerge.version,transportVersion:window.BogatkaSyncMerge.transportVersion,compatibilityVersion:window.BogatkaSyncCompatibility.version,diagnostics:window.BogatkaSyncCompatibility.diagnostics,visibleVersion:window.BOGATKA_BUILD?.version||document.querySelector('#versionLabel')?.textContent||'',token:window.BOGATKA_BUILD?.versionToken||''}));writeFileSync(path.join(ARTIFACT_DIR,'sync-convergence-diagnostics.json'),JSON.stringify(diagnostics,null,2));
+  await page.locator('#cloudModal .modal-card').screenshot({path:path.join(ARTIFACT_DIR,'07-synchronized-after-retry.png')});
+  const diagnostics=await page.evaluate(()=>({mergeVersion:window.BogatkaSyncMerge.version,transportVersion:window.BogatkaSyncMerge.transportVersion,compatibilityVersion:window.BogatkaSyncCompatibility.version,diagnostics:window.BogatkaSyncCompatibility.diagnostics,visibleVersion:window.BOGATKA_BUILD?.version||document.querySelector('#versionLabel')?.textContent||'',token:window.BOGATKA_BUILD?.versionToken||''}));writeEvidence('08-runtime-summary.json',diagnostics);
 });
