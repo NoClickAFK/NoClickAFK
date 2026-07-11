@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const APP_URL='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=435';
-const ARTIFACT_DIR=path.resolve('test-results/sync-v435-review');
+const ARTIFACT_DIR=path.resolve('review-artifacts/sync-v435-review');
 
 function writeEvidence(name,value){
   mkdirSync(ARTIFACT_DIR,{recursive:true});
