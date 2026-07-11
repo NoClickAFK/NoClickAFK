@@ -3,13 +3,34 @@
   const ABSENT=Symbol('absent');
   const isObject=value=>value&&typeof value==='object'&&!Array.isArray(value)&&!(value instanceof Blob);
   const clone=value=>value===ABSENT?ABSENT:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
-  function canonical(value){
+
+  function transportNormalize(value,inArray=false){
+    if(value===ABSENT)return ABSENT;
+    if(value===undefined||typeof value==='function'||typeof value==='symbol')return inArray?null:ABSENT;
+    if(value===null||typeof value!=='object')return value;
+    if(value instanceof Blob)return value;
+    if(value instanceof Date)return value.toJSON();
+    if(Array.isArray(value))return value.map(item=>{
+      const normalized=transportNormalize(item,true);
+      return normalized===ABSENT?null:normalized;
+    });
+    const result={};
+    for(const key of Object.keys(value)){
+      const normalized=transportNormalize(value[key],false);
+      if(normalized!==ABSENT)result[key]=normalized;
+    }
+    return result;
+  }
+
+  function canonicalNormalized(value){
     if(value===ABSENT)return '__ABSENT__';
-    if(Array.isArray(value))return `[${value.map(canonical).join(',')}]`;
-    if(isObject(value))return `{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+    if(Array.isArray(value))return `[${value.map(canonicalNormalized).join(',')}]`;
+    if(isObject(value))return `{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonicalNormalized(value[key])}`).join(',')}}`;
     return JSON.stringify(value);
   }
+  function canonical(value){return canonicalNormalized(transportNormalize(value));}
   const same=(left,right)=>canonical(left)===canonical(right);
+
   function emptyLike(value){
     if(value===ABSENT||value===null||value===undefined||value==='')return true;
     if(Array.isArray(value))return value.length===0;
@@ -62,10 +83,11 @@
   function clean(value){
     const copy=clone(value&&value!==ABSENT?value:{});
     delete copy.cloudId;delete copy.cloudRevision;delete copy.cloudUpdatedAt;delete copy.cloudBaseRevision;
-    return copy;
+    const normalized=transportNormalize(copy);
+    return normalized===ABSENT?{}:normalized;
   }
   window.BogatkaSyncMerge={
-    version:'4.1.2',ABSENT,same,clean,
+    version:'4.3.5',ABSENT,same,clean,canonical,transportNormalize,
     merge(base,local,remote,options={}){
       return mergeValue(base===undefined?ABSENT:base,local===undefined?ABSENT:local,remote===undefined?ABSENT:remote,options,'form');
     },
