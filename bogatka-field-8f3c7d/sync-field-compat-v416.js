@@ -16,6 +16,7 @@
   let archiveGateInstalled=false;
   let archiveBootstrapAttempts=0;
   let archiveBootstrapTimer=null;
+  let archiveScriptFailures=0;
 
   function cloneForm(value){
     if(!value||typeof value!=='object'||Array.isArray(value))return {};
@@ -82,11 +83,26 @@
     if(window.BogatkaArchiveStateV436?.ready)return true;
     const target=new URL(ARCHIVE_SCRIPT,location.href).href;
     const existing=[...document.scripts].find(script=>script.src===target||script.getAttribute('src')===ARCHIVE_SCRIPT);
-    if(existing)return true;
+    if(existing&&existing.dataset.archiveLoadFailedV436!=='1')return true;
+    if(existing)existing.remove();
     const script=document.createElement('script');
     script.src=ARCHIVE_SCRIPT;
     script.async=false;
     script.dataset.archiveBootstrapV436='1';
+    script.dataset.archiveLoadPendingV436='1';
+    script.onload=()=>{
+      delete script.dataset.archiveLoadPendingV436;
+      script.dataset.archiveLoadSucceededV436='1';
+    };
+    script.onerror=()=>{
+      archiveScriptFailures+=1;
+      delete script.dataset.archiveLoadPendingV436;
+      script.dataset.archiveLoadFailedV436='1';
+      script.remove();
+      clearTimeout(archiveBootstrapTimer);
+      const retryDelay=Math.min(1000,100*archiveScriptFailures);
+      archiveBootstrapTimer=setTimeout(bootstrapArchiveState,retryDelay);
+    };
     document.head.appendChild(script);
     return true;
   }
@@ -165,6 +181,7 @@
       get archiveGateInstalled(){return archiveGateInstalled},
       get archiveBootstrapAttempts(){return archiveBootstrapAttempts},
       get archiveReadyTimeoutMs(){return ARCHIVE_READY_TIMEOUT_MS},
+      get archiveScriptFailures(){return archiveScriptFailures},
     },
   };
 
