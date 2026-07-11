@@ -169,6 +169,7 @@
     }
 
     function markDirty(id,syncState){
+      syncState=syncState&&typeof syncState==='object'?syncState:{};
       syncState.dirtyLocations||=[];
       if(!syncState.dirtyLocations.includes(id))syncState.dirtyLocations.push(id);
       if(typeof cloudReadState==='function'&&typeof cloudWriteState==='function'){
@@ -176,6 +177,7 @@
         if(!stored.dirtyLocations.includes(id))stored.dirtyLocations.push(id);
         cloudWriteState(stored);
       }
+      return syncState;
     }
 
     function relevantRow(row,data,item){
@@ -334,6 +336,8 @@
             data.updatedAt=new Date().toISOString();
             return true;
           });
+          if(typeof cloudMarkLocationDirty==='function')cloudMarkLocationDirty(id);
+          else markDirty(id);
           await saveLocations();renderLocations();
           return result.result;
         };
