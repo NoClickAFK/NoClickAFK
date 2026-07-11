@@ -77,7 +77,11 @@
   Merge.clean=value=>normalizeArchiveFields(original.clean(normalizeArchiveFields(value)));
   Merge.canonical=value=>original.canonical(normalizeArchiveFields(value));
   Merge.same=(left,right)=>original.same(normalizeArchiveFields(left),normalizeArchiveFields(right));
-  Merge.merge=(base,local,remote,options={})=>normalizeArchiveFields(original.merge(normalizeArchiveFields(base),normalizeArchiveFields(local),normalizeArchiveFields(remote),options));
+  Merge.merge=(base,local,remote,options={})=>{
+    const result=normalizeArchiveFields(original.merge(normalizeArchiveFields(base),normalizeArchiveFields(local),normalizeArchiveFields(remote),options));
+    if(options.preferLocal&&has(local,'archivedAt')&&result&&typeof result==='object')result.archivedAt=normalizeArchiveTime(local.archivedAt);
+    return result;
+  };
   Merge.normalizeArchiveTime=normalizeArchiveTime;
   Merge.normalizeArchiveFields=normalizeArchiveFields;
   Merge.archiveState=archiveState;
