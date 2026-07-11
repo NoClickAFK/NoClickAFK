@@ -87,7 +87,7 @@
     return normalized===ABSENT?{}:normalized;
   }
   window.BogatkaSyncMerge={
-    version:'4.3.5',ABSENT,same,clean,canonical,transportNormalize,
+    version:'4.1.2',transportVersion:'4.3.5',ABSENT,same,clean,canonical,transportNormalize,
     merge(base,local,remote,options={}){
       return mergeValue(base===undefined?ABSENT:base,local===undefined?ABSENT:local,remote===undefined?ABSENT:remote,options,'form');
     },
