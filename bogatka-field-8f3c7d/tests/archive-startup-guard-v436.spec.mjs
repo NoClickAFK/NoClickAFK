@@ -188,3 +188,57 @@ test('a newer local restore intent survives a stale archived cloud confirmation'
   expect(result.inFlightArchiveIntents).toBeGreaterThanOrEqual(1);
   evidence('11-newer-archive-intent-preserved.json',result);
 });
+
+test('explicit restore marks the location dirty and wins without a prior sync base',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async({archivedAt})=>{
+    const id='restore-dirty-without-base';
+    const projectId='project-restore-dirty';
+    const item={id,title:'Restore dirty fixture',address:'Гродно',custom:true,archivedAt};
+    const data={contact:'B',archivedAt,updatedAt:'2026-07-11T12:10:00.000Z'};
+    const remote={
+      id:'remote-restore-dirty',project_id:projectId,client_id:id,title:item.title,address:item.address,note:null,
+      status:null,object_type:null,form_data:{contact:'B',archivedAt},sort_order:0,archived_at:archivedAt,
+      revision:4,updated_at:'2026-07-11T12:08:33.094Z',
+    };
+
+    cloudProjectId=projectId;
+    cloudRole='editor';
+    window.cloudRole='editor';
+    locations=[item];
+    await window.BogatkaSyncState.rawPut()(STORE,data,`location:${id}`);
+    await window.BogatkaSyncState.rawPut()(STORE,locations,'meta:locations');
+    await window.BogatkaSyncState.deleteBase(id);
+    const initialState=cloudReadState();
+    initialState.dirtyLocations=[];
+    initialState.metaDirty=false;
+    cloudWriteState(initialState);
+
+    const restoreResult=await window.BogatkaSuite.restoreArchivedLocation(id);
+    clearTimeout(cloudSyncTimer);
+    const trackedState=cloudReadState();
+    const restoredData=await getLocationData(id);
+    const context=await window.BogatkaSyncCompatibility._test.buildContext(item,0,remote,trackedState);
+
+    return{
+      restoreResult,
+      dirtyLocations:trackedState.dirtyLocations,
+      restoredData,
+      metaArchivedAt:item.archivedAt,
+      baseExists:Boolean(await window.BogatkaSyncState.readBase(id)),
+      payloadArchivedAt:context.payload.archived_at,
+      formArchivedAt:context.payload.form_data.archivedAt,
+      needsPush:context.needsPush,
+    };
+  },{archivedAt:ARCHIVED_AT});
+
+  expect(result.restoreResult).toBe(true);
+  expect(result.dirtyLocations).toContain('restore-dirty-without-base');
+  expect(result.restoredData).toMatchObject({contact:'B',archivedAt:null});
+  expect(result.metaArchivedAt).toBeNull();
+  expect(result.baseExists).toBe(false);
+  expect(result.payloadArchivedAt).toBeNull();
+  expect(result.formArchivedAt).toBeNull();
+  expect(result.needsPush).toBe(true);
+  evidence('12-restore-dirty-without-base.json',result);
+});
