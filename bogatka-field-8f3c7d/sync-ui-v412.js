@@ -329,10 +329,13 @@
     target.append(text,retry);
   }
   function clearSyncError(){
-    if(!lastSyncError)return;
-    lastSyncError='';
     const target=document.querySelector('#cloudMessage');
-    if(target?.classList.contains('error'))cloudSetMessage('Синхронизация завершена.','success');
+    const hadError=Boolean(lastSyncError)||Boolean(target?.classList.contains('error'));
+    lastSyncError='';
+    if(!hadError||!target)return;
+    target.className='cloud-message show success';
+    target.replaceChildren();
+    target.textContent='Синхронизация завершена.';
   }
   function showSyncError(error){
     console.error(error);
