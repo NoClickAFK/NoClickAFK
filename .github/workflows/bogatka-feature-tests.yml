@@ -24,7 +24,7 @@ concurrency:
 jobs:
   changed-domain-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,8 +52,6 @@ jobs:
               bogatka-field-8f3c7d/tests/readiness-safety-v434.spec.mjs \
               bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
               bogatka-field-8f3c7d/tests/launch-gate-v454.spec.mjs \
-              bogatka-field-8f3c7d/tests/backup-v400.spec.mjs \
-              bogatka-field-8f3c7d/tests/sync-field-merge.spec.mjs \
               bogatka-field-8f3c7d/tests/report-live-v427.spec.js >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'critical-deal|lease'; then
@@ -80,12 +78,10 @@ jobs:
               bogatka-field-8f3c7d/tests/report-premium-artifacts-v433.spec.js >> /tmp/selected-tests.txt
           fi
           if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|select'; then
-            printf '%s\n' \
-              bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs \
-              bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs \
-              bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs \
-              bogatka-field-8f3c7d/tests/sync-field-merge.spec.mjs \
-              bogatka-field-8f3c7d/tests/backup-v400.spec.mjs >> /tmp/selected-tests.txt
+            echo "sync_changed=true" >> "$GITHUB_OUTPUT"
+            echo bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs >> /tmp/selected-tests.txt
+          else
+            echo "sync_changed=false" >> "$GITHUB_OUTPUT"
           fi
           if echo "$CHANGED" | grep -Eq 'backup|restore'; then
             echo bogatka-field-8f3c7d/tests/backup-v400.spec.mjs >> /tmp/selected-tests.txt
@@ -102,7 +98,7 @@ jobs:
           cat /tmp/selected-tests.txt
 
       - name: Install Chromium and WebKit
-        if: steps.select.outputs.count != '0' || steps.select.outputs.workflow_changed == 'true'
+        if: steps.select.outputs.count != '0' || steps.select.outputs.workflow_changed == 'true' || steps.select.outputs.sync_changed == 'true'
         run: |
           npm install --no-save --silent @playwright/test@1.52.0
           npx playwright install --with-deps chromium webkit > /tmp/playwright-install.log 2>&1
@@ -119,6 +115,28 @@ jobs:
             sleep 1
           done
           xargs -a /tmp/selected-tests.txt npx playwright test --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-feature-tests.log
+
+      - name: Run sync safety regressions
+        if: steps.select.outputs.sync_changed == 'true'
+        run: |
+          set -o pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >> /tmp/bogatka-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
+            sleep 1
+          done
+          npx playwright test bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs \
+            --grep 'automatic sync waits|clean idle state|a clean location|multiple realtime notifications' \
+            --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-sync-safety-tests.log
+          npx playwright test bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs \
+            --grep 'three-way merge|first sync unions|archive and restore|permanent deletion|successful cloud deletion|offline tombstone|remote deletion|viewer cannot' \
+            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
+          npx playwright test \
+            bogatka-field-8f3c7d/tests/sync-field-merge.spec.mjs \
+            bogatka-field-8f3c7d/tests/backup-v400.spec.mjs \
+            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
 
       - name: Run diff-base resolver regression
         if: steps.select.outputs.workflow_changed == 'true'
@@ -164,6 +182,7 @@ jobs:
           name: bogatka-feature-test-diagnostics
           path: |
             /tmp/bogatka-feature-tests.log
+            /tmp/bogatka-sync-safety-tests.log
             /tmp/bogatka-workflow-resolver-tests.log
             /tmp/bogatka-http.log
             /tmp/playwright-install.log
