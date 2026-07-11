@@ -56,6 +56,7 @@ test('cloud result preserves edits made after the write snapshot was captured',a
     const stored=await getLocationData(id);
     const state=cloudReadState();
     return {
+      id,
       saveResult,
       stored,
       dirtyLocations:state.dirtyLocations||[],
@@ -73,6 +74,6 @@ test('cloud result preserves edits made after the write snapshot was captured',a
     cloudRevision:2,
     cloudUpdatedAt:'2026-07-11T10:00:02.000Z',
   });
-  expect(result.dirtyLocations).toContain(result.stored.cloudId==='remote-inflight'?await page.evaluate(()=>locations[0].id):'');
+  expect(result.dirtyLocations).toContain(result.id);
   expect(result.diagnostics.inFlightLocalMerges).toBe(1);
 });
