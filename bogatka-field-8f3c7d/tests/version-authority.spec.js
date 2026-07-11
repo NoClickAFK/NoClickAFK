@@ -38,7 +38,7 @@ test('repository build version controls UI when remote metadata is older',async(
     label:'4.3.5',
     versionApi:true,
     accessVersionLoaded:true,
-    build:{version:'4.3.5',versionToken:'435',remoteIgnored:'4.2.6',sourceCommit:'3ce095693bb0e9d34955d3fd79d48ae1830f0ec8'},
+    build:{version:'4.3.5',versionToken:'435',remoteIgnored:'4.2.6',sourceCommit:'f3b1eb5c1d7d3e8ad78f4632a78a7cca735060a6'},
   });
 
   const generated=await page.evaluate(()=>window.BogatkaVersion.makeAppUrl());
