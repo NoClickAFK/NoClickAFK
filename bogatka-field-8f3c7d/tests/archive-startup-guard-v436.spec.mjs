@@ -19,7 +19,7 @@ async function openApp(page){
   await page.waitForFunction(()=>window.BogatkaArchiveStateV436?.ready===true);
 }
 
-test('startup sync is gated on archive compatibility and viewer restore cannot mutate local state',async({page})=>{
+test('startup sync is persistently gated on archive compatibility and viewer restore cannot mutate local state',async({page})=>{
   await openApp(page);
   const result=await page.evaluate(async({archivedAt})=>{
     const archiveScript=[...document.scripts].find(script=>script.src.includes('archive-state-v436.js'));
@@ -44,6 +44,7 @@ test('startup sync is gated on archive compatibility and viewer restore cannot m
     return{
       fieldCompatReady:window.BogatkaSyncFieldCompatV416.ready,
       archiveReady:window.BogatkaArchiveStateV436.ready,
+      installerPersistent:window.BogatkaArchiveStateV436.installerPersistent,
       archiveGateInstalled:window.BogatkaSyncFieldCompatV416._test.archiveGateInstalled,
       archiveBootstrapAttempts:window.BogatkaSyncFieldCompatV416._test.archiveBootstrapAttempts,
       archiveScriptLoaded:Boolean(archiveScript),
@@ -65,6 +66,7 @@ test('startup sync is gated on archive compatibility and viewer restore cannot m
   expect(result).toMatchObject({
     fieldCompatReady:true,
     archiveReady:true,
+    installerPersistent:true,
     archiveGateInstalled:true,
     archiveScriptLoaded:true,
     role:'viewer',
@@ -82,4 +84,69 @@ test('startup sync is gated on archive compatibility and viewer restore cannot m
   expect(typeof result.archiveScriptBootstrapped).toBe('boolean');
   expect(result.alertText).toContain('Роль наблюдателя');
   evidence('09-startup-gate-and-viewer-guard.json',result);
+});
+
+test('archive state write runs after a queued same-location edit and preserves the edited fields',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async({archivedAt})=>{
+    const id='archive-queue-race';
+    const item={id,title:'Queue race fixture',address:'Гродно',custom:true,archivedAt:null};
+    locations=[item];
+    await window.BogatkaSyncState.rawPut()(STORE,{contact:'A',note:'stable',archivedAt:null},`location:${id}`);
+    await window.BogatkaSyncState.rawPut()(STORE,locations,'meta:locations');
+
+    const order=[];
+    let releaseUser;
+    let userStarted;
+    const userStart=new Promise(resolve=>{userStarted=resolve});
+    const userGate=new Promise(resolve=>{releaseUser=resolve});
+    const rawPut=window.BogatkaSyncState.rawPut();
+
+    const userSave=window.BogatkaFieldIntegrityV416.enqueueLocation(id,async()=>{
+      order.push('user-save-started');
+      userStarted();
+      await userGate;
+      const latest=await getLocationData(id);
+      latest.contact='B';
+      latest.userEditToken='queued-during-archive-sync';
+      await rawPut(STORE,latest,`location:${id}`);
+      order.push('user-save-completed');
+    });
+
+    await userStart;
+    const archiveSave=window.BogatkaArchiveStateV436._test.writeLocalState(
+      id,
+      item,
+      {kind:'archived',known:true,value:archivedAt},
+    ).then(()=>order.push('archive-write-completed'));
+
+    await Promise.resolve();
+    const archiveCompletedBeforeRelease=order.includes('archive-write-completed');
+    const pendingBeforeRelease=window.BogatkaFieldIntegrityV416.pendingLocations.includes(id);
+    releaseUser();
+    await Promise.all([userSave,archiveSave]);
+
+    const stored=await getLocationData(id);
+    return{
+      archiveCompletedBeforeRelease,
+      pendingBeforeRelease,
+      order,
+      stored,
+      metaArchivedAt:item.archivedAt,
+      queuedLocationWrites:window.BogatkaArchiveStateV436.diagnostics.queuedLocationWrites,
+    };
+  },{archivedAt:ARCHIVED_AT});
+
+  expect(result.archiveCompletedBeforeRelease).toBe(false);
+  expect(result.pendingBeforeRelease).toBe(true);
+  expect(result.order).toEqual(['user-save-started','user-save-completed','archive-write-completed']);
+  expect(result.stored).toMatchObject({
+    contact:'B',
+    note:'stable',
+    userEditToken:'queued-during-archive-sync',
+    archivedAt:ARCHIVED_AT,
+  });
+  expect(result.metaArchivedAt).toBe(ARCHIVED_AT);
+  expect(result.queuedLocationWrites).toBeGreaterThanOrEqual(1);
+  evidence('10-queued-edit-preserved.json',result);
 });
