@@ -12,6 +12,13 @@ async function openApp(page){
   await page.waitForFunction(()=>window.BogatkaSyncCompatibility?.version==='4.3.5');
 }
 
+async function expandFirstCard(page){
+  await page.evaluate(()=>{
+    const card=document.querySelector('[data-location-card]');
+    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
+  });
+}
+
 function row({revision=7403,formData={},title='ул. Лидская, 34, ТЦ «Лидский»'}={}){
   return {
     id:'remote-lidskaya-34',project_id:'project-fixture',client_id:'lidskaya-34',title,
@@ -143,14 +150,69 @@ test('single-flight coalesces local and realtime requests into one follow-up wit
   expect(result).toEqual({passes:2,coalesced:2,maxParallel:1});
 });
 
+test('active editor survives remote apply and idle apply refreshes the same field without reload',async({page})=>{
+  await openApp(page);
+  await expandFirstCard(page);
+  const result=await page.evaluate(async()=>{
+    const item=locations[0];
+    locations=[item];
+    const id=item.id;
+    const selector=`[data-location="${id}"][data-field="contact"]`;
+    const input=document.querySelector(selector);
+    const now=new Date().toISOString();
+    await cloudOriginalIdbPut(STORE,{contact:'LOCAL',updatedAt:now,cloudRevision:1,cloudUpdatedAt:now},`location:${id}`);
+    const remote={id:'remote-active',project_id:'project-active',client_id:id,title:item.title,address:item.address,note:item.note,status:null,object_type:null,form_data:{contact:'REMOTE',updatedAt:now},sort_order:0,revision:2,updated_at:now,archived_at:null};
+    input.focus();
+    input.value='ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ';
+    const original=input;
+    await cloudApplyRemote([remote],[],null,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{}});
+    const active={sameNode:document.querySelector(selector)===original,focused:document.activeElement===original,value:original.value,stored:(await getLocationData(id)).contact};
+    input.blur();
+    await window.BogatkaUIStability?.settleAfterBlur?.();
+    await window.BogatkaUIStability?.flush?.();
+    const idleNode=document.querySelector(selector);
+    const idle={sameNode:idleNode===original,value:idleNode.value,stored:(await getLocationData(id)).contact};
+    return {active,idle};
+  });
+  expect(result.active).toEqual({sameNode:true,focused:true,value:'ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ',stored:'REMOTE'});
+  expect(result.idle.sameNode).toBe(true);
+  expect(result.idle.value).toBe('REMOTE');
+  expect(result.idle.stored).toBe('REMOTE');
+});
+
+test('complete textarea input retains focus and selection during local autosave',async({page})=>{
+  await openApp(page);
+  await expandFirstCard(page);
+  const result=await page.evaluate(async()=>{
+    const input=document.querySelector('[data-location][data-field="pros"]');
+    const id=input.dataset.location;
+    input.value='';input.focus();input.setSelectionRange(0,0);
+    const original=input;
+    for(const char of 'Стоимость'){
+      input.value+=char;
+      input.setSelectionRange(input.value.length,input.value.length);
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      await new Promise(resolve=>setTimeout(resolve,380));
+    }
+    return {id,sameNode:document.querySelector(`[data-location="${id}"][data-field="pros"]`)===original,focused:document.activeElement===original,value:input.value,start:input.selectionStart,end:input.selectionEnd};
+  });
+  expect(result.sameNode).toBe(true);
+  expect(result.focused).toBe(true);
+  expect(result.value).toBe('Стоимость');
+  expect(result.start).toBe('Стоимость'.length);
+  expect(result.end).toBe('Стоимость'.length);
+  await expect.poll(async()=>page.evaluate(async id=>(await getLocationData(id)).pros,result.id)).toBe('Стоимость');
+});
+
 test('cloud modal shows one primary error and clears it after successful retry',async({page})=>{
   await openApp(page);
   mkdirSync(ARTIFACT_DIR,{recursive:true});
   const message='Сетевая ошибка синхронизации. Локальные изменения сохранены.';
   await page.evaluate(message=>{
-    const modal=document.querySelector('#cloudModal');
-    modal.classList.remove('hidden');
-    modal.querySelector('.modal-card').innerHTML=`<h2>Облачная синхронизация</h2><div class="cloud-panel"><div class="cloud-status-card"><div><strong id="cloudStatusTitle">Облачная синхронизация</strong><small id="cloudStatusDetail">Подготовка…</small></div><span class="cloud-indicator" id="cloudIndicator"></span></div><div class="cloud-actions"><button class="btn" id="cloudSyncNowBtn">Синхронизировать сейчас</button></div><div class="cloud-message" id="cloudMessage"></div></div>`;
+    cloudSession={user:{id:'fixture-user',email:'fixture@example.com'}};
+    cloudRole='owner';cloudProjectId='fixture-project';
+    cloudRenderModal();
+    document.querySelector('#cloudModal')?.classList.remove('hidden');
     window.BogatkaSyncCompatibility._test.showSyncError(new Error(message));
   },message);
   await expect(page.locator('#cloudStatusTitle')).toHaveText('Облако: ошибка');
