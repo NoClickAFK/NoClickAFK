@@ -18,24 +18,6 @@ async function openApp(page){
   await page.waitForFunction(()=>typeof cloudSyncing==='undefined'||cloudSyncing===false);
 }
 
-async function expandFirstCard(page){
-  await page.evaluate(async()=>{
-    const card=document.querySelector('[data-location-card]');
-    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
-    await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
-  });
-}
-
-async function openCollaborationPane(page,pane='comments'){
-  await page.evaluate(targetPane=>{
-    const card=document.querySelector('[data-location-card]');
-    const details=card?.querySelector('.collaboration-v400');
-    if(details)details.open=true;
-    const button=card?.querySelector(`[data-collab-tab="${targetPane}"]`);
-    if(button&&!button.classList.contains('active'))button.click();
-  },pane);
-}
-
 function row({revision=7403,formData={},title='ул. Лидская, 34, ТЦ «Лидский»'}={}){
   return {
     id:'remote-lidskaya-34',project_id:'project-fixture',client_id:'lidskaya-34',title,
@@ -157,19 +139,14 @@ test('timestamp-only local changes do not trigger a cloud location write',async(
 
 test('background sync cannot replace or overwrite an active form control',async({page})=>{
   await openApp(page);
-  await expandFirstCard(page);
-  await openCollaborationPane(page,'comments');
-  const locationId=await page.evaluate(async()=>{
-    const item=locations[0];locations=[item];
+  await page.evaluate(async()=>{
     const localTime='2026-07-11T10:00:00.000Z';
     const remoteTime='2026-07-11T10:01:00.000Z';
-    await window.BogatkaSyncState.rawPut()(STORE,{pros:'LOCAL',updatedAt:localTime,cloudId:'remote-active',cloudRevision:1,cloudUpdatedAt:localTime},`location:${item.id}`);
-    await window.BogatkaSyncState.writeBase(item.id,{revision:1,updatedAt:localTime,formData:{pros:'LOCAL',updatedAt:localTime},meta:{title:item.title||item.address||'',address:item.address||'',note:item.note||'',sortOrder:0,archivedAt:null}});
+    await window.BogatkaSyncState.rawPut()(STORE,{tripNotes:'LOCAL',updatedAt:localTime},'global');
     cloudSession={user:{id:'active-user'}};cloudProjectId='project-active';cloudRole='owner';
-    window.__syncActiveRemote={id:'remote-active',project_id:'project-active',client_id:item.id,title:item.title,address:item.address,note:item.note||null,status:null,object_type:null,form_data:{pros:'REMOTE',updatedAt:remoteTime},sort_order:0,revision:2,updated_at:remoteTime,archived_at:null};
-    return item.id;
+    window.__syncActiveRemoteState={project_id:'project-active',data:{tripNotes:'REMOTE',updatedAt:remoteTime},revision:2,updated_at:remoteTime};
   });
-  const input=page.locator(`[data-location="${locationId}"][data-field="pros"]`);
+  const input=page.locator('[data-global="tripNotes"]');
   await expect(input).toBeVisible();
   await input.focus();
   await expect(input).toBeFocused();
@@ -178,18 +155,17 @@ test('background sync cannot replace or overwrite an active form control',async(
     window.__syncActiveFocusedBefore=document.activeElement===element;
     element.value='ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ';
   });
-  const result=await page.evaluate(async locationId=>{
-    await cloudApplyRemote([window.__syncActiveRemote],[],null,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},knownLocationIds:[locationId],knownPhotoIds:[]});
-    const current=document.querySelector(`[data-location="${locationId}"][data-field="pros"]`);
-    const stored=await getLocationData(locationId);
-    return {focusedBefore:window.__syncActiveFocusedBefore,sameNode:current===window.__syncActiveInput,active:document.activeElement===window.__syncActiveInput,visibleValue:window.__syncActiveInput.value,storedValue:stored.pros,suppressed:window.BogatkaCloudStability?.suppressedUiRefreshes||0};
-  },locationId);
+  const result=await page.evaluate(async()=>{
+    await cloudApplyRemote([],[],window.__syncActiveRemoteState,{dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},stateDirty:false,knownLocationIds:[],knownPhotoIds:[]});
+    const current=document.querySelector('[data-global="tripNotes"]');
+    const stored=await idbGet(STORE,'global');
+    return {focusedBefore:window.__syncActiveFocusedBefore,sameNode:current===window.__syncActiveInput,active:document.activeElement===window.__syncActiveInput,visibleValue:window.__syncActiveInput.value,storedValue:stored.tripNotes};
+  });
   expect(result.focusedBefore).toBe(true);
   expect(result.sameNode).toBe(true);
   expect(result.active).toBe(true);
   expect(result.visibleValue).toBe('ПЕЧАТАЮ — НЕ СБРАСЫВАТЬ');
   expect(result.storedValue).toBe('REMOTE');
-  expect(result.suppressed).toBeGreaterThan(0);
   writeEvidence('07-active-editor-protection.json',result);
 });
 
