@@ -79,7 +79,9 @@ jobs:
           fi
           if echo "$CHANGED" | grep -Eq 'sync|cloud|stability'; then
             echo "sync_changed=true" >> "$GITHUB_OUTPUT"
-            echo bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs >> /tmp/selected-tests.txt
+            printf '%s\n' \
+              bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs \
+              bogatka-field-8f3c7d/tests/sync-inflight-edit-v435.spec.mjs >> /tmp/selected-tests.txt
           else
             echo "sync_changed=false" >> "$GITHUB_OUTPUT"
           fi
