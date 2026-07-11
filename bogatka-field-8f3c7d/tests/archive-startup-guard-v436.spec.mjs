@@ -218,6 +218,7 @@ test('explicit restore marks the location dirty and wins without a prior sync ba
     clearTimeout(cloudSyncTimer);
     const trackedState=cloudReadState();
     const restoredData=await getLocationData(id);
+    cloudSession={user:{id:'restore-dirty-user'}};
     const context=await window.BogatkaSyncCompatibility._test.buildContext(item,0,remote,trackedState);
 
     return{
