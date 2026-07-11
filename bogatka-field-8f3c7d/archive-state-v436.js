@@ -292,7 +292,9 @@
         relevantIds.add(item.id);
         if(resolved.ambiguous)throw new Error(`Не удалось определить состояние архива локации «${item.title||item.id}». Выберите «Восстановить» или «В архив» и повторите синхронизацию.`);
         assertValidState(item.title||item.id,resolved.state);
-        await writeLocalState(item.id,item,resolved.state);pushedStates.set(item.id,resolved.state);diagnostics.explicitIntentsPreserved++;
+        const written=await writeLocalState(item.id,item,resolved.state,{expectedPreviousState:resolved.state,syncState});
+        pushedStates.set(item.id,written.result?.state||resolved.state);
+        diagnostics.explicitIntentsPreserved++;
       }
       if(!relevantIds.size)return basePush(sourceRows,syncState);
       await State.rawPut()(STORE,locations,'meta:locations');
