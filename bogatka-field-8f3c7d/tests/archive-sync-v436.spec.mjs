@@ -172,7 +172,7 @@ test('remote archive applies once without active/archive duplication and legacy 
     const state=cloudReadState();state.dirtyLocations=[];state.metaDirty=false;state.knownLocationIds=[remoteFixture.client_id];cloudWriteState(state);
     await cloudApplyRemote([remoteFixture],[],null,state);await window.BogatkaSuiteUI?.refresh?.();
     const stored=await getLocationData(remoteFixture.client_id),meta=locations.find(entry=>entry.id===remoteFixture.client_id);
-    return{dataArchivedAt:stored.archivedAt,metaArchivedAt:meta.archivedAt,activeCards:document.querySelectorAll(`[data-location-card="${remoteFixture.client_id}"]`).length,archiveRows:document.querySelectorAll(`[data-archive-restore="${remoteFixture.client_id}"],[data-action="restore-location"][data-location="${remoteFixture.client_id}"]`).length,archiveCount:Number(document.querySelector('[data-archive-count]')?.textContent||0)};
+    return{dataArchivedAt:stored.archivedAt,metaArchivedAt:meta.archivedAt,activeCards:[...document.querySelectorAll(`#locations > [data-location-card="${remoteFixture.client_id}"]`)].filter(card=>!card.hidden&&getComputedStyle(card).display!=="none").length,archiveRows:document.querySelectorAll(`[data-archive-restore="${remoteFixture.client_id}"],[data-action="restore-location"][data-location="${remoteFixture.client_id}"]`).length,archiveCount:Number(document.querySelector('[data-archive-count]')?.textContent||0)};
   },{remoteFixture});
   expect(remoteResult.dataArchivedAt).toBe(CANONICAL_ARCHIVE);expect(remoteResult.metaArchivedAt).toBe(CANONICAL_ARCHIVE);expect(remoteResult.activeCards).toBe(0);expect(remoteResult.archiveCount).toBeGreaterThanOrEqual(1);
   evidence('07-remote-archive-no-duplication.json',remoteResult);
