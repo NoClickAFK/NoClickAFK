@@ -91,7 +91,6 @@ jobs:
           fi
           if echo "$CHANGED" | grep -Eq '^(\.github/workflows/bogatka-feature-tests\.yml|\.github/scripts/resolve-feature-diff-base\.sh|bogatka-field-8f3c7d/tests/feature-workflow-diff-base\.spec\.mjs)$'; then
             echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
-            echo bogatka-field-8f3c7d/tests/readiness-progress-v434.spec.mjs >> /tmp/selected-tests.txt
           else
             echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
           fi
