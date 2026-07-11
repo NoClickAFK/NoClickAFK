@@ -15,6 +15,7 @@
     coalescedRequests:0,
     noOpUpdatesAccepted:0,
     revisionRebases:0,
+    inFlightLocalMerges:0,
     realConflicts:0,
     lastFailingStage:'',
   };
@@ -162,14 +163,26 @@
     await State.writeBase(id,next);
     return true;
   }
-  async function saveLocal(id,data,row,currentValue=null){
+  async function saveLocal(id,data,row,baselineValue=null){
     if(isPending(id))return false;
-    const value={...Merge.clean(data)};
+    const current=await getLocationData(id);
+    const baseline=Merge.clean(baselineValue||{});
+    const currentData=Merge.clean(current);
+    const incoming=Merge.clean(data);
+    const inFlightChanged=Boolean(baselineValue)&&!Merge.same(currentData,baseline);
+    const merged=inFlightChanged
+      ?Merge.merge(baseline,currentData,incoming,{preferLocal:true,explicitReset:false})
+      :incoming;
+    const value={...merged};
     if(row){value.cloudId=row.id;value.cloudRevision=row.revision;value.cloudUpdatedAt=row.updated_at}
-    const current=currentValue||await getLocationData(id);
-    if(current&&Merge.same(current,value))return false;
+    if(current&&Merge.same(current,value))return {saved:false,inFlightChanged};
     await State.rawPut()(STORE,value,`location:${id}`);
-    return true;
+    if(inFlightChanged){
+      diagnostics.inFlightLocalMerges++;
+      if(typeof cloudMarkLocationDirty==='function')cloudMarkLocationDirty(id);
+      else markPending(false);
+    }
+    return {saved:true,inFlightChanged};
   }
   function chooseMeta(base,item,row,index,preferLocal){
     return Merge.merge(base?.meta,localMeta(item,index),row?rowMeta(row):undefined,{preferLocal,explicitReset:false});
@@ -411,6 +424,7 @@
     diagnostics.coalescedRequests=0;
     diagnostics.noOpUpdatesAccepted=0;
     diagnostics.revisionRebases=0;
+    diagnostics.inFlightLocalMerges=0;
     diagnostics.realConflicts=0;
     diagnostics.lastFailingStage='';
   }
@@ -431,6 +445,7 @@
       differencePaths,
       persistLocation,
       buildContext,
+      saveLocal,
       createSingleFlight(run,schedule=()=>{}){
         let active=null,pending=false,followup=false,maxParallel=0,parallel=0,passes=0,coalesced=0;
         const invoke=()=>{
