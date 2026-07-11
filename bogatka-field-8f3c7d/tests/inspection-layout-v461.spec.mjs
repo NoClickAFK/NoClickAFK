@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=location-report-collapse-v464';
+const WORKER='http://127.0.0.1:4173/bogatka-field-8f3c7d/sw-v340.js';
 
 async function openApp(page,width=1440,height=1200){
   await page.setViewportSize({width,height});
@@ -13,9 +14,24 @@ async function openApp(page,width=1440,height=1200){
     document.querySelector('[data-location-card][data-inspection-layout-v462="1"]')&&
     document.querySelector('[data-location-card] .next-task-card-v447')
   ),{timeout:30000});
-  const card=page.locator('[data-location-card]').first();
-  await card.evaluate(node=>window.BogatkaLocationCardCollapseV422?.setCollapsed?.(node,false,{persist:false}));
-  return card;
+  const initial=page.locator('[data-location-card]').first();
+  const id=await initial.getAttribute('data-location-card');
+  await page.evaluate(async locationId=>{
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    window.BogatkaLocationCardCollapseV422?.setCollapsed?.(card,false,{persist:false});
+    await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
+    window.BogatkaInspectionLayoutV461?.enhanceAll?.();
+    const current=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    for(const selector of ['.inspection-card-v416','.landlord-card-v416']){
+      const panel=current.querySelector(selector);
+      panel.dataset.panelOpenV419='1';
+      panel.classList.remove('panel-closed-v419');
+      panel.querySelector(':scope > .panel-toggle-v419')?.setAttribute('aria-expanded','true');
+      const chevron=panel.querySelector('.panel-chevron-v419');
+      if(chevron)chevron.textContent='⌃';
+    }
+  },id);
+  return page.locator(`[data-location-card="${id}"]`);
 }
 
 const visibleField=(card,field)=>card.locator(`[data-field="${field}"]:not([data-stage6-marker-v461])`).first();
@@ -165,9 +181,10 @@ test('mobile layout stays single-column and overflow free',async({page})=>{
   expect(result.landlordOverflow).toBeLessThanOrEqual(1);
 });
 
-test('v461 assets are present in the offline cache manifest',async({page})=>{
-  await openApp(page);
-  const worker=await page.evaluate(()=>fetch('./sw-v340.js').then(response=>response.text()));
+test('v461 assets are present in the offline cache manifest without depending on app startup',async({request})=>{
+  const response=await request.get(WORKER);
+  expect(response.ok()).toBe(true);
+  const worker=await response.text();
   expect(worker).toContain('./inspection-layout-v461.css');
   expect(worker).toContain('./inspection-layout-v461.js');
 });

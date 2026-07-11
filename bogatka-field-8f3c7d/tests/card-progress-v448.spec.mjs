@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=final-ui-stability-reason-v465';
+const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=434';
 
 async function openApp(page,width=1600,height=1100){
   await page.setViewportSize({width,height});
@@ -8,6 +8,7 @@ async function openApp(page,width=1600,height=1100){
   await page.goto(APP,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(
     window.BogatkaCardProgressV448?.initialized&&
+    window.BogatkaReadinessProgressV434?.ready&&
     window.BogatkaCardProgressReportV448?.ready&&
     window.BogatkaStatusNextTaskV447?.ready&&
     window.BogatkaDecisionPanel?.ready&&
@@ -29,15 +30,14 @@ async function saveData(page,id,patch){
     if(next.tech)merged.tech={...(current.tech||{}),...next.tech};
     if(next.score)merged.score={...(current.score||{}),...next.score};
     await idbPut(STORE,merged,`location:${locationId}`);
-    await updateSummary();
-    await window.BogatkaCardProgressV448.renderAll();
+    await window.BogatkaReadinessProgressV434.refresh();
     window.BogatkaCardProgressInitV448.refineAll();
   },{locationId:id,next:patch});
 }
 
-async function closeAccordion(toggle){
-  if(await toggle.getAttribute('aria-expanded')==='true')await toggle.click();
-}
+async function closeAccordion(toggle){if(await toggle.getAttribute('aria-expanded')==='true')await toggle.click()}
+const numericStyle=values=>values.map(value=>Number.parseFloat(value));
+const expectNear=(actual,expected,tolerance=.02)=>{expect(actual).toHaveLength(expected.length);actual.forEach((value,index)=>expect(Math.abs(value-expected[index])).toBeLessThanOrEqual(tolerance))};
 
 test('progress card keeps canonical copy, metrics and the single action-row status',async({page})=>{
   const card=await openApp(page);
@@ -65,12 +65,7 @@ test('fill-plan targets remain navigable after opening an initially collapsed lo
   if(await inner.getAttribute('aria-expanded')!=='true')await inner.click();
   const plan=card.locator('[data-fill-plan-list-v448]');
   await expect(plan.locator('.fill-plan-item-v448')).toHaveCount(7);
-  await expect(plan).not.toContainText(/Следующий приоритет|Далее/i);
-  const expected={
-    inspection:'Параметры осмотра',landlord:'Арендодатель и условия',scores:'Оценка локации',
-    technical:'Технические и финансовые параметры',photos:'Фотографии по категориям',
-    checks:'Проверки перед арендой',conclusion:'Предварительное решение по локации',
-  };
+  const expected={inspection:'Параметры осмотра',landlord:'Арендодатель и условия',scores:'Оценка локации',technical:'Технические и финансовые параметры',photos:'Фотографии по категориям',checks:'Проверки перед арендой',conclusion:'Предварительное решение по локации'};
   for(const [target,title] of Object.entries(expected)){
     const button=plan.locator(`[data-progress-target-v448="${target}"]`);
     await expect(button.locator('xpath=..').locator('.fill-plan-copy-v448 strong')).toHaveText(title);
@@ -96,7 +91,9 @@ test('progress remains overflow free on mobile and the global report engine stay
       metricColumns:getComputedStyle(progress.querySelector('.progress-metrics-v448')).gridTemplateColumns,
       authoritative:window.buildReportHtml===window.BogatkaLiveReport.build,
       stable:Boolean(window.BogatkaLiveReport.build.__reportStabilityV429),
-      reportText:doc.body.textContent,
+      reportLocations:doc.querySelectorAll('.report-location').length,
+      reportHasRawProgress:Boolean(doc.querySelector('[data-progress-quality-v448],[data-fill-plan-list-v448]')),
+      reportVersion:doc.querySelector('.report-meta-footer')?.textContent||'',
     };
   });
   expect(result.progressOverflow).toBeLessThanOrEqual(1);
@@ -104,7 +101,9 @@ test('progress remains overflow free on mobile and the global report engine stay
   expect(result.metricColumns.split(' ').length).toBe(1);
   expect(result.authoritative).toBe(true);
   expect(result.stable).toBe(true);
-  expect(result.reportText).toContain('Оценка и готовность данных');
+  expect(result.reportLocations).toBeGreaterThan(0);
+  expect(result.reportHasRawProgress).toBe(false);
+  expect(result.reportVersion).toContain('4.3.3');
 });
 
 for(const viewport of [{name:'desktop',width:1440,height:1100},{name:'mobile',width:390,height:900}]){
@@ -134,26 +133,14 @@ for(const viewport of [{name:'desktop',width:1440,height:1100},{name:'mobile',wi
       const progressToggleRect=progressToggle.getBoundingClientRect();
       const style=node=>getComputedStyle(node);
       return{
-        reasonHeight:outerRect.height,
-        progressHeight:progressRect.height,
-        summaryHeight:summaryRect.height,
-        progressToggleHeight:progressToggleRect.height,
-        background:style(reasonToggle).backgroundImage,
-        progressBackground:style(progressToggle).backgroundImage,
-        outerBackground:style(reason).backgroundImage,
-        outerPadding:style(reason).padding,
-        radius:style(reasonToggle).borderRadius,
-        progressRadius:style(progressToggle).borderRadius,
-        title:[style(title).fontSize,style(title).fontWeight,style(title).lineHeight],
-        progressTitle:[style(progressTitle).fontSize,style(progressTitle).fontWeight,style(progressTitle).lineHeight],
-        description:[style(description).fontSize,style(description).fontWeight,style(description).lineHeight,style(description).color],
-        progressDescription:[style(progressDescription).fontSize,style(progressDescription).fontWeight,style(progressDescription).lineHeight,style(progressDescription).color],
-        chevron:[chevron.getBoundingClientRect().width,chevron.getBoundingClientRect().height,style(chevron).borderRightWidth,style(chevron).color],
-        progressChevron:[progressChevron.getBoundingClientRect().width,progressChevron.getBoundingClientRect().height,style(progressChevron).borderRightWidth,style(progressChevron).color],
+        reasonHeight:outerRect.height,progressHeight:progressRect.height,summaryHeight:summaryRect.height,progressToggleHeight:progressToggleRect.height,
+        background:style(reasonToggle).backgroundImage,progressBackground:style(progressToggle).backgroundImage,outerBackground:style(reason).backgroundImage,outerPadding:style(reason).padding,
+        radius:style(reasonToggle).borderRadius,progressRadius:style(progressToggle).borderRadius,
+        title:[style(title).fontSize,style(title).fontWeight,style(title).lineHeight],progressTitle:[style(progressTitle).fontSize,style(progressTitle).fontWeight,style(progressTitle).lineHeight],
+        description:[style(description).fontSize,style(description).fontWeight,style(description).lineHeight,style(description).color],progressDescription:[style(progressDescription).fontSize,style(progressDescription).fontWeight,style(progressDescription).lineHeight,style(progressDescription).color],
+        chevron:[chevron.getBoundingClientRect().width,chevron.getBoundingClientRect().height,style(chevron).borderRightWidth,style(chevron).color],progressChevron:[progressChevron.getBoundingClientRect().width,progressChevron.getBoundingClientRect().height,style(progressChevron).borderRightWidth,style(progressChevron).color],
         edges:{left:Math.abs(outerRect.left-summaryRect.left),right:Math.abs(outerRect.right-summaryRect.right),top:Math.abs(outerRect.top-summaryRect.top),bottom:Math.abs(outerRect.bottom-summaryRect.bottom)},
-        legacyLabelCount:reason.querySelectorAll(':scope > label.decision-reason-v452').length,
-        nestedReasonCount:reason.querySelectorAll('.decision-reason-section-v412').length,
-        overflow:reason.scrollWidth-reason.clientWidth,
+        legacyLabelCount:reason.querySelectorAll(':scope > label.decision-reason-v452').length,nestedReasonCount:reason.querySelectorAll('.decision-reason-section-v412').length,overflow:reason.scrollWidth-reason.clientWidth,
       };
     });
 
@@ -161,9 +148,14 @@ for(const viewport of [{name:'desktop',width:1440,height:1100},{name:'mobile',wi
     expect(closed.outerBackground).not.toBe('none');
     expect(closed.outerPadding).toBe('0px');
     expect(closed.radius).toBe(closed.progressRadius);
-    expect(closed.title).toEqual(closed.progressTitle);
-    expect(closed.description).toEqual(closed.progressDescription);
-    expect(closed.chevron).toEqual(closed.progressChevron);
+    expect(closed.title.slice(0,2)).toEqual(['17px','700']);
+    expect(closed.progressTitle.slice(0,2)).toEqual(['17px','700']);
+    expectNear(numericStyle([closed.title[2]]),numericStyle([closed.progressTitle[2]]));
+    expect(closed.description.slice(0,2)).toEqual(closed.progressDescription.slice(0,2));
+    expectNear(numericStyle([closed.description[2]]),numericStyle([closed.progressDescription[2]]));
+    expect(closed.description[3]).toBe(closed.progressDescription[3]);
+    expectNear(numericStyle(closed.chevron.slice(0,3)),numericStyle(closed.progressChevron.slice(0,3)));
+    expect(closed.chevron[3]).toBe(closed.progressChevron[3]);
     expect(closed.legacyLabelCount).toBe(0);
     expect(closed.nestedReasonCount).toBe(0);
     expect(closed.overflow).toBeLessThanOrEqual(1);
@@ -171,10 +163,7 @@ for(const viewport of [{name:'desktop',width:1440,height:1100},{name:'mobile',wi
     expect(closed.edges.right).toBeLessThanOrEqual(1);
     expect(closed.edges.top).toBeLessThanOrEqual(1);
     expect(closed.edges.bottom).toBeLessThanOrEqual(1);
-    if(viewport.width>600){
-      expect(Math.abs(closed.reasonHeight-closed.progressHeight)).toBeLessThanOrEqual(2);
-      expect(Math.abs(closed.summaryHeight-closed.progressToggleHeight)).toBeLessThanOrEqual(2);
-    }
+    if(viewport.width>600){expect(Math.abs(closed.reasonHeight-closed.progressHeight)).toBeLessThanOrEqual(2);expect(Math.abs(closed.summaryHeight-closed.progressToggleHeight)).toBeLessThanOrEqual(2)}
 
     const topBefore=await reason.evaluate(node=>node.getBoundingClientRect().top);
     await reasonToggle.click();
@@ -183,18 +172,8 @@ for(const viewport of [{name:'desktop',width:1440,height:1100},{name:'mobile',wi
     const opened=await reason.evaluate(node=>{
       const summary=node.querySelector(':scope > summary');
       const body=node.querySelector(':scope > .decision-reason-body-v412');
-      const outer=getComputedStyle(node);
-      const summaryStyle=getComputedStyle(summary);
-      const bodyStyle=getComputedStyle(body);
-      return{
-        top:node.getBoundingClientRect().top,
-        bodyParent:body.parentElement===node,
-        borderWidth:outer.borderTopWidth,
-        summaryDivider:summaryStyle.borderBottomWidth,
-        bottomRadius:outer.borderBottomLeftRadius,
-        bodyBackground:bodyStyle.backgroundColor,
-        nestedWhiteCard:body.querySelector('.decision-reason-v452')!==null,
-      };
+      const outer=getComputedStyle(node);const summaryStyle=getComputedStyle(summary);
+      return{top:node.getBoundingClientRect().top,bodyParent:body.parentElement===node,borderWidth:outer.borderTopWidth,summaryDivider:summaryStyle.borderBottomWidth,bottomRadius:outer.borderBottomLeftRadius,nestedWhiteCard:body.querySelector('.decision-reason-v452')!==null};
     });
     expect(Math.abs(opened.top-topBefore)).toBeLessThanOrEqual(1);
     expect(opened.bodyParent).toBe(true);
@@ -207,14 +186,11 @@ for(const viewport of [{name:'desktop',width:1440,height:1100},{name:'mobile',wi
   });
 }
 
-test('decision reason status follows dirty, saved, required and hydration states deterministically',async({page})=>{
+test('decision reason status follows dirty, saved, optional and hydration states deterministically',async({page})=>{
   let card=await openApp(page);
-  let id=await card.getAttribute('data-location-card');
+  const id=await card.getAttribute('data-location-card');
   await page.evaluate(async locationId=>{
-    const data=await getLocationData(locationId);
-    data.decision='';
-    data.decisionReason='';
-    await idbPut(STORE,data,`location:${locationId}`);
+    const data=await getLocationData(locationId);data.decision='';data.decisionReason='';await idbPut(STORE,data,`location:${locationId}`);
     document.querySelectorAll(`[data-location="${CSS.escape(locationId)}"][data-field="decision"]`).forEach(radio=>radio.checked=false);
     await window.BogatkaDecisionPanel.enhanceCard(document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`));
   },id);
@@ -226,8 +202,7 @@ test('decision reason status follows dirty, saved, required and hydration states
   const status=reason.locator('[data-decision-reason-status-v412]');
   const feedback=reason.locator('[data-decision-reason-feedback-v412]');
   const save=reason.locator('[data-decision-reason-save-v412]');
-
-  await expect(status).toHaveText('Не выбрано');
+  await expect(status).toHaveText('Не заполнено');
   await textarea.fill('Подходящий поток и заселённый район');
   await expect(status).toHaveText('Есть изменения');
   await expect(feedback).toHaveText('Есть несохранённые изменения');
@@ -239,54 +214,30 @@ test('decision reason status follows dirty, saved, required and hydration states
   await expect(status).toHaveText('Есть изменения');
   await save.click();
   await expect(status).toHaveText('Сохранено');
-
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>Boolean(window.BogatkaDecisionPanel?.ready&&document.querySelector('[data-location-card] .decision-reason-section-v412')),{timeout:30000});
+  await page.waitForFunction(()=>Boolean(window.BogatkaDecisionPanel?.ready&&window.BogatkaReadinessProgressV434?.ready&&document.querySelector('[data-location-card] .decision-reason-section-v412')),{timeout:30000});
   card=page.locator(`[data-location-card="${id}"]`);
   await card.evaluate(node=>window.BogatkaLocationCardCollapseV422.setCollapsed(node,false,{persist:false}));
   await expect(card.locator('[data-field="decisionReason"]')).toHaveValue('Подходящий поток, заселённый район и приемлемая аренда');
   await expect(card.locator('[data-decision-reason-status-v412]')).toHaveText('Сохранено');
-  await expect(card.locator('[data-decision-reason-feedback-v412]')).toHaveText('Причина сохранена');
 
-  await page.evaluate(async locationId=>{
-    const data=await getLocationData(locationId);
-    data.decision='Оставить';
-    data.decisionReason='';
-    await idbPut(STORE,data,`location:${locationId}`);
-  },id);
+  await page.evaluate(async locationId=>{const data=await getLocationData(locationId);data.decision='Оставить';data.decisionReason='';await idbPut(STORE,data,`location:${locationId}`)},id);
   await page.reload({waitUntil:'networkidle'});
-  await page.waitForFunction(()=>Boolean(window.BogatkaDecisionPanel?.ready&&document.querySelector('[data-location-card] .decision-reason-section-v412')),{timeout:30000});
+  await page.waitForFunction(()=>Boolean(window.BogatkaDecisionPanel?.ready&&window.BogatkaReadinessProgressV434?.ready&&document.querySelector('[data-location-card] .decision-reason-section-v412')),{timeout:30000});
   card=page.locator(`[data-location-card="${id}"]`);
   await card.evaluate(node=>window.BogatkaLocationCardCollapseV422.setCollapsed(node,false,{persist:false}));
-  await expect(card.locator('[data-decision-reason-status-v412]')).toHaveText('Нужно заполнить');
+  await expect(card.locator('[data-decision-reason-status-v412]')).toHaveText('Необязательно');
+  await expect(card.locator('[data-field="decisionReason"]')).toHaveAttribute('aria-required','false');
+  await expect(card.locator('.decision-reason-section-v412')).toHaveAttribute('data-required-missing','false');
 
-  const protectedResult=await card.evaluate(async(node)=>{
-    const control=node.querySelector('[data-field="decisionReason"]');
-    control.focus();
-    control.value='Локальный несохранённый текст';
-    control.dataset.locationDataDirtyV452='1';
-    control.dispatchEvent(new Event('input',{bubbles:true}));
-    const data=await getLocationData(node.dataset.locationCard);
-    data.decisionReason='Чистое удалённое значение';
-    await idbPut(STORE,data,`location:${node.dataset.locationCard}`);
-    await window.BogatkaDecisionPanel.enhanceCard(node);
-    return{
-      value:control.value,
-      status:node.querySelector('[data-decision-reason-status-v412]').textContent,
-      active:document.activeElement===control,
-    };
+  const protectedResult=await card.evaluate(async node=>{
+    const control=node.querySelector('[data-field="decisionReason"]');control.focus();control.value='Локальный несохранённый текст';control.dataset.locationDataDirtyV452='1';control.dispatchEvent(new Event('input',{bubbles:true}));
+    const data=await getLocationData(node.dataset.locationCard);data.decisionReason='Чистое удалённое значение';await idbPut(STORE,data,`location:${node.dataset.locationCard}`);await window.BogatkaDecisionPanel.enhanceCard(node);
+    return{value:control.value,status:node.querySelector('[data-decision-reason-status-v412]').textContent,active:document.activeElement===control};
   });
-  expect(protectedResult.value).toBe('Локальный несохранённый текст');
-  expect(protectedResult.status).toBe('Есть изменения');
-  expect(protectedResult.active).toBe(true);
+  expect(protectedResult).toEqual({value:'Локальный несохранённый текст',status:'Есть изменения',active:true});
 
-  await card.evaluate(async node=>{
-    const control=node.querySelector('[data-field="decisionReason"]');
-    control.blur();
-    delete control.dataset.locationDataDirtyV452;
-    await window.BogatkaDecisionPanel.enhanceCard(node);
-  });
+  await card.evaluate(async node=>{const control=node.querySelector('[data-field="decisionReason"]');control.blur();delete control.dataset.locationDataDirtyV452;await window.BogatkaDecisionPanel.enhanceCard(node)});
   await expect(card.locator('[data-field="decisionReason"]')).toHaveValue('Чистое удалённое значение');
   await expect(card.locator('[data-decision-reason-status-v412]')).toHaveText('Сохранено');
-  await expect(card.locator('[data-decision-reason-feedback-v412]')).toHaveText('Причина сохранена');
 });

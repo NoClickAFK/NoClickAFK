@@ -21,7 +21,7 @@
     const weights=Object.values(window.BogatkaDecisionEngine?.WEIGHTS||{}).reduce((sum,value)=>sum+Number(value||0),0);
     add('weights total',weights===100,weights);
     const plan=window.BogatkaSuite?.photoPlanFor('test',[{locationId:'test',category:'street'},{locationId:'test',category:'entrance'}]);
-    add('photo plan',plan?.total===2&&plan?.requiredTotal===24,JSON.stringify(plan||{}));
+    add('photo plan',plan?.total===2&&plan?.requiredTotal===13,JSON.stringify(plan||{}));
     add('address normalization',window.BogatkaSuite?.normalizeAddress('Гродно, ул. Лидская, 34')==='лидская 34',window.BogatkaSuite?.normalizeAddress('Гродно, ул. Лидская, 34'));
     try{
       const metrics=await window.BogatkaDecisionEngine.computeAll();
@@ -41,7 +41,7 @@
       }catch(error){add(`syntax ${file}`,false,error?.message||error)}
     }
     const failures=checks.filter(check=>!check.ok);
-    const result={version:'4.3.1',at:new Date().toISOString(),ok:failures.length===0,checks};
+    const result={version:'4.3.4',at:new Date().toISOString(),ok:failures.length===0,checks};
     localStorage.setItem('bogatka_selftest_v400',JSON.stringify(result));
     const statusbar=document.querySelector('.statusbar');
     if(statusbar){

@@ -50,8 +50,7 @@
 .decision-reason-title-v412{overflow-wrap:anywhere}
 .decision-reason-description-v412{overflow-wrap:anywhere}
 .decision-reason-status-v412{justify-self:end;max-width:100%}
-.decision-reason-status-v412[data-state="empty"]{background:#edf3ef}
-.decision-reason-status-v412[data-state="required"]{background:#fff1f1}
+.decision-reason-status-v412[data-state="empty"],.decision-reason-status-v412[data-state="optional"]{background:#edf3ef;color:#52675c}
 .decision-reason-status-v412[data-state="dirty"]{background:#fff3d4}
 .decision-reason-status-v412[data-state="saved"]{background:#edf8f1}
 .decision-reason-chevron-v412{width:11px;height:11px;justify-self:center;box-sizing:border-box;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transform-origin:center;transition:transform .18s ease}.decision-reason-section-v412[open] .decision-reason-chevron-v412{transform:rotate(225deg)}
@@ -72,8 +71,6 @@
 .decision-reason-actions-v412{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0}
 .decision-reason-save-v412{width:auto!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:7px 10px!important;border-radius:9px!important;font-size:12px!important;font-weight:700!important;line-height:1!important;white-space:nowrap!important}
 .decision-reason-actions-v412 small{color:#68766e;font-size:11px;line-height:1.35}.decision-reason-actions-v412 small[data-state="dirty"],.decision-reason-actions-v412 small[data-state="saving"]{color:#745009}.decision-reason-actions-v412 small[data-state="saved"]{color:#236646}.decision-reason-actions-v412 small[data-state="error"]{color:#983f3f;font-weight:700}
-.decision-reason-section-v412[data-required-missing="true"]{border-color:#d8a2a2}
-.decision-reason-section-v412[data-required-missing="true"][open]>summary{border-bottom-color:#d8a2a2}
 
 @media(max-width:900px){.decision.decision-panel-v412{grid-template-columns:1fr}.decision-actions-v412{justify-content:flex-start;flex-wrap:wrap}}
 @media(max-width:600px){
