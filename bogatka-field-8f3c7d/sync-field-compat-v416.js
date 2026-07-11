@@ -3,6 +3,7 @@
 
   const VERSION='4.1.6';
   const ARCHIVE_SCRIPT='./archive-state-v436.js';
+  const ARCHIVE_READY_TIMEOUT_MS=30000;
   const OBJECT_TYPE_ALIASES=new Map([
     ['Стрит-ритейл','Стрит-ритейл'],
     ['Стрит ритейл','Стрит-ритейл'],
@@ -14,6 +15,7 @@
   let attempts=0;
   let archiveGateInstalled=false;
   let archiveBootstrapAttempts=0;
+  let archiveBootstrapTimer=null;
 
   function cloneForm(value){
     if(!value||typeof value!=='object'||Array.isArray(value))return {};
@@ -45,12 +47,13 @@
     return Array.isArray(rows)?rows.map(hydrateRow):[];
   }
 
-  function waitForArchiveReady(timeoutMs=10000){
+  function waitForArchiveReady(timeoutMs=ARCHIVE_READY_TIMEOUT_MS){
     if(window.BogatkaArchiveStateV436?.ready)return Promise.resolve(window.BogatkaArchiveStateV436);
     const started=Date.now();
     return new Promise((resolve,reject)=>{
       const check=()=>{
         if(window.BogatkaArchiveStateV436?.ready)return resolve(window.BogatkaArchiveStateV436);
+        ensureArchiveScript();
         if(Date.now()-started>=timeoutMs)return reject(new Error('Archive synchronization compatibility did not become ready before cloud sync.'));
         setTimeout(check,25);
       };
@@ -92,8 +95,13 @@
     archiveBootstrapAttempts+=1;
     const gateReady=installArchiveGate();
     const scriptReady=gateReady&&ensureArchiveScript();
-    if(gateReady&&scriptReady){api.ready=true;return}
-    if(archiveBootstrapAttempts<400)setTimeout(bootstrapArchiveState,25);
+    if(gateReady&&scriptReady){
+      clearTimeout(archiveBootstrapTimer);
+      api.ready=true;
+      return;
+    }
+    const delay=Math.min(250,25+Math.floor(archiveBootstrapAttempts/40)*25);
+    archiveBootstrapTimer=setTimeout(bootstrapArchiveState,delay);
   }
 
   function wrapFetch(){
@@ -136,6 +144,8 @@
   const api=window.BogatkaSyncFieldCompatV416={
     version:VERSION,
     ready:false,
+    archiveBootstrapPersistent:true,
+    archiveReadyTimeoutMs:ARCHIVE_READY_TIMEOUT_MS,
     hydrateRow,
     hydrateRows,
     normalizeObjectType,
@@ -154,6 +164,7 @@
       ensureArchiveScript,
       get archiveGateInstalled(){return archiveGateInstalled},
       get archiveBootstrapAttempts(){return archiveBootstrapAttempts},
+      get archiveReadyTimeoutMs(){return ARCHIVE_READY_TIMEOUT_MS},
     },
   };
 
