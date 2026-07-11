@@ -150,3 +150,41 @@ test('archive state write runs after a queued same-location edit and preserves t
   expect(result.queuedLocationWrites).toBeGreaterThanOrEqual(1);
   evidence('10-queued-edit-preserved.json',result);
 });
+
+test('a newer local restore intent survives a stale archived cloud confirmation',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async({archivedAt})=>{
+    const id='archive-intent-race';
+    const expectedArchived={kind:'archived',known:true,value:archivedAt};
+    const item={id,title:'Archive intent race fixture',address:'Гродно',custom:true,archivedAt:null};
+    locations=[item];
+    await window.BogatkaSyncState.rawPut()(STORE,{contact:'B',archivedAt:null},`location:${id}`);
+    await window.BogatkaSyncState.rawPut()(STORE,locations,'meta:locations');
+    const syncState={dirtyLocations:[]};
+
+    const writeResult=await window.BogatkaArchiveStateV436._test.writeLocalState(
+      id,
+      item,
+      expectedArchived,
+      {expectedPreviousState:expectedArchived,syncState},
+    );
+
+    const stored=await getLocationData(id);
+    return{
+      stored,
+      metaArchivedAt:item.archivedAt,
+      selectedState:writeResult.result.state,
+      inFlightArchiveChanged:writeResult.result.inFlightArchiveChanged,
+      dirtyLocations:syncState.dirtyLocations,
+      inFlightArchiveIntents:window.BogatkaArchiveStateV436.diagnostics.inFlightArchiveIntents,
+    };
+  },{archivedAt:ARCHIVED_AT});
+
+  expect(result.stored).toMatchObject({contact:'B',archivedAt:null});
+  expect(result.metaArchivedAt).toBeNull();
+  expect(result.selectedState).toEqual({kind:'active',known:true,value:null});
+  expect(result.inFlightArchiveChanged).toBe(true);
+  expect(result.dirtyLocations).toEqual(['archive-intent-race']);
+  expect(result.inFlightArchiveIntents).toBeGreaterThanOrEqual(1);
+  evidence('11-newer-archive-intent-preserved.json',result);
+});
