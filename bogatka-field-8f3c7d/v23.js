@@ -4,7 +4,7 @@ const BOGATKA_STATIC_STYLE_MANIFEST=Object.freeze([
   'location-panels-v419.css','location-card-collapse-v422.css','status-next-task-v447.css','card-progress-v448.css','quick-checklist-v451.css','location-data-v452.css',
   'traffic-competitors-v453.css','launch-gate-v454.css','opening-project-v455.css',
 ]);
-const BOGATKA_VISIBLE_VERSION='4.3.4';
+const BOGATKA_VISIBLE_VERSION='4.3.5';
 
 function verifyStaticStylesheetManifest(){
   const loaded=new Set([...document.head.querySelectorAll('link[rel="stylesheet"]')].map(link=>new URL(link.href,location.href).pathname.split('/').pop()));
@@ -136,7 +136,7 @@ function installFreshEditorSelectionV463(){
         if(active!==node&&active!==document.body&&active!==document.documentElement)return;
         if(active!==node)node.focus({preventScroll:true});
         if(latest.start!==null&&typeof node.setSelectionRange==='function'){
-          try{node.setSelectionRange(latest.start,latest.end,latest.direction)}catch(_){ }
+          try{node.setSelectionRange(latest.start,latest.end,latest.direction)}catch(_){}
         }
       }
     };
