@@ -15,6 +15,7 @@ async function openApp(page){
   await page.goto(APP_URL,{waitUntil:'load'});
   await page.waitForFunction(()=>window.BogatkaSyncMerge?.transportVersion==='4.3.5');
   await page.waitForFunction(()=>window.BogatkaSyncCompatibility?.version==='4.3.5');
+  await page.waitForFunction(()=>window.BogatkaFieldIntegrityV416?.ready===true);
   await page.waitForFunction(()=>typeof cloudSyncing==='undefined'||cloudSyncing===false);
 }
 
@@ -175,4 +176,119 @@ test('in-flight same-location edit survives and converges in one coalesced follo
   expect(result.diagnostics.realConflicts).toBe(0);
 
   writeEvidence('11-inflight-local-edit-preserved.json',result);
+});
+
+test('cloud result persistence is serialized with a queued same-location user save',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async()=>{
+    const api=window.BogatkaSyncCompatibility._test;
+    const State=window.BogatkaSyncState;
+    const Integrity=window.BogatkaFieldIntegrityV416;
+    const id='indexeddb-queue-race-v435';
+    const key=`location:${id}`;
+    const baseline={
+      contact:'A',stable:'UNCHANGED',updatedAt:'2026-07-11T11:00:00.000Z',
+      cloudId:'remote-indexeddb-race',cloudRevision:1,cloudUpdatedAt:'2026-07-11T11:00:00.000Z',
+    };
+    const incoming={contact:'A',stable:'UNCHANGED',updatedAt:'2026-07-11T11:00:00.000Z'};
+    const row={
+      id:'remote-indexeddb-race',client_id:id,revision:2,
+      updated_at:'2026-07-11T11:00:02.000Z',form_data:structuredClone(incoming),
+    };
+
+    cloudProjectId='project-indexeddb-race-v435';
+    cloudSession=null;
+    cloudWriteState({
+      dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},deletedLocations:{},
+      knownLocationIds:[id],knownPhotoIds:[],stateDirty:false,metaDirty:false,
+    });
+    await State.rawPut()(STORE,baseline,key);
+
+    const originalRawPutFactory=State.rawPut;
+    const originalRawPut=originalRawPutFactory();
+    let releaseCloudWrite;
+    let cloudWriteReached;
+    const cloudWriteGate=new Promise(resolve=>{releaseCloudWrite=resolve});
+    const cloudWriteReachedGate=new Promise(resolve=>{cloudWriteReached=resolve});
+    let intercepted=false;
+    let userSaveCompleted=false;
+    let userSaveCompletedBeforeRelease=false;
+    const order=[];
+
+    State.rawPut=()=>async(store,value,recordKey)=>{
+      if(!intercepted&&store===STORE&&recordKey===key){
+        intercepted=true;
+        order.push('cloud-write-reached');
+        cloudWriteReached();
+        await cloudWriteGate;
+        order.push('cloud-write-released');
+      }
+      return originalRawPut(store,value,recordKey);
+    };
+
+    try{
+      const cloudSave=api.saveLocal(id,incoming,row,baseline);
+      await cloudWriteReachedGate;
+      const queuedUserSave=Integrity.enqueueLocation(id,async()=>{
+        order.push('user-save-started');
+        const current=await getLocationData(id);
+        await originalRawPut(STORE,{
+          ...current,
+          contact:'B',
+          updatedAt:'2026-07-11T11:00:03.000Z',
+        },key);
+        const state=cloudReadState();
+        if(!state.dirtyLocations.includes(id))state.dirtyLocations.push(id);
+        cloudWriteState(state);
+        userSaveCompleted=true;
+        order.push('user-save-completed');
+      });
+
+      await new Promise(resolve=>setTimeout(resolve,60));
+      userSaveCompletedBeforeRelease=userSaveCompleted;
+      const pendingWhileBlocked=[...Integrity.pendingLocations];
+      releaseCloudWrite();
+      const [cloudSaveResult]=await Promise.all([cloudSave,queuedUserSave]);
+      const stored=await getLocationData(id);
+      const state=cloudReadState();
+      return {
+        cloudSaveResult,
+        userSaveCompletedBeforeRelease,
+        userSaveCompleted,
+        pendingWhileBlocked,
+        order,
+        stored:{
+          contact:stored.contact,
+          stable:stored.stable,
+          cloudId:stored.cloudId,
+          cloudRevision:stored.cloudRevision,
+          cloudUpdatedAt:stored.cloudUpdatedAt,
+        },
+        dirtyLocations:state.dirtyLocations||[],
+      };
+    }finally{
+      State.rawPut=originalRawPutFactory;
+    }
+  });
+
+  expect(result.cloudSaveResult).toEqual({saved:true,inFlightChanged:false});
+  expect(result.userSaveCompletedBeforeRelease).toBe(false);
+  expect(result.userSaveCompleted).toBe(true);
+  expect(result.pendingWhileBlocked).toContain('indexeddb-queue-race-v435');
+  expect(result.order).toEqual([
+    'cloud-write-reached',
+    'cloud-write-released',
+    'user-save-started',
+    'user-save-completed',
+  ]);
+  expect(result.stored).toEqual({
+    contact:'B',
+    stable:'UNCHANGED',
+    cloudId:'remote-indexeddb-race',
+    cloudRevision:2,
+    cloudUpdatedAt:'2026-07-11T11:00:02.000Z',
+  });
+  expect(result.dirtyLocations).toContain('indexeddb-queue-race-v435');
+
+  writeEvidence('12-indexeddb-queue-race-preserved.json',result);
 });
