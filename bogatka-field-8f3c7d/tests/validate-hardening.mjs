@@ -19,7 +19,7 @@ const verify=(file,markers)=>{
 verify('sync-runtime-v412.js',['conditionalUpdate','three-way-field-merge-with-revision-checked-location-writes','BogatkaSyncIntegrity']);
 verify('sync-state-v412.js',['guardedIdbPut','readBase','writeBase']);
 verify('sync-merge-v412.js',['mergeIdArray','deletedTaskIds','preferLocal','transportNormalize','canonical']);
-verify('sync-ui-v412.js',['persistLocation','noOpUpdatesAccepted','revisionRebases','coalescedRequests','singleFlightCloudSync','data-cloud-retry-sync']);
+verify('sync-ui-v412.js',['persistLocation','noOpUpdatesAccepted','revisionRebases','coalescedRequests','singleFlightCloudSync','cloudRetrySync']);
 verify('cloud-stability-v401.js',['event-driven-sync-with-no-idle-network-loop','hasPendingLocalChanges','eventDrivenPushLocations']);
 verify('field-integrity-v416.js',['one-location-one-ordered-save-queue','BogatkaFieldIntegrityV416']);
 verify('object-type-normalize-v416.js',['pendingEmptyResets','persistIntentionalEmpty','handleObjectTypeChange']);
