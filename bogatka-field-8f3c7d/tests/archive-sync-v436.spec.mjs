@@ -87,7 +87,7 @@ test('production-style lidskaya-34 converges with one PATCH and one verification
     const payload={project_id:fixture.project_id,client_id:fixture.client_id,title:fixture.title,address:fixture.address,note:null,status:fixture.status,object_type:fixture.object_type,form_data:{archivedAt:canonicalArchive},sort_order:0,archived_at:canonicalArchive,updated_by:'fixture-user'};
     const initial={id:fixture.client_id,item:{id:fixture.client_id,title:fixture.title},index:0,row:fixture,base:null,local:payload.form_data,merged:payload.form_data,payload,dirty:true,needsPush:true};
     const calls={patch:0,get:0,rebuild:0,saveLocal:0,saveBase:0};let savedBase=null;
-    const returned=await api.persistLocation(initial,{dirtyLocations:[fixture.client_id]},{
+    const returned=await api.persistLocation(initial,{dirtyLocations:[fixture.client_id]}, {
       isPending:()=>false,
       conditionalUpdate:async()=>{calls.patch++;return null},
       upsert:async()=>{throw new Error('upsert not expected')},
@@ -114,21 +114,29 @@ test('explicit restore remains active and sends archived_at null until confirmat
     await window.BogatkaSuite.restoreArchivedLocation(fixture.client_id);
     const item=locations.find(entry=>entry.id===fixture.client_id),data=await getLocationData(fixture.client_id);
     const state=cloudReadState();state.dirtyLocations=[fixture.client_id];state.metaDirty=true;cloudWriteState(state);
+    const dirtyBeforeConfirmation=cloudReadState().dirtyLocations.includes(fixture.client_id);
     const context=await window.BogatkaSyncCompatibility._test.buildContext(item,0,fixture,state);
     const calls=[];
-    const activeRow={...fixture,form_data:{...context.payload.form_data,archivedAt:null},archived_at:null,revision:7404,updated_at:'2026-07-11T13:01:00.000Z'};
+    const activeRow={...fixture,...context.payload,id:fixture.id,form_data:{...context.payload.form_data,archivedAt:null},archived_at:null,revision:7404,updated_at:'2026-07-11T13:01:00.000Z'};
     await window.BogatkaSyncCompatibility._test.persistLocation(context,state,{
-      isPending:()=>false,conditionalUpdate:async(_row,payload)=>{calls.push({stage:'patch',archived_at:payload.archived_at,formArchivedAt:payload.form_data.archivedAt});return activeRow},
-      upsert:async()=>{throw new Error('upsert not expected')},fetchRow:async()=>{calls.push({stage:'get'});return activeRow},rebuild:async()=>{throw new Error('rebuild not expected')},
-      saveLocal:async()=>calls.push({stage:'saveLocal'}),saveBase:async()=>calls.push({stage:'saveBase'}),
+      isPending:()=>false,
+      conditionalUpdate:async(_row,payload)=>{calls.push({stage:'patch',archived_at:payload.archived_at,formArchivedAt:payload.form_data.archivedAt});return activeRow},
+      upsert:async()=>{throw new Error('upsert not expected')},
+      fetchRow:async()=>{calls.push({stage:'get'});return activeRow},
+      rebuild:async()=>{calls.push({stage:'rebuild'});throw new Error('rebuild not expected')},
+      saveLocal:async()=>{calls.push({stage:'saveLocal'});await window.BogatkaArchiveStateV436._test.writeLocalState(fixture.client_id,item,window.BogatkaArchiveStateV436.stateFromRow(activeRow),{writeBaseRow:activeRow})},
+      saveBase:async()=>calls.push({stage:'saveBase'}),
     });
+    const confirmed=cloudReadState();confirmed.dirtyLocations=confirmed.dirtyLocations.filter(id=>id!==fixture.client_id);confirmed.metaDirty=false;cloudWriteState(confirmed);
+    const finalData=await getLocationData(fixture.client_id),finalBase=await window.BogatkaSyncState.readBase(fixture.client_id);
     return{
       ownData:Object.hasOwn(data,'archivedAt'),dataArchivedAt:data.archivedAt,ownMeta:Object.hasOwn(item,'archivedAt'),metaArchivedAt:item.archivedAt,
-      dirtyBeforeConfirmation:cloudReadState().dirtyLocations.includes(fixture.client_id),payloadArchivedAt:context.payload.archived_at,
-      formArchivedAt:context.payload.form_data.archivedAt,needsPush:context.needsPush,calls,
+      dirtyBeforeConfirmation,payloadArchivedAt:context.payload.archived_at,formArchivedAt:context.payload.form_data.archivedAt,needsPush:context.needsPush,calls,
+      finalDataArchivedAt:finalData.archivedAt,finalMetaArchivedAt:item.archivedAt,finalBaseFormArchivedAt:finalBase.formData.archivedAt,finalBaseMetaArchivedAt:finalBase.meta.archivedAt,
+      dirtyAfterConfirmation:cloudReadState().dirtyLocations.includes(fixture.client_id),
     };
   },{fixture});
-  expect(result).toMatchObject({ownData:true,dataArchivedAt:null,ownMeta:true,metaArchivedAt:null,dirtyBeforeConfirmation:true,payloadArchivedAt:null,formArchivedAt:null,needsPush:true});
+  expect(result).toMatchObject({ownData:true,dataArchivedAt:null,ownMeta:true,metaArchivedAt:null,dirtyBeforeConfirmation:true,payloadArchivedAt:null,formArchivedAt:null,needsPush:true,finalDataArchivedAt:null,finalMetaArchivedAt:null,finalBaseFormArchivedAt:null,finalBaseMetaArchivedAt:null,dirtyAfterConfirmation:false});
   expect(result.calls).toEqual([{stage:'patch',archived_at:null,formArchivedAt:null},{stage:'saveLocal'},{stage:'saveBase'}]);
   evidence('03-explicit-restore-null-payload.json',result);
 });
@@ -142,12 +150,12 @@ test('explicit archive creates one canonical timestamp and the second sync is a 
     const item=locations.find(entry=>entry.id===id),data=await getLocationData(id);
     const state=cloudReadState();state.dirtyLocations=[id];state.metaDirty=true;cloudWriteState(state);
     const first=await window.BogatkaSyncCompatibility._test.buildContext(item,0,active,state);
-    const archivedRow={...active,form_data:{...first.payload.form_data},archived_at:first.payload.archived_at,revision:21,updated_at:'2026-07-11T13:02:00.000Z'};
+    const archivedRow={...active,...first.payload,id:active.id,form_data:{...first.payload.form_data},archived_at:first.payload.archived_at,revision:21,updated_at:'2026-07-11T13:02:00.000Z'};
     await window.BogatkaArchiveStateV436._test.writeLocalState(id,item,window.BogatkaArchiveStateV436.stateFromRow(archivedRow),{writeBaseRow:archivedRow});
     const second=await window.BogatkaSyncCompatibility._test.buildContext(item,0,archivedRow,{...state,dirtyLocations:[],metaDirty:false});
-    return{dataArchivedAt:data.archivedAt,itemArchivedAt:item.archivedAt,payloadArchivedAt:first.payload.archived_at,formArchivedAt:first.payload.form_data.archivedAt,canonical:window.BogatkaArchiveStateV436.normalizeArchiveTime(first.payload.archived_at),firstNeedsPush:first.needsPush,secondNeedsPush:second.needsPush};
+    return{dataArchivedAt:data.archivedAt,itemArchivedAt:item.archivedAt,payloadArchivedAt:first.payload.archived_at,formArchivedAt:first.payload.form_data.archivedAt,canonical:window.BogatkaArchiveStateV436.normalizeArchiveTime(first.payload.archived_at),firstNeedsPush:first.needsPush,secondNeedsPush:second.needsPush,secondDifferences:window.BogatkaSyncCompatibility._test.differencePaths(window.BogatkaSyncCompatibility._test.comparable(second.payload),window.BogatkaSyncCompatibility._test.comparable(archivedRow))};
   },{active});
-  expect(result.firstNeedsPush).toBe(true);expect(result.secondNeedsPush).toBe(false);
+  expect(result.firstNeedsPush).toBe(true);expect(result.secondNeedsPush).toBe(false);expect(result.secondDifferences).toEqual([]);
   expect(result.dataArchivedAt).toBe(result.itemArchivedAt);expect(result.payloadArchivedAt).toBe(result.formArchivedAt);expect(result.payloadArchivedAt).toBe(result.canonical);
   evidence('04-explicit-archive-canonical-timestamp.json',result);
 });
@@ -157,6 +165,7 @@ test('remote archive applies once without active/archive duplication and legacy 
   const remoteFixture=remoteRow({client_id:'remote-archive-fixture',id:'remote-archive-row',title:'Удалённо архивированная локация'});
   await installFixture(page,{id:'remote-archive-fixture',archivedAt:null,dirty:false,baseArchivedAt:null});
   const remoteResult=await page.evaluate(async({remoteFixture})=>{
+    cloudSession={user:{id:'fixture-user'}};cloudProjectId=remoteFixture.project_id;cloudRole='owner';
     const item=locations[0];item.id=remoteFixture.client_id;item.title=remoteFixture.title;item.address=remoteFixture.address;
     const data=await getLocationData('remote-archive-fixture');data.archivedAt=null;await window.BogatkaSyncState.rawPut()(STORE,data,'location:remote-archive-fixture');
     await window.BogatkaSyncState.rawPut()(STORE,locations,'meta:locations');
@@ -173,6 +182,7 @@ test('remote archive applies once without active/archive duplication and legacy 
   const restoreActivity=[{id:'restore-1',at:'2026-07-11T12:30:00.000Z',action:'Локация восстановлена из архива',field:'archivedAt',label:'Архив',to:'Активна'}];
   await installFixture(page,{id:'lidskaya-34',archivedAt:'__ABSENT__',activity:restoreActivity,dirty:false,baseArchivedAt:'__ABSENT__'});
   const legacy=await page.evaluate(async({fixture})=>{
+    cloudSession={user:{id:'fixture-user'}};cloudProjectId=fixture.project_id;cloudRole='owner';
     const state=cloudReadState();state.dirtyLocations=[];state.metaDirty=false;cloudWriteState(state);
     await cloudApplyRemote([fixture],[],null,state);
     const data=await getLocationData(fixture.client_id),item=locations.find(entry=>entry.id===fixture.client_id),storedState=cloudReadState();
