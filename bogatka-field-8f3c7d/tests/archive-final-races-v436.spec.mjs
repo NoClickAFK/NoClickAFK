@@ -141,3 +141,34 @@ test('failed archive bootstrap node is removed and a retry script is created',as
   expect(result.failuresAfter).toBe(result.failuresBefore+1);
   evidence('14-bootstrap-script-retry.json',result);
 });
+
+test('unrelated local edits do not override a remote archive state that differs from the sync base',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(({archivedAt})=>{
+    const Merge=window.BogatkaSyncMerge;
+    const remoteArchive=Merge.merge(
+      {contact:'A',archivedAt:null},
+      {contact:'B',archivedAt:null},
+      {contact:'A',archivedAt},
+      {preferLocal:true},
+    );
+    const remoteRestore=Merge.merge(
+      {contact:'A',archivedAt},
+      {contact:'B',archivedAt},
+      {contact:'A',archivedAt:null},
+      {preferLocal:true},
+    );
+    const explicitLocalRestore=Merge.merge(
+      {contact:'A',archivedAt},
+      {contact:'B',archivedAt:null},
+      {contact:'A',archivedAt},
+      {preferLocal:true},
+    );
+    return{remoteArchive,remoteRestore,explicitLocalRestore};
+  },{archivedAt:ARCHIVED_AT});
+
+  expect(result.remoteArchive).toMatchObject({contact:'B',archivedAt:ARCHIVED_AT});
+  expect(result.remoteRestore).toMatchObject({contact:'B',archivedAt:null});
+  expect(result.explicitLocalRestore).toMatchObject({contact:'B',archivedAt:null});
+  evidence('15-archive-merge-respects-sync-base.json',result);
+});
