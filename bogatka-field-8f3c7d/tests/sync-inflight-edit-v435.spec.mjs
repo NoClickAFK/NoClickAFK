@@ -75,10 +75,13 @@ test('in-flight same-location edit survives and converges in one coalesced follo
     cloudEnsureProject=async()=>{
       passStartDirty.push([...(cloudReadState().dirtyLocations||[])]);
     };
-    cloudFetchRemote=async()=>{
+    const fixtureFetch=async()=>{
       fetchCalls++;
       return {remoteLocations:[structuredClone(currentRemote)],remotePhotos:[],remoteState:null};
     };
+    fixtureFetch.__archiveInclusiveFetchV400=true;
+    fixtureFetch.__archiveFetchSourceKindV436='archive-inclusive';
+    window.BogatkaSyncFieldCompatV416.installFetchAuthority(fixtureFetch,{reason:'v435-inflight-test-fixture'});
     cloudApplyRemote=async()=>{};
     cloudDeleteRemovedLocations=async()=>{};
     cloudDeletePhotos=async()=>{};
