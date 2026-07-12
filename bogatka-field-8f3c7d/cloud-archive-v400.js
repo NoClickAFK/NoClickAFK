@@ -1,16 +1,29 @@
 (function(){
-  if(window.__bogatkaCloudArchiveV400)return;
+  const announceReload=detail=>window.dispatchEvent(new CustomEvent('bogatka:cloud-archive-loaded',{detail}));
+  if(window.__bogatkaCloudArchiveV400){
+    window.BogatkaSyncFieldCompatV416?.installFetchAuthority?.(null,{reason:'cloud-archive-reload'});
+    announceReload({delegatedToV436:Boolean(window.BogatkaArchiveStateV436?.ready),reloaded:true});
+    return;
+  }
   window.__bogatkaCloudArchiveV400=true;
   if(typeof cloudFetchRemote!=='function'||typeof cloudPushLocations!=='function'||typeof cloudApplyRemote!=='function')return;
 
   const baseApplyRemote=cloudApplyRemote;
   const v436Ready=()=>Boolean(window.BogatkaArchiveStateV436?.ready);
-  const announce=delegated=>{
-    window.BogatkaCloudArchive={enabled:true,delegatedToV436:Boolean(delegated),lateLoadProtected:true};
-    window.dispatchEvent(new CustomEvent('bogatka:cloud-archive-loaded',{detail:{delegatedToV436:Boolean(delegated)}}));
+  const announce=(delegated,fetchDelegated)=>{
+    const ownership=window.BogatkaSyncFieldCompatV416?._test?.fetchAuthoritySnapshot?.()||null;
+    window.BogatkaCloudArchive={
+      enabled:true,
+      delegatedToV436:Boolean(delegated),
+      lateLoadProtected:true,
+      fetchDelegated:Boolean(fetchDelegated),
+      fetchAuthorityOwner:ownership?.owner||null,
+      archiveFetchSource:true,
+    };
+    announceReload({delegatedToV436:Boolean(delegated),fetchDelegated:Boolean(fetchDelegated),fetchAuthorityOwner:ownership?.owner||null});
   };
 
-  cloudFetchRemote=async function cloudFetchRemoteWithArchive(){
+  const archiveFetch=async function cloudFetchRemoteWithArchive(){
     const [locationsResult,photosResult,stateResult]=await Promise.all([
       cloudClient.from('locations').select('*').eq('project_id',cloudProjectId).order('sort_order'),
       cloudClient.from('photos').select('*').eq('project_id',cloudProjectId).is('deleted_at',null).order('sort_order'),
@@ -21,12 +34,21 @@
     if(stateResult.error)throw new Error(stateResult.error.message);
     return {remoteLocations:locationsResult.data||[],remotePhotos:photosResult.data||[],remoteState:stateResult.data||null};
   };
-  cloudFetchRemote.__cloudArchiveV400=true;
-  window.cloudFetchRemote=cloudFetchRemote;
+  archiveFetch.__cloudArchiveV400=true;
+  archiveFetch.__archiveInclusiveFetchV400=true;
+
+  const fetchAuthority=window.BogatkaSyncFieldCompatV416?.installFetchAuthority;
+  const fetchDelegated=typeof fetchAuthority==='function'
+    ?fetchAuthority(archiveFetch,{reason:'cloud-archive-v400'})
+    :false;
+  if(!fetchDelegated){
+    cloudFetchRemote=archiveFetch;
+    window.cloudFetchRemote=archiveFetch;
+  }
 
   if(v436Ready()){
     window.BogatkaArchiveStateV436?._test?.ensureRuntimeWrappers?.({force:true});
-    announce(true);
+    announce(true,fetchDelegated);
     return;
   }
 
@@ -110,5 +132,5 @@
 
   window.cloudApplyRemote=cloudApplyRemote;
   window.cloudPushLocations=cloudPushLocations;
-  announce(false);
+  announce(false,fetchDelegated);
 })();
