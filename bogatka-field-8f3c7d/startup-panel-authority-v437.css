@@ -1,8 +1,8 @@
-html:not(.panel-authority-ready-v437):not(.panel-authority-failed-v437) .location-overview-v416{
+html:not(.panel-authority-failed-v437) .location-overview-v416:not(.panel-authority-ready-v437){
   visibility:hidden;
   min-height:156px;
 }
-html:not(.panel-authority-ready-v437):not(.panel-authority-failed-v437) .location-overview-v416::before{
+html:not(.panel-authority-failed-v437) .location-overview-v416:not(.panel-authority-ready-v437)::before{
   content:'Подготавливаем параметры осмотра…';
   visibility:visible;
   display:block;
