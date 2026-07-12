@@ -328,7 +328,7 @@
     fetchAuthorityLastReason=reason;
     const current=liveFetch();
     const exposed=window.BogatkaCloudArchive?.fetchSource;
-    const candidates=[source,exposed,current&&current!==terminalFetch?current:null,fetchSource];
+    const candidates=[source,exposed,current&&current!==terminalFetch?current:null];
     let accepted=false;
     for(const candidate of candidates){
       if(candidate&&setFetchSource(candidate)){accepted=true;break}
