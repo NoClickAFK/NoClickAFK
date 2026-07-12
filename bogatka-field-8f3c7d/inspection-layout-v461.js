@@ -191,7 +191,9 @@ function enhanceAll(){
 function schedule(delay=70){clearTimeout(timer);timer=setTimeout(()=>{try{enhanceAll();}catch(error){console.error(error);}},delay);}
 function install(){
   const root=document.getElementById('locations')||document.body;
-  new MutationObserver(()=>schedule(90)).observe(root,{childList:true,subtree:true});
+  new MutationObserver(records=>{
+    if(records.some(record=>record.addedNodes.length||record.removedNodes.length))schedule(90);
+  }).observe(root,{childList:true});
   schedule(20);
   [250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>schedule(0),delay));
 }
