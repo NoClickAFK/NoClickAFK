@@ -46,7 +46,7 @@ jobs:
         run: |
           CHANGED="$(tr '[:upper:]' '[:lower:]' < /tmp/bogatka-changed-files.txt)"
           : > /tmp/selected-tests.txt
-          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|readiness|progress|recommendation|decision-panel|photo-plan|compare|startup-panel-authority'; then
+          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|readiness|progress|recommendation|decision-panel|startup-panel-authority|photo-plan|compare'; then
             printf '%s\n' \
               bogatka-field-8f3c7d/tests/readiness-progress-v434.spec.mjs \
               bogatka-field-8f3c7d/tests/readiness-safety-v434.spec.mjs \
@@ -78,7 +78,7 @@ jobs:
               bogatka-field-8f3c7d/tests/report-premium-security-v433.spec.js \
               bogatka-field-8f3c7d/tests/report-premium-artifacts-v433.spec.js >> /tmp/selected-tests.txt
           fi
-          if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|archive'; then
+          if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|archive|startup-panel-authority|inspection-layout|location-card-collapse'; then
             echo "sync_changed=true" >> "$GITHUB_OUTPUT"
             printf '%s\n' \
               bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs \
