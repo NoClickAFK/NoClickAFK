@@ -267,11 +267,11 @@
     const root=document.getElementById('locations')||document.body;
     observer=new MutationObserver(records=>{
       diagnostics.observerCallbacks+=1;
-      const structural=records.some(record=>record.type==='childList'&&(record.addedNodes.length||record.removedNodes.length));
+      const structural=records.some(record=>record.addedNodes.length||record.removedNodes.length);
       if(!structural){diagnostics.ignoredSelfMutations+=1;return}
       scheduleCanonicalize();
     });
-    observer.observe(root,{childList:true,subtree:true});
+    observer.observe(root,{childList:true});
   }
 
   function chainHas(fn,marker){
