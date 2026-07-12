@@ -363,7 +363,9 @@
   function install(){
     addReportPatch();
     const root=document.getElementById('locations')||document.body;
-    new MutationObserver(()=>schedule(120)).observe(root,{childList:true,subtree:true});
+    new MutationObserver(records=>{
+      if(records.some(record=>record.addedNodes.length||record.removedNodes.length))schedule(120);
+    }).observe(root,{childList:true});
     schedule(20);
     setTimeout(()=>schedule(0),500);
     setTimeout(()=>schedule(0),1500);
