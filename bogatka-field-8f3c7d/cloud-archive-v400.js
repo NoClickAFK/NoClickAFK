@@ -4,6 +4,11 @@
   if(typeof cloudFetchRemote!=='function'||typeof cloudPushLocations!=='function'||typeof cloudApplyRemote!=='function')return;
 
   const baseApplyRemote=cloudApplyRemote;
+  const v436Ready=()=>Boolean(window.BogatkaArchiveStateV436?.ready);
+  const announce=delegated=>{
+    window.BogatkaCloudArchive={enabled:true,delegatedToV436:Boolean(delegated),lateLoadProtected:true};
+    window.dispatchEvent(new CustomEvent('bogatka:cloud-archive-loaded',{detail:{delegatedToV436:Boolean(delegated)}}));
+  };
 
   cloudFetchRemote=async function cloudFetchRemoteWithArchive(){
     const [locationsResult,photosResult,stateResult]=await Promise.all([
@@ -16,6 +21,14 @@
     if(stateResult.error)throw new Error(stateResult.error.message);
     return {remoteLocations:locationsResult.data||[],remotePhotos:photosResult.data||[],remoteState:stateResult.data||null};
   };
+  cloudFetchRemote.__cloudArchiveV400=true;
+  window.cloudFetchRemote=cloudFetchRemote;
+
+  if(v436Ready()){
+    window.BogatkaArchiveStateV436?._test?.ensureRuntimeWrappers?.({force:true});
+    announce(true);
+    return;
+  }
 
   cloudApplyRemote=async function cloudApplyRemoteWithArchive(remoteLocations,remotePhotos,remoteState,syncState){
     for(const remote of remoteLocations){
@@ -38,6 +51,7 @@
       renderLocations();
     }
   };
+  cloudApplyRemote.__cloudArchiveV400=true;
 
   cloudPushLocations=async function cloudPushLocationsWithArchive(remoteLocations,syncState){
     const remoteByClient=new Map(remoteLocations.map(item=>[item.client_id||item.id,item]));
@@ -92,6 +106,9 @@
     }
     return rows;
   };
+  cloudPushLocations.__cloudArchiveV400=true;
 
-  window.BogatkaCloudArchive={enabled:true};
+  window.cloudApplyRemote=cloudApplyRemote;
+  window.cloudPushLocations=cloudPushLocations;
+  announce(false);
 })();
