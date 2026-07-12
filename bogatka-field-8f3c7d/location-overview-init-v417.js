@@ -19,7 +19,9 @@
 
   function install(){
     const root=document.getElementById('locations')||document.body;
-    new MutationObserver(()=>schedule(80)).observe(root,{childList:true,subtree:true});
+    new MutationObserver(records=>{
+      if(records.some(record=>record.addedNodes.length||record.removedNodes.length))schedule(80);
+    }).observe(root,{childList:true});
     run();
     setTimeout(run,180);
     setTimeout(run,700);
