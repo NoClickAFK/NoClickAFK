@@ -6,7 +6,12 @@ const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=startup-panels-v437';
 const OUT=path.resolve('review-artifacts/startup-panels-v437-review');
 const BASELINE_SHA='180ac7d1f4ce45a36cafcef162ad1a963710ee62';
 const CLOUD_DELAY_MS=15000;
-const EXACT_HEAD=process.env.GITHUB_SHA||'local-uncommitted';
+let EVENT_HEAD='';
+try{
+  const event=JSON.parse(await fs.readFile(process.env.GITHUB_EVENT_PATH,'utf8'));
+  EVENT_HEAD=event?.pull_request?.head?.sha||'';
+}catch(_){ }
+const EXACT_HEAD=process.env.BOGATKA_EXACT_HEAD||EVENT_HEAD||process.env.GITHUB_SHA||'local-uncommitted';
 
 async function authorize(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
@@ -118,6 +123,8 @@ test('local shell is visible while archive-inclusive cloud readiness is delayed'
   const cloudSettledAt=Date.now();
   const cloudDiagnostics=await page.evaluate(()=>window.BogatkaPanelAuthorityV437.diagnostics);
   expect(cloudDiagnostics.cloudBackgroundStarts).toBe(1);
+  expect(cloudDiagnostics.blockedNoncanonicalWrites).toBe(0);
+  expect(cloudDiagnostics.noncanonicalWriteLog).toEqual([]);
   const postFix={
     head:EXACT_HEAD,
     authorizationCompleteAt,
@@ -135,6 +142,7 @@ test('local shell is visible while archive-inclusive cloud readiness is delayed'
   await writeJson('post-fix-startup-timing.json',postFix);
   await writeJson('startup-timing.json',{baseline:await readJson('pre-fix-startup-timing.json'),postFix});
   await writeJson('archive-gate-preserved.json',{
+    head:EXACT_HEAD,
     archiveRequestDelayedMs:CLOUD_DELAY_MS,
     appVisibleBeforeArchiveReady:appVisibleAt<archiveRequestAt+CLOUD_DELAY_MS,
     baseFilteredFetchAllowed:false,
@@ -188,8 +196,11 @@ test('terminal panel subtitles remain stable through repeated legacy refreshes',
   expect(log.audit.ok,log.audit.failures.join('\n')).toBe(true);
   expect(log.diagnostics.authorityInstallations).toBe(1);
   expect(log.diagnostics.renderWrappers).toBeLessThanOrEqual(2);
-  await writeJson('subtitle-mutation-log.json',log);
-  await writeJson('panel-authority-stability.json',{audit:log.audit,diagnostics:log.diagnostics,noncanonicalSubtitleMutations:log.noncanonical.length});
+  expect(log.diagnostics.blockedNoncanonicalWrites).toBe(0);
+  expect(log.diagnostics.noncanonicalWriteLog).toEqual([]);
+  expect(log.diagnostics.observerCallbacks).toBeLessThan(250);
+  await writeJson('subtitle-mutation-log.json',{head:EXACT_HEAD,...log});
+  await writeJson('panel-authority-stability.json',{head:EXACT_HEAD,audit:log.audit,diagnostics:log.diagnostics,noncanonicalSubtitleMutations:log.noncanonical.length});
   card=page.locator('[data-location-card]').first();
   const id=await card.getAttribute('data-location-card');
   await page.evaluate(locationId=>{
