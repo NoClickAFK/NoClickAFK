@@ -75,21 +75,6 @@ test('in-flight same-location edit survives and converges in one coalesced follo
     cloudEnsureProject=async()=>{
       passStartDirty.push([...(cloudReadState().dirtyLocations||[])]);
     };
-    const fixtureFetch=async()=>{
-      fetchCalls++;
-      return {remoteLocations:[structuredClone(currentRemote)],remotePhotos:[],remoteState:null};
-    };
-    fixtureFetch.__archiveInclusiveFetchV400=true;
-    fixtureFetch.__archiveFetchSourceKindV436='archive-inclusive';
-    window.BogatkaCloudArchive={
-      ...(window.BogatkaCloudArchive||{}),
-      archiveFetchSource:true,
-      archiveFetchReady:true,
-      archiveFetchSourceRegistered:true,
-      archiveFetchSourceKind:'archive-inclusive',
-      fetchSource:fixtureFetch,
-    };
-    window.BogatkaSyncFieldCompatV416.installFetchAuthority(fixtureFetch,{reason:'v435-inflight-test-fixture'});
     cloudApplyRemote=async()=>{};
     cloudDeleteRemovedLocations=async()=>{};
     cloudDeletePhotos=async()=>{};
@@ -99,7 +84,7 @@ test('in-flight same-location edit survives and converges in one coalesced follo
     };
     cloudSubscribeRealtime=async()=>{};
 
-    const makeBuilder=resolver=>{
+    const makeWriteBuilder=resolver=>{
       const builder={
         eq(){return builder},
         select(){return builder},
@@ -108,12 +93,26 @@ test('in-flight same-location edit survives and converges in one coalesced follo
       };
       return builder;
     };
+    const makeReadBuilder=result=>{
+      const builder={
+        select(){return builder},
+        eq(){return builder},
+        is(){return builder},
+        order:async()=>result(),
+        maybeSingle:async()=>result(),
+        single:async()=>result(),
+        then(resolve,reject){return Promise.resolve(result()).then(resolve,reject)},
+      };
+      return builder;
+    };
     cloudClient={
       from(table){
+        if(table==='photos')return makeReadBuilder(()=>({data:[],error:null}));
+        if(table==='project_state')return makeReadBuilder(()=>({data:null,error:null}));
         if(table!=='locations')throw new Error(`Unexpected table: ${table}`);
         return {
           update(payload){
-            return makeBuilder(async()=>{
+            return makeWriteBuilder(async()=>{
               patchPayloads.push(structuredClone(payload));
               activeRequests++;
               maxParallelRequests=Math.max(maxParallelRequests,activeRequests);
@@ -138,7 +137,12 @@ test('in-flight same-location edit survives and converges in one coalesced follo
             });
           },
           upsert(){throw new Error('Unexpected location upsert')},
-          select(){return makeBuilder(async()=>({data:structuredClone(currentRemote),error:null}))},
+          select(){
+            return makeReadBuilder(()=>{
+              fetchCalls++;
+              return {data:[structuredClone(currentRemote)],error:null};
+            });
+          },
         };
       },
     };
