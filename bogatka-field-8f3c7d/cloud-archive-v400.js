@@ -1,11 +1,57 @@
 (function(){
-  if(window.__bogatkaCloudArchiveV400)return;
+  const announceReload=detail=>window.dispatchEvent(new CustomEvent('bogatka:cloud-archive-loaded',{detail}));
+  const compatibility=()=>window.BogatkaSyncFieldCompatV416||null;
+  const existingSource=()=>window.BogatkaCloudArchive?.fetchSource||null;
+  if(window.__bogatkaCloudArchiveV400){
+    const source=existingSource();
+    const delegated=compatibility()?.installFetchAuthority?.(source,{reason:'cloud-archive-reload'})||false;
+    const ready=Boolean(compatibility()?.archiveFetchReady||source?.__archiveInclusiveFetchV400);
+    announceReload({
+      delegatedToV436:Boolean(window.BogatkaArchiveStateV436?.ready),
+      reloaded:true,
+      fetchDelegated:Boolean(delegated),
+      archiveFetchReady:ready,
+      archiveFetchSourceRegistered:ready,
+      archiveFetchSourceKind:ready?'archive-inclusive':'unavailable',
+      fetchSource:source,
+    });
+    return;
+  }
+  if(typeof cloudFetchRemote!=='function'||typeof cloudPushLocations!=='function'||typeof cloudApplyRemote!=='function'){
+    announceReload({delegatedToV436:false,fetchDelegated:false,archiveFetchReady:false,archiveFetchSourceRegistered:false,archiveFetchSourceKind:'unavailable',prerequisitesMissing:true});
+    return;
+  }
   window.__bogatkaCloudArchiveV400=true;
-  if(typeof cloudFetchRemote!=='function'||typeof cloudPushLocations!=='function'||typeof cloudApplyRemote!=='function')return;
 
   const baseApplyRemote=cloudApplyRemote;
+  const v436Ready=()=>Boolean(window.BogatkaArchiveStateV436?.ready);
+  const announce=(delegated,fetchDelegated,archiveFetch)=>{
+    const ownership=compatibility()?._test?.fetchAuthoritySnapshot?.()||null;
+    const ready=Boolean(ownership?.archiveFetchReady||archiveFetch?.__archiveInclusiveFetchV400&&(!compatibility()||fetchDelegated));
+    window.BogatkaCloudArchive={
+      enabled:true,
+      delegatedToV436:Boolean(delegated),
+      lateLoadProtected:true,
+      fetchDelegated:Boolean(fetchDelegated),
+      fetchAuthorityOwner:ownership?.owner||null,
+      archiveFetchSource:true,
+      archiveFetchReady:ready,
+      archiveFetchSourceRegistered:ready,
+      archiveFetchSourceKind:ready?'archive-inclusive':'unavailable',
+      fetchSource:archiveFetch,
+    };
+    announceReload({
+      delegatedToV436:Boolean(delegated),
+      fetchDelegated:Boolean(fetchDelegated),
+      fetchAuthorityOwner:ownership?.owner||null,
+      archiveFetchReady:ready,
+      archiveFetchSourceRegistered:ready,
+      archiveFetchSourceKind:ready?'archive-inclusive':'unavailable',
+      fetchSource:archiveFetch,
+    });
+  };
 
-  cloudFetchRemote=async function cloudFetchRemoteWithArchive(){
+  const archiveFetch=async function cloudFetchRemoteWithArchive(){
     const [locationsResult,photosResult,stateResult]=await Promise.all([
       cloudClient.from('locations').select('*').eq('project_id',cloudProjectId).order('sort_order'),
       cloudClient.from('photos').select('*').eq('project_id',cloudProjectId).is('deleted_at',null).order('sort_order'),
@@ -16,6 +62,24 @@
     if(stateResult.error)throw new Error(stateResult.error.message);
     return {remoteLocations:locationsResult.data||[],remotePhotos:photosResult.data||[],remoteState:stateResult.data||null};
   };
+  archiveFetch.__cloudArchiveV400=true;
+  archiveFetch.__archiveInclusiveFetchV400=true;
+  archiveFetch.__archiveFetchSourceKindV436='archive-inclusive';
+
+  const fetchAuthority=compatibility()?.installFetchAuthority;
+  const fetchDelegated=typeof fetchAuthority==='function'
+    ?fetchAuthority(archiveFetch,{reason:'cloud-archive-v400'})
+    :false;
+  if(!fetchDelegated){
+    cloudFetchRemote=archiveFetch;
+    window.cloudFetchRemote=archiveFetch;
+  }
+
+  if(v436Ready()){
+    window.BogatkaArchiveStateV436?._test?.ensureRuntimeWrappers?.({force:true});
+    announce(true,fetchDelegated,archiveFetch);
+    return;
+  }
 
   cloudApplyRemote=async function cloudApplyRemoteWithArchive(remoteLocations,remotePhotos,remoteState,syncState){
     for(const remote of remoteLocations){
@@ -38,6 +102,7 @@
       renderLocations();
     }
   };
+  cloudApplyRemote.__cloudArchiveV400=true;
 
   cloudPushLocations=async function cloudPushLocationsWithArchive(remoteLocations,syncState){
     const remoteByClient=new Map(remoteLocations.map(item=>[item.client_id||item.id,item]));
@@ -92,6 +157,9 @@
     }
     return rows;
   };
+  cloudPushLocations.__cloudArchiveV400=true;
 
-  window.BogatkaCloudArchive={enabled:true};
+  window.cloudApplyRemote=cloudApplyRemote;
+  window.cloudPushLocations=cloudPushLocations;
+  announce(false,fetchDelegated,archiveFetch);
 })();
