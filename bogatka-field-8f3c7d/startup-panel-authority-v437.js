@@ -3,24 +3,45 @@
 
   const VERSION='4.3.7';
   const REQUIRED_SCRIPTS=[
-    ['./location-profile-v416.js',()=>window.BogatkaLocationProfileV416?.ready],
-    ['./location-overview-v417.js',()=>window.BogatkaLocationOverviewV417?.ready],
-    ['./location-overview-init-v417.js',()=>window.BogatkaLocationOverviewInitV417?.ready||window.BogatkaLocationOverviewV417?.ready],
-    ['./location-panels-v419.js',()=>window.BogatkaLocationPanelsV419?.ready],
-    ['./location-panels-render-v419.js',()=>window.BogatkaLocationPanelsRenderV419?.ready||window.BogatkaLocationPanelsV419?.ready],
-    ['./inspection-layout-v461.js',()=>window.BogatkaInspectionLayoutV461?.ready||document.querySelector('.inspection-layout-v461')||true],
+    ['./location-profile-v416.js',()=>window.BogatkaLocationProfileV416?.ready===true],
+    ['./location-overview-v417.js',()=>window.BogatkaLocationOverviewV417?.ready===true],
+    ['./location-overview-init-v417.js',()=>window.BogatkaLocationOverviewInitV417?.ready===true||window.BogatkaLocationOverviewV417?.ready===true],
+    ['./location-panels-v419.js',()=>window.BogatkaLocationPanelsV419?.ready===true],
+    ['./location-panels-render-v419.js',()=>window.BogatkaLocationPanelsRenderV419?.ready===true||window.BogatkaLocationPanelsV419?.ready===true],
+    ['./inspection-layout-v461.js',()=>window.BogatkaInspectionLayoutV461?.ready===true],
   ];
   const COPY={
     inspection:{title:'Параметры осмотра',subtitle:'Статус, формат, состояние помещения и следующий шаг.'},
     landlord:{title:'Арендодатель и условия',subtitle:'Контакты и предварительные условия аренды.'},
   };
-  const diagnostics={authorityInstallations:1,panelConversions:0,subtitleWrites:0,observerCallbacks:0,ignoredSelfMutations:0,duplicateConversionAttempts:0,localPrepareCalls:0,cloudBackgroundStarts:0,cloudBackgroundCompletions:0,cloudBackgroundErrors:0};
+  const LAYOUT_FIELDS={
+    inspection:['inspectionPurpose','inspectionResult'],
+    landlord:['objectSource','listingUrl','objectSourceOther','inspectionParticipants'],
+  };
+  const diagnostics={
+    authorityInstallations:1,
+    panelConversions:0,
+    subtitleWrites:0,
+    blockedNoncanonicalWrites:0,
+    observerCallbacks:0,
+    ignoredSelfMutations:0,
+    duplicateConversionAttempts:0,
+    localPrepareCalls:0,
+    renderWrappers:0,
+    cloudBackgroundStarts:0,
+    cloudBackgroundCompletions:0,
+    cloudBackgroundErrors:0,
+    noncanonicalWriteLog:[],
+  };
+  const panelStates=new Map();
+  const nodeText=Object.getOwnPropertyDescriptor(Node.prototype,'textContent');
   let preparing=null;
   let observer=null;
   let scheduled=false;
-  let selfMutation=false;
+  let selfMutationUntil=0;
   let cloudStarted=false;
   let basePrepare=null;
+  let renderAttempts=0;
 
   const wait=(predicate,timeoutMs=9000,label='startup dependency')=>new Promise((resolve,reject)=>{
     const started=performance.now();
@@ -34,25 +55,41 @@
     tick();
   });
 
+  function markSelfMutation(){
+    selfMutationUntil=Math.max(selfMutationUntil,performance.now()+32);
+  }
+
   function scriptMatches(script,src){
     try{return new URL(script.src||script.getAttribute('src')||'',location.href).pathname===new URL(src,location.href).pathname}catch(_){return script.getAttribute('src')===src}
   }
 
-  function loadScript(src){
+  function matchingScripts(src){
+    return [...document.scripts].filter(script=>scriptMatches(script,src));
+  }
+
+  function loadScriptOnce(src,attempt=0){
     const ready=REQUIRED_SCRIPTS.find(([candidate])=>candidate===src)?.[1];
     if(ready?.())return Promise.resolve();
-    const existing=[...document.scripts].find(script=>scriptMatches(script,src));
-    if(existing&&!existing.dataset.panelAuthorityLoadFailedV437)return wait(()=>ready?.(),9000,src);
-    if(existing)existing.remove();
+    const existing=matchingScripts(src).find(script=>script.dataset.panelAuthorityLoadFailedV437!=='1');
+    if(existing&&attempt===0)return wait(()=>ready?.(),5000,src);
+    if(attempt>0)matchingScripts(src).forEach(script=>script.remove());
     return new Promise((resolve,reject)=>{
       const script=document.createElement('script');
-      script.src=src;
+      script.src=attempt?`${src}?panel-authority-retry-v437=${attempt}`:src;
       script.async=false;
       script.dataset.panelAuthorityV437='1';
-      script.onload=()=>wait(()=>ready?.(),9000,src).then(resolve,reject);
+      script.onload=()=>wait(()=>ready?.(),5000,src).then(resolve,reject);
       script.onerror=()=>{script.dataset.panelAuthorityLoadFailedV437='1';script.remove();reject(new Error(`Не удалось загрузить ${src}`))};
       document.head.appendChild(script);
     });
+  }
+
+  async function ensureScript(src){
+    let lastError=null;
+    for(let attempt=0;attempt<2;attempt++){
+      try{await loadScriptOnce(src,attempt);return}catch(error){lastError=error}
+    }
+    throw lastError||new Error(`Не удалось подготовить ${src}`);
   }
 
   function isVisible(node){
@@ -61,36 +98,137 @@
     return style.display!=='none'&&style.visibility!=='hidden';
   }
 
+  function panelKey(id,kind){
+    return `${id}:${kind}`;
+  }
+
+  function storageKey(id,kind){
+    return `bogatka.panel.${kind}.open.${id}`;
+  }
+
+  function writeNodeText(node,value){
+    if(!node)return;
+    if(nodeText?.get?.call(node)===value)return;
+    markSelfMutation();
+    nodeText?.set?.call(node,value);
+    diagnostics.subtitleWrites+=1;
+  }
+
+  function lockAuthorityText(node,expected,kind,part){
+    if(!node)return;
+    const existing=node.__panelAuthorityTextLockV437;
+    if(existing){existing.expected=expected;return}
+    const lock={expected,kind,part};
+    try{
+      Object.defineProperty(node,'textContent',{
+        configurable:true,
+        enumerable:false,
+        get(){return nodeText?.get?.call(this)||''},
+        set(value){
+          const next=String(value??'');
+          if(next!==lock.expected){
+            diagnostics.blockedNoncanonicalWrites+=1;
+            if(diagnostics.noncanonicalWriteLog.length<40)diagnostics.noncanonicalWriteLog.push({kind:lock.kind,part:lock.part,text:next,at:Math.round(performance.now())});
+            return;
+          }
+          if(nodeText?.get?.call(this)!==lock.expected){
+            markSelfMutation();
+            nodeText?.set?.call(this,lock.expected);
+          }
+        },
+      });
+      node.__panelAuthorityTextLockV437=lock;
+    }catch(error){
+      console.warn('Не удалось закрепить текст заголовка панели.',error);
+    }
+  }
+
+  function rememberedOpen(section,kind,id){
+    const key=panelKey(id,kind);
+    if(panelStates.has(key))return panelStates.get(key);
+    if(section.dataset.panelOpenV419!==undefined)return section.dataset.panelOpenV419!=='0';
+    let saved='1';
+    try{saved=localStorage.getItem(storageKey(id,kind))||'1'}catch(_){ }
+    return saved!=='0';
+  }
+
+  function setPanelOpen(section,kind,id,open,options={}){
+    if(!section||!id||!COPY[kind])return false;
+    const next=Boolean(open);
+    const value=next?'1':'0';
+    panelStates.set(panelKey(id,kind),next);
+    const head=section.querySelector(':scope > .panel-toggle-v419');
+    const chevron=head?.querySelector('.panel-chevron-v419');
+    const chevronText=next?'⌃':'⌄';
+    const needsMutation=section.dataset.panelOpenV419!==value||
+      section.classList.contains('panel-closed-v419')===next||
+      head?.getAttribute('aria-expanded')!==String(next)||
+      (chevron&&nodeText?.get?.call(chevron)!==chevronText);
+    if(needsMutation)markSelfMutation();
+    if(section.dataset.panelOpenV419!==value)section.dataset.panelOpenV419=value;
+    if(section.classList.contains('panel-closed-v419')===next)section.classList.toggle('panel-closed-v419',!next);
+    if(head?.getAttribute('aria-expanded')!==String(next))head?.setAttribute('aria-expanded',String(next));
+    if(chevron&&nodeText?.get?.call(chevron)!==chevronText)nodeText?.set?.call(chevron,chevronText);
+    if(options.persist){
+      try{localStorage.setItem(storageKey(id,kind),value)}catch(_){ }
+    }
+    return true;
+  }
+
+  function rememberCurrentPanelStates(){
+    for(const card of document.querySelectorAll('[data-location-card]')){
+      const id=card.dataset.locationCard;
+      if(!id)continue;
+      for(const [kind,selector] of [['inspection','.inspection-card-v416'],['landlord','.landlord-card-v416']]){
+        const section=card.querySelector(selector);
+        if(section?.dataset.panelOpenV419!==undefined)panelStates.set(panelKey(id,kind),section.dataset.panelOpenV419!=='0');
+      }
+    }
+  }
+
+  function fieldInGrid(card,field,gridSelector){
+    const controls=[...card.querySelectorAll(`[data-field="${field}"]`)].filter(control=>!control.hasAttribute('data-stage6-marker-v461'));
+    const control=controls[0];
+    const wrapper=control?.closest('label.field');
+    const grid=card.querySelector(gridSelector);
+    return Boolean(control&&wrapper&&grid?.contains(wrapper));
+  }
+
+  function layoutReadyForCard(card){
+    if(window.BogatkaInspectionLayoutV461?.ready!==true)return false;
+    if(card.dataset.inspectionLayoutV462!=='1')return false;
+    return LAYOUT_FIELDS.inspection.every(field=>fieldInGrid(card,field,'.inspection-grid-v416'))&&
+      LAYOUT_FIELDS.landlord.every(field=>fieldInGrid(card,field,'.landlord-grid-v416'));
+  }
+
+  function layoutReadyAll(){
+    const cards=[...document.querySelectorAll('[data-location-card]')];
+    return cards.length>0&&cards.every(layoutReadyForCard);
+  }
+
   function canonicalizePanel(section,kind,id){
-    if(!section)return false;
+    if(!section||!id)return false;
     const expected=COPY[kind];
     const grid=section.querySelector(kind==='inspection'?'.inspection-grid-v416':'.landlord-grid-v416');
     if(!grid)return false;
-    const key=`bogatka.panel.${kind}.open.${id}`;
-    let head=section.querySelector(':scope > .panel-toggle-v419');
+    const head=section.querySelector(':scope > .panel-toggle-v419');
     if(!head){diagnostics.duplicateConversionAttempts+=1;return false}
+    const firstClaim=section.dataset.panelAuthorityV437!==kind;
     const old=section.querySelector(':scope > .profile-section-head-v416');
-    selfMutation=true;
-    try{
-      if(old)old.remove();
-      section.dataset.panelAuthorityV437=kind;
-      section.classList.add('panel-authority-v437');
-      section.closest('.location-overview-v416')?.classList.add('panel-authority-ready-v437','location-panels-v419');
-      const title=head.querySelector('.panel-title-v419');
-      const subtitle=head.querySelector('.panel-copy-v419');
-      if(title&&title.textContent!==expected.title){title.textContent=expected.title;diagnostics.subtitleWrites+=1}
-      if(subtitle&&subtitle.textContent!==expected.subtitle){subtitle.textContent=expected.subtitle;diagnostics.subtitleWrites+=1}
-      if(section.dataset.panelOpenV419===undefined){
-        let saved='1';try{saved=localStorage.getItem(key)||'1'}catch(_){ }
-        section.dataset.panelOpenV419=saved==='0'?'0':'1';
-      }
-      const open=section.dataset.panelOpenV419!=='0';
-      section.classList.toggle('panel-closed-v419',!open);
-      head.setAttribute('aria-expanded',String(open));
-      const chevron=head.querySelector('.panel-chevron-v419');
-      if(chevron&&chevron.textContent!==(open?'⌃':'⌄'))chevron.textContent=open?'⌃':'⌄';
-      diagnostics.panelConversions+=1;
-    }finally{queueMicrotask(()=>{selfMutation=false})}
+    markSelfMutation();
+    if(old)old.remove();
+    section.dataset.panelAuthorityV437=kind;
+    section.classList.add('panel-authority-v437');
+    const overview=section.closest('.location-overview-v416');
+    overview?.classList.add('location-panels-v419');
+    const title=head.querySelector('.panel-title-v419');
+    const subtitle=head.querySelector('.panel-copy-v419');
+    writeNodeText(title,expected.title);
+    writeNodeText(subtitle,expected.subtitle);
+    lockAuthorityText(title,expected.title,kind,'title');
+    lockAuthorityText(subtitle,expected.subtitle,kind,'subtitle');
+    setPanelOpen(section,kind,id,rememberedOpen(section,kind,id));
+    if(firstClaim)diagnostics.panelConversions+=1;
     return true;
   }
 
@@ -99,31 +237,48 @@
     for(const card of document.querySelectorAll('[data-location-card]')){
       const id=card.dataset.locationCard;
       const overview=card.querySelector('.location-overview-v416');
-      if(!overview){complete=false;continue}
-      const inspection=overview.querySelector('.inspection-card-v416');
-      const landlord=overview.querySelector('.landlord-card-v416');
-      const okInspection=canonicalizePanel(inspection,'inspection',id);
-      const okLandlord=canonicalizePanel(landlord,'landlord',id);
-      complete=complete&&okInspection&&okLandlord;
+      if(!id||!overview){complete=false;continue}
+      const okInspection=canonicalizePanel(overview.querySelector('.inspection-card-v416'),'inspection',id);
+      const okLandlord=canonicalizePanel(overview.querySelector('.landlord-card-v416'),'landlord',id);
+      const layoutReady=layoutReadyForCard(card);
+      overview.classList.toggle('panel-authority-ready-v437',okInspection&&okLandlord&&layoutReady);
+      complete=complete&&okInspection&&okLandlord&&layoutReady;
     }
     return complete;
+  }
+
+  function stabilizePanels(){
+    try{window.BogatkaInspectionLayoutV461?.enhanceAll?.()}catch(error){console.error(error)}
+    canonicalizeAll();
   }
 
   function scheduleCanonicalize(){
     if(scheduled)return;
     scheduled=true;
-    requestAnimationFrame(()=>{scheduled=false;canonicalizeAll()});
+    requestAnimationFrame(()=>{scheduled=false;stabilizePanels()});
   }
 
   function installObserver(){
     if(observer)return;
     const root=document.getElementById('locations')||document.body;
-    observer=new MutationObserver(()=>{
+    observer=new MutationObserver(records=>{
       diagnostics.observerCallbacks+=1;
-      if(selfMutation){diagnostics.ignoredSelfMutations+=1;return}
+      const structural=records.some(record=>record.type==='childList'&&(record.addedNodes.length||record.removedNodes.length));
+      if(!structural&&performance.now()<=selfMutationUntil){diagnostics.ignoredSelfMutations+=1;return}
       scheduleCanonicalize();
     });
-    observer.observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','data-panel-open-v419','aria-expanded']});
+    observer.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class','data-panel-open-v419','aria-expanded','hidden']});
+  }
+
+  function chainHas(fn,marker){
+    const seen=new Set();
+    let current=fn;
+    while(typeof current==='function'&&!seen.has(current)){
+      if(current[marker])return true;
+      seen.add(current);
+      current=current.__base;
+    }
+    return false;
   }
 
   function wrapPanelEnhancer(){
@@ -132,7 +287,7 @@
     if(typeof current!=='function'||current.__panelAuthorityV437)return;
     const wrapped=async function(...args){
       const result=await current.apply(this,args);
-      canonicalizeAll();
+      stabilizePanels();
       return result;
     };
     wrapped.__panelAuthorityV437=true;
@@ -140,20 +295,43 @@
     api.enhanceAll=wrapped;
   }
 
+  function wrapRenderLocations(){
+    renderAttempts+=1;
+    const current=window.renderLocations||((typeof renderLocations==='function')?renderLocations:null);
+    if(typeof current!=='function')return false;
+    if(chainHas(current,'__panelAuthorityRenderV437'))return true;
+    const wrapped=function(...args){
+      rememberCurrentPanelStates();
+      const result=current.apply(this,args);
+      const finish=()=>stabilizePanels();
+      if(result?.then)return Promise.resolve(result).finally(finish);
+      finish();
+      return result;
+    };
+    Object.assign(wrapped,current);
+    wrapped.__panelAuthorityRenderV437=true;
+    wrapped.__base=current;
+    window.renderLocations=wrapped;
+    try{renderLocations=wrapped}catch(_){ }
+    diagnostics.renderWrappers+=1;
+    return true;
+  }
+
   async function prepareLocalUi(){
     diagnostics.localPrepareCalls+=1;
     if(preparing)return preparing;
     preparing=(async()=>{
       await wait(()=>document.querySelector('[data-location-card]'),9000,'local location cards');
-      for(const [src] of REQUIRED_SCRIPTS){
-        try{await loadScript(src)}catch(error){console.warn(error)}
-      }
+      for(const [src] of REQUIRED_SCRIPTS)await ensureScript(src);
       await window.BogatkaLocationProfileV416?.enhanceAll?.({force:true});
       await window.BogatkaLocationOverviewV417?.enhanceAll?.({force:true});
       await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
+      window.BogatkaInspectionLayoutV461?.enhanceAll?.();
       wrapPanelEnhancer();
+      wrapRenderLocations();
       installObserver();
-      await wait(()=>canonicalizeAll(),9000,'terminal panel authority');
+      await wait(()=>{stabilizePanels();return layoutReadyAll()&&canonicalizeAll()},9000,'inspection layout and terminal panel authority');
+      document.documentElement.classList.remove('panel-authority-failed-v437');
       document.documentElement.classList.add('panel-authority-ready-v437');
       window.dispatchEvent(new CustomEvent('bogatka:panel-authority-ready',{detail:{version:VERSION,diagnostics:{...diagnostics}}}));
       return{status:'ready',version:VERSION};
@@ -202,14 +380,21 @@
   const api=window.BogatkaPanelAuthorityV437={
     version:VERSION,
     ready:true,
+    ownsPanelHeaders:true,
+    copy:COPY,
     prepareLocalUi,
     canonicalizeAll,
+    canonicalizePanel,
+    layoutReadyForCard,
+    layoutReadyAll,
+    setPanelOpen,
     installStartupSplit,
-    get diagnostics(){return{...diagnostics}},
+    get diagnostics(){return{...diagnostics,noncanonicalWriteLog:[...diagnostics.noncanonicalWriteLog]}},
     audit(){
       const failures=[];
       for(const card of document.querySelectorAll('[data-location-card]')){
         const id=card.dataset.locationCard;
+        if(!layoutReadyForCard(card))failures.push(`${id}:inspection-layout-not-ready`);
         for(const [kind,selector] of [['inspection','.inspection-card-v416'],['landlord','.landlord-card-v416']]){
           const section=card.querySelector(selector);
           const expected=COPY[kind];
@@ -217,10 +402,11 @@
           if(heads.length!==1)failures.push(`${id}:${kind}:visible-heads:${heads.length}`);
           if(section?.querySelector('.panel-title-v419')?.textContent!==expected.title)failures.push(`${id}:${kind}:title`);
           if(section?.querySelector('.panel-copy-v419')?.textContent!==expected.subtitle)failures.push(`${id}:${kind}:subtitle`);
+          if(!section?.classList.contains('panel-authority-v437'))failures.push(`${id}:${kind}:authority-class`);
           if(section?.querySelector(':scope > .profile-section-head-v416')&&isVisible(section.querySelector(':scope > .profile-section-head-v416')))failures.push(`${id}:${kind}:legacy-head-visible`);
         }
       }
-      return{ok:failures.length===0,failures,diagnostics:{...diagnostics}};
+      return{ok:failures.length===0,failures,diagnostics:{...diagnostics,noncanonicalWriteLog:[...diagnostics.noncanonicalWriteLog]}};
     },
   };
 
@@ -229,4 +415,6 @@
     const retry=()=>{attempts+=1;if(installStartupSplit())return;if(attempts<200)setTimeout(retry,25)};
     retry();
   }
+  const rewrap=()=>{wrapRenderLocations();wrapPanelEnhancer()};
+  [100,400,1000,2500,5000].forEach(delay=>setTimeout(rewrap,delay));
 })();
