@@ -1,15 +1,8 @@
 (function(){
+  'use strict';
   if(window.BogatkaPanelAuthorityV437?.ready)return;
 
   const VERSION='4.3.7';
-  const REQUIRED_SCRIPTS=[
-    ['./location-profile-v416.js',()=>window.BogatkaLocationProfileV416?.ready===true],
-    ['./location-overview-v417.js',()=>window.BogatkaLocationOverviewV417?.ready===true],
-    ['./location-overview-init-v417.js',()=>window.BogatkaLocationOverviewInitV417?.ready===true||window.BogatkaLocationOverviewV417?.ready===true],
-    ['./location-panels-v419.js',()=>window.BogatkaLocationPanelsV419?.ready===true],
-    ['./location-panels-render-v419.js',()=>window.BogatkaLocationPanelsRenderV419?.ready===true||window.BogatkaLocationPanelsV419?.ready===true],
-    ['./inspection-layout-v461.js',()=>window.BogatkaInspectionLayoutV461?.ready===true],
-  ];
   const COPY={
     inspection:{title:'Параметры осмотра',subtitle:'Статус, формат, состояние помещения и следующий шаг.'},
     landlord:{title:'Арендодатель и условия',subtitle:'Контакты и предварительные условия аренды.'},
@@ -18,19 +11,18 @@
     inspection:['inspectionPurpose','inspectionResult'],
     landlord:['objectSource','listingUrl','objectSourceOther','inspectionParticipants'],
   };
+  const REQUIRED_SCRIPTS=[
+    ['./location-profile-v416.js',()=>window.BogatkaLocationProfileV416?.ready===true],
+    ['./location-overview-v417.js',()=>window.BogatkaLocationOverviewV417?.ready===true],
+    ['./location-overview-init-v417.js',()=>window.BogatkaLocationOverviewInitV417?.ready===true||window.BogatkaLocationOverviewV417?.ready===true],
+    ['./location-panels-v419.js',()=>window.BogatkaLocationPanelsV419?.ready===true],
+    ['./location-panels-render-v419.js',()=>window.BogatkaLocationPanelsRenderV419?.ready===true||window.BogatkaLocationPanelsV419?.ready===true],
+    ['./inspection-layout-v461.js',()=>window.BogatkaInspectionLayoutV461?.ready===true],
+  ];
   const diagnostics={
-    authorityInstallations:1,
-    panelConversions:0,
-    subtitleWrites:0,
-    blockedNoncanonicalWrites:0,
-    observerCallbacks:0,
-    ignoredSelfMutations:0,
-    duplicateConversionAttempts:0,
-    localPrepareCalls:0,
-    renderWrappers:0,
-    cloudBackgroundStarts:0,
-    cloudBackgroundCompletions:0,
-    cloudBackgroundErrors:0,
+    authorityInstallations:1,panelConversions:0,subtitleWrites:0,blockedNoncanonicalWrites:0,
+    observerCallbacks:0,ignoredSelfMutations:0,duplicateConversionAttempts:0,localPrepareCalls:0,
+    renderWrappers:0,cloudBackgroundStarts:0,cloudBackgroundCompletions:0,cloudBackgroundErrors:0,
     noncanonicalWriteLog:[],
   };
   const panelStates=new Map();
@@ -41,7 +33,6 @@
   let selfMutationUntil=0;
   let cloudStarted=false;
   let basePrepare=null;
-  let renderAttempts=0;
 
   const wait=(predicate,timeoutMs=9000,label='startup dependency')=>new Promise((resolve,reject)=>{
     const started=performance.now();
@@ -60,7 +51,8 @@
   }
 
   function scriptMatches(script,src){
-    try{return new URL(script.src||script.getAttribute('src')||'',location.href).pathname===new URL(src,location.href).pathname}catch(_){return script.getAttribute('src')===src}
+    try{return new URL(script.src||script.getAttribute('src')||'',location.href).pathname===new URL(src,location.href).pathname}
+    catch(_){return script.getAttribute('src')===src}
   }
 
   function matchingScripts(src){
@@ -79,7 +71,11 @@
       script.async=false;
       script.dataset.panelAuthorityV437='1';
       script.onload=()=>wait(()=>ready?.(),5000,src).then(resolve,reject);
-      script.onerror=()=>{script.dataset.panelAuthorityLoadFailedV437='1';script.remove();reject(new Error(`Не удалось загрузить ${src}`))};
+      script.onerror=()=>{
+        script.dataset.panelAuthorityLoadFailedV437='1';
+        script.remove();
+        reject(new Error(`Не удалось загрузить ${src}`));
+      };
       document.head.appendChild(script);
     });
   }
@@ -87,7 +83,8 @@
   async function ensureScript(src){
     let lastError=null;
     for(let attempt=0;attempt<2;attempt++){
-      try{await loadScriptOnce(src,attempt);return}catch(error){lastError=error}
+      try{await loadScriptOnce(src,attempt);return}
+      catch(error){lastError=error}
     }
     throw lastError||new Error(`Не удалось подготовить ${src}`);
   }
@@ -98,17 +95,11 @@
     return style.display!=='none'&&style.visibility!=='hidden';
   }
 
-  function panelKey(id,kind){
-    return `${id}:${kind}`;
-  }
-
-  function storageKey(id,kind){
-    return `bogatka.panel.${kind}.open.${id}`;
-  }
+  const panelKey=(id,kind)=>`${id}:${kind}`;
+  const storageKey=(id,kind)=>`bogatka.panel.${kind}.open.${id}`;
 
   function writeNodeText(node,value){
-    if(!node)return;
-    if(nodeText?.get?.call(node)===value)return;
+    if(!node||nodeText?.get?.call(node)===value)return;
     markSelfMutation();
     nodeText?.set?.call(node,value);
     diagnostics.subtitleWrites+=1;
@@ -122,13 +113,14 @@
     try{
       Object.defineProperty(node,'textContent',{
         configurable:true,
-        enumerable:false,
         get(){return nodeText?.get?.call(this)||''},
         set(value){
           const next=String(value??'');
           if(next!==lock.expected){
             diagnostics.blockedNoncanonicalWrites+=1;
-            if(diagnostics.noncanonicalWriteLog.length<40)diagnostics.noncanonicalWriteLog.push({kind:lock.kind,part:lock.part,text:next,at:Math.round(performance.now())});
+            if(diagnostics.noncanonicalWriteLog.length<40){
+              diagnostics.noncanonicalWriteLog.push({kind:lock.kind,part:lock.part,text:next,at:Math.round(performance.now())});
+            }
             return;
           }
           if(nodeText?.get?.call(this)!==lock.expected){
@@ -138,18 +130,29 @@
         },
       });
       node.__panelAuthorityTextLockV437=lock;
-    }catch(error){
-      console.warn('Не удалось закрепить текст заголовка панели.',error);
-    }
+    }catch(error){console.warn('Не удалось закрепить текст заголовка панели.',error)}
   }
 
-  function rememberedOpen(section,kind,id){
+  function resolvePanelOpen(section,kind,id){
     const key=panelKey(id,kind);
+    const explicit=section.dataset.panelOpenV419;
+    const alreadyOwned=section.dataset.panelAuthorityV437===kind;
+    if(alreadyOwned&&explicit!==undefined){
+      const current=explicit!=='0';
+      panelStates.set(key,current);
+      return current;
+    }
     if(panelStates.has(key))return panelStates.get(key);
-    if(section.dataset.panelOpenV419!==undefined)return section.dataset.panelOpenV419!=='0';
+    if(explicit!==undefined){
+      const current=explicit!=='0';
+      panelStates.set(key,current);
+      return current;
+    }
     let saved='1';
     try{saved=localStorage.getItem(storageKey(id,kind))||'1'}catch(_){ }
-    return saved!=='0';
+    const current=saved!=='0';
+    panelStates.set(key,current);
+    return current;
   }
 
   function setPanelOpen(section,kind,id,open,options={}){
@@ -160,11 +163,11 @@
     const head=section.querySelector(':scope > .panel-toggle-v419');
     const chevron=head?.querySelector('.panel-chevron-v419');
     const chevronText=next?'⌃':'⌄';
-    const needsMutation=section.dataset.panelOpenV419!==value||
+    const changed=section.dataset.panelOpenV419!==value||
       section.classList.contains('panel-closed-v419')===next||
       head?.getAttribute('aria-expanded')!==String(next)||
-      (chevron&&nodeText?.get?.call(chevron)!==chevronText);
-    if(needsMutation)markSelfMutation();
+      Boolean(chevron&&nodeText?.get?.call(chevron)!==chevronText);
+    if(changed)markSelfMutation();
     if(section.dataset.panelOpenV419!==value)section.dataset.panelOpenV419=value;
     if(section.classList.contains('panel-closed-v419')===next)section.classList.toggle('panel-closed-v419',!next);
     if(head?.getAttribute('aria-expanded')!==String(next))head?.setAttribute('aria-expanded',String(next));
@@ -181,14 +184,16 @@
       if(!id)continue;
       for(const [kind,selector] of [['inspection','.inspection-card-v416'],['landlord','.landlord-card-v416']]){
         const section=card.querySelector(selector);
-        if(section?.dataset.panelOpenV419!==undefined)panelStates.set(panelKey(id,kind),section.dataset.panelOpenV419!=='0');
+        if(section?.dataset.panelOpenV419!==undefined){
+          panelStates.set(panelKey(id,kind),section.dataset.panelOpenV419!=='0');
+        }
       }
     }
   }
 
   function fieldInGrid(card,field,gridSelector){
-    const controls=[...card.querySelectorAll(`[data-field="${field}"]`)].filter(control=>!control.hasAttribute('data-stage6-marker-v461'));
-    const control=controls[0];
+    const control=[...card.querySelectorAll(`[data-field="${field}"]`)]
+      .find(item=>!item.hasAttribute('data-stage6-marker-v461'));
     const wrapper=control?.closest('label.field');
     const grid=card.querySelector(gridSelector);
     return Boolean(control&&wrapper&&grid?.contains(wrapper));
@@ -210,24 +215,23 @@
     if(!section||!id)return false;
     const expected=COPY[kind];
     const grid=section.querySelector(kind==='inspection'?'.inspection-grid-v416':'.landlord-grid-v416');
-    if(!grid)return false;
     const head=section.querySelector(':scope > .panel-toggle-v419');
-    if(!head){diagnostics.duplicateConversionAttempts+=1;return false}
+    if(!grid||!head){diagnostics.duplicateConversionAttempts+=1;return false}
     const firstClaim=section.dataset.panelAuthorityV437!==kind;
+    const open=resolvePanelOpen(section,kind,id);
     const old=section.querySelector(':scope > .profile-section-head-v416');
     markSelfMutation();
-    if(old)old.remove();
+    old?.remove();
     section.dataset.panelAuthorityV437=kind;
     section.classList.add('panel-authority-v437');
-    const overview=section.closest('.location-overview-v416');
-    overview?.classList.add('location-panels-v419');
+    section.closest('.location-overview-v416')?.classList.add('location-panels-v419');
     const title=head.querySelector('.panel-title-v419');
     const subtitle=head.querySelector('.panel-copy-v419');
     writeNodeText(title,expected.title);
     writeNodeText(subtitle,expected.subtitle);
     lockAuthorityText(title,expected.title,kind,'title');
     lockAuthorityText(subtitle,expected.subtitle,kind,'subtitle');
-    setPanelOpen(section,kind,id,rememberedOpen(section,kind,id));
+    setPanelOpen(section,kind,id,open);
     if(firstClaim)diagnostics.panelConversions+=1;
     return true;
   }
@@ -238,11 +242,11 @@
       const id=card.dataset.locationCard;
       const overview=card.querySelector('.location-overview-v416');
       if(!id||!overview){complete=false;continue}
-      const okInspection=canonicalizePanel(overview.querySelector('.inspection-card-v416'),'inspection',id);
-      const okLandlord=canonicalizePanel(overview.querySelector('.landlord-card-v416'),'landlord',id);
-      const layoutReady=layoutReadyForCard(card);
-      overview.classList.toggle('panel-authority-ready-v437',okInspection&&okLandlord&&layoutReady);
-      complete=complete&&okInspection&&okLandlord&&layoutReady;
+      const inspection=canonicalizePanel(overview.querySelector('.inspection-card-v416'),'inspection',id);
+      const landlord=canonicalizePanel(overview.querySelector('.landlord-card-v416'),'landlord',id);
+      const layout=layoutReadyForCard(card);
+      overview.classList.toggle('panel-authority-ready-v437',inspection&&landlord&&layout);
+      complete=complete&&inspection&&landlord&&layout;
     }
     return complete;
   }
@@ -263,6 +267,16 @@
     const root=document.getElementById('locations')||document.body;
     observer=new MutationObserver(records=>{
       diagnostics.observerCallbacks+=1;
+      for(const record of records){
+        if(record.type==='attributes'&&record.attributeName==='data-panel-open-v419'){
+          const section=record.target;
+          const card=section.closest?.('[data-location-card]');
+          const kind=section.dataset.panelAuthorityV437;
+          if(card?.dataset.locationCard&&COPY[kind]&&section.dataset.panelOpenV419!==undefined){
+            panelStates.set(panelKey(card.dataset.locationCard,kind),section.dataset.panelOpenV419!=='0');
+          }
+        }
+      }
       const structural=records.some(record=>record.type==='childList'&&(record.addedNodes.length||record.removedNodes.length));
       if(!structural&&performance.now()<=selfMutationUntil){diagnostics.ignoredSelfMutations+=1;return}
       scheduleCanonicalize();
@@ -296,7 +310,6 @@
   }
 
   function wrapRenderLocations(){
-    renderAttempts+=1;
     const current=window.renderLocations||((typeof renderLocations==='function')?renderLocations:null);
     if(typeof current!=='function')return false;
     if(chainHas(current,'__panelAuthorityRenderV437'))return true;
@@ -377,18 +390,9 @@
     return true;
   }
 
-  const api=window.BogatkaPanelAuthorityV437={
-    version:VERSION,
-    ready:true,
-    ownsPanelHeaders:true,
-    copy:COPY,
-    prepareLocalUi,
-    canonicalizeAll,
-    canonicalizePanel,
-    layoutReadyForCard,
-    layoutReadyAll,
-    setPanelOpen,
-    installStartupSplit,
+  window.BogatkaPanelAuthorityV437={
+    version:VERSION,ready:true,ownsPanelHeaders:true,copy:COPY,
+    prepareLocalUi,canonicalizeAll,canonicalizePanel,layoutReadyForCard,layoutReadyAll,setPanelOpen,installStartupSplit,
     get diagnostics(){return{...diagnostics,noncanonicalWriteLog:[...diagnostics.noncanonicalWriteLog]}},
     audit(){
       const failures=[];
@@ -403,7 +407,9 @@
           if(section?.querySelector('.panel-title-v419')?.textContent!==expected.title)failures.push(`${id}:${kind}:title`);
           if(section?.querySelector('.panel-copy-v419')?.textContent!==expected.subtitle)failures.push(`${id}:${kind}:subtitle`);
           if(!section?.classList.contains('panel-authority-v437'))failures.push(`${id}:${kind}:authority-class`);
-          if(section?.querySelector(':scope > .profile-section-head-v416')&&isVisible(section.querySelector(':scope > .profile-section-head-v416')))failures.push(`${id}:${kind}:legacy-head-visible`);
+          if(section?.querySelector(':scope > .profile-section-head-v416')&&isVisible(section.querySelector(':scope > .profile-section-head-v416'))){
+            failures.push(`${id}:${kind}:legacy-head-visible`);
+          }
         }
       }
       return{ok:failures.length===0,failures,diagnostics:{...diagnostics,noncanonicalWriteLog:[...diagnostics.noncanonicalWriteLog]}};
