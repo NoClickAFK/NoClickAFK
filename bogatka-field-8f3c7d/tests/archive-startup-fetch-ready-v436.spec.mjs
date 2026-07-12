@@ -122,6 +122,7 @@ function installSignedInCloudFixture(){
 test('signed-in pre-reveal sync waits for archive-inclusive fetch before its first remote snapshot',async({page})=>{
   test.setTimeout(90000);
   let releaseArchive;
+  let archiveRequestCount=0;
   const archiveHold=new Promise(resolve=>{releaseArchive=resolve});
 
   await page.route('**/@supabase/supabase-js@2*',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
@@ -132,6 +133,8 @@ test('signed-in pre-reveal sync waits for archive-inclusive fetch before its fir
     await route.fulfill({response,body:delayed});
   });
   await page.route('**/cloud-archive-v400.js*',async route=>{
+    archiveRequestCount+=1;
+    if(archiveRequestCount===1){await route.abort('failed');return}
     await archiveHold;
     await route.continue();
   });
@@ -152,23 +155,23 @@ test('signed-in pre-reveal sync waits for archive-inclusive fetch before its fir
     appRevealed:Boolean(window.BogatkaStartup?.isRevealed?.()),
     authority:window.BogatkaSyncFieldCompatV416?._test?.fetchAuthoritySnapshot?.()||null,
   }));
+  const archiveRequestsBeforeRelease=archiveRequestCount;
 
   releaseArchive();
-  await page.evaluate(async()=>{
-    if(window.__bogatkaCloudArchiveV400)return;
-    const existing=[...document.scripts].find(script=>script.src.includes('cloud-archive-v400.js'));
-    if(existing)return;
-    const script=document.createElement('script');
-    script.src=`./cloud-archive-v400.js?startup-retry=${Date.now()}`;
-    script.async=false;
-    await new Promise((resolve,reject)=>{
-      script.onload=resolve;
-      script.onerror=()=>reject(new Error('Startup archive fetch retry failed'));
-      document.head.appendChild(script);
+  if(archiveRequestCount===0){
+    await page.evaluate(async()=>{
+      const script=document.createElement('script');
+      script.src=`./cloud-archive-v400.js?startup-retry=${Date.now()}`;
+      script.async=false;
+      await new Promise((resolve,reject)=>{
+        script.onload=resolve;
+        script.onerror=()=>reject(new Error('Startup archive fetch retry failed'));
+        document.head.appendChild(script);
+      });
     });
-  });
+  }
   await page.waitForFunction(()=>window.BogatkaCloud?.firstSyncCompleted===true,{timeout:30000});
-  await page.waitForFunction(()=>window.BogatkaSyncFieldCompatV416?._test?.fetchAuthoritySnapshot?.().archiveSource===true,{timeout:10000});
+  await page.waitForFunction(()=>window.BogatkaSyncFieldCompatV416?._test?.fetchAuthoritySnapshot?.().archiveFetchReady===true,{timeout:10000});
 
   const result=await page.evaluate(({activeId,archivedId})=>{
     const fixture=window.__startupArchiveFetchFixture;
@@ -177,6 +180,7 @@ test('signed-in pre-reveal sync waits for archive-inclusive fetch before its fir
     return{
       startupSyncRequestedTime:fixture.startedAt,
       archiveSourceRegistrationTime:authority?.archiveSourceRegisteredAt||null,
+      archiveFetchReadyTime:authority?.archiveFetchReadyAt||null,
       firstRemoteFetchTime:firstFetch?.at||null,
       firstFetchSourceKind:firstFetch?.sourceKind||null,
       firstFetchIds:firstFetch?.ids||[],
@@ -185,24 +189,38 @@ test('signed-in pre-reveal sync waits for archive-inclusive fetch before its fir
       baseFetchCallsBeforeReadiness:fixture.fetches.filter(fetch=>fetch.sourceKind==='base-filtered'&&!fetch.archiveReady).length,
       allFetches:structuredClone(fixture.fetches),
       terminalWrapperDepth:authority?.wrapperDepth??null,
-      retryCount:authority?.archiveFetchScriptFailures??null,
+      retryCount:authority?.archiveFetchScriptRetries??null,
+      failedLoadCount:authority?.archiveFetchScriptFailures??null,
       finalSynchronizationState:window.BogatkaCloud?.lastFirstSyncResult?.status||null,
       terminalStable:Boolean(window.cloudFetchRemote?.__terminalFetchAuthorityV416),
       authority,
     };
   },{activeId:ACTIVE_ID,archivedId:ARCHIVED_ID});
 
-  const artifact={beforeArchiveRelease,...result};
+  const artifact={beforeArchiveRelease,archiveRequestsBeforeRelease,...result};
   evidence('19-startup-archive-fetch-ready.json',artifact);
 
   expect(beforeArchiveRelease.backupSupportDelayed).toBeGreaterThanOrEqual(1);
   expect(beforeArchiveRelease.fetches).toEqual([]);
+  expect(beforeArchiveRelease.archiveFetchReady).toBe(false);
+  expect(archiveRequestsBeforeRelease).toBeGreaterThanOrEqual(2);
+  expect(result.failedLoadCount).toBeGreaterThanOrEqual(1);
+  expect(result.retryCount).toBeGreaterThanOrEqual(1);
   expect(result.baseFetchCallsBeforeReadiness).toBe(0);
   expect(result.firstFetchSourceKind).toBe('archive-inclusive');
   expect(result.firstFetchIds).toEqual(expect.arrayContaining([ACTIVE_ID,ARCHIVED_ID]));
   expect(result.activeRowsReceived).toEqual([ACTIVE_ID]);
   expect(result.archivedRowsReceived).toEqual([ARCHIVED_ID]);
+  expect(result.archiveSourceRegistrationTime).toBeLessThanOrEqual(result.firstRemoteFetchTime);
+  expect(result.archiveFetchReadyTime).toBeLessThanOrEqual(result.firstRemoteFetchTime);
   expect(result.terminalStable).toBe(true);
   expect(result.terminalWrapperDepth).toBe(1);
   expect(result.finalSynchronizationState).toBe('synced');
+  expect(result.authority).toMatchObject({
+    archiveFetchReady:true,
+    archiveFetchSourceRegistered:true,
+    archiveFetchSourceKind:'archive-inclusive',
+    terminalInstalled:true,
+    wrapperDepth:1,
+  });
 });
