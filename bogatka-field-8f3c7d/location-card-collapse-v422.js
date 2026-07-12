@@ -82,7 +82,10 @@
     const label=next?'Развернуть локацию':'Свернуть локацию';
     attr(button,'aria-label',label);
     if(button.title!==label)button.title=label;
-    if(persist)write(id,next);
+    write(id,next);
+    if(persist){
+      /* Session state is already current. The option remains for API compatibility. */
+    }
     return true;
   }
 
