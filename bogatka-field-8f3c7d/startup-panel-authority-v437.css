@@ -2,6 +2,9 @@ html:not(.panel-authority-failed-v437) .location-overview-v416:not(.panel-author
   visibility:hidden;
   min-height:156px;
 }
+html:not(.panel-authority-ready-v437) .location-overview-v416.panel-authority-ready-v437{
+  visibility:visible;
+}
 html:not(.panel-authority-failed-v437) .location-overview-v416:not(.panel-authority-ready-v437)::before{
   content:'Подготавливаем параметры осмотра…';
   visibility:visible;
