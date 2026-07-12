@@ -37,6 +37,7 @@
   let fetchAuthorityCalls=0;
   let fetchAuthorityLastReason='';
   let fetchAuthorityRejectedSources=0;
+  let terminalEverInstalled=false;
   let lastRejectedSource=null;
   let archiveFetchLastError='';
 
@@ -328,13 +329,18 @@
     const current=liveFetch();
     const exposed=window.BogatkaCloudArchive?.fetchSource;
     const candidates=[source,exposed,current&&current!==terminalFetch?current:null,fetchSource];
+    let accepted=false;
     for(const candidate of candidates){
-      if(candidate&&setFetchSource(candidate))break;
+      if(candidate&&setFetchSource(candidate)){accepted=true;break}
     }
-    if(current!==terminalFetch||window.cloudFetchRemote!==terminalFetch){
+    const shouldRebind=!terminalEverInstalled||accepted||reason!=='compat-install';
+    if(shouldRebind&&(current!==terminalFetch||window.cloudFetchRemote!==terminalFetch)){
       fetchAuthorityRebinds+=1;
       try{cloudFetchRemote=terminalFetch}catch(_){ }
       window.cloudFetchRemote=terminalFetch;
+      terminalEverInstalled=true;
+    }else if(current===terminalFetch&&window.cloudFetchRemote===terminalFetch){
+      terminalEverInstalled=true;
     }
     return archiveFetchReady();
   }
