@@ -20,9 +20,9 @@ verify('sync-runtime-v412.js',['conditionalUpdate','three-way-field-merge-with-r
 verify('sync-state-v412.js',['guardedIdbPut','readBase','writeBase']);
 verify('sync-merge-v412.js',['mergeIdArray','deletedTaskIds','preferLocal','transportNormalize','canonical']);
 verify('sync-ui-v412.js',['persistLocation','noOpUpdatesAccepted','revisionRebases','coalescedRequests','singleFlightCloudSync','cloudRetrySync']);
-verify('sync-field-compat-v416.js',['hydrateRow','transformRemoteRow','installFetchAuthority','terminalFetchAuthorityV416','fetchAuthoritySnapshot','FETCH_AUTHORITY_OWNER','Object.hasOwn']);
+verify('sync-field-compat-v416.js',['hydrateRow','transformRemoteRow','installFetchAuthority','terminalFetchAuthorityV416','fetchAuthoritySnapshot','FETCH_AUTHORITY_OWNER','Object.hasOwn','ARCHIVE_FETCH_SCRIPT','archiveFetchReady','archiveFetchSourceRegistered','archiveFetchSourceKind','waitForArchiveFetchReady','waitForStartupSyncReady','archiveFetchBootstrapPersistent','__archiveInclusiveFetchV400']);
 verify('archive-state-v436.js',['normalizeArchiveTime','archiveState','inferLegacyRestore','archiveAwareApply','archiveAwarePush','postPassDirtyIds','installDirtyCarry','preserveDirtyAfterPass','confirmDirtyAfterPass','bindRuntimeWrappers','BogatkaArchiveStateV436']);
-verify('cloud-archive-v400.js',['delegatedToV436','lateLoadProtected','bogatka:cloud-archive-loaded','__cloudArchiveV400','ensureRuntimeWrappers','fetchDelegated','archiveFetchSource','installFetchAuthority','__archiveInclusiveFetchV400']);
+verify('cloud-archive-v400.js',['delegatedToV436','lateLoadProtected','bogatka:cloud-archive-loaded','__cloudArchiveV400','ensureRuntimeWrappers','fetchDelegated','archiveFetchSource','archiveFetchReady','archiveFetchSourceRegistered','archiveFetchSourceKind','fetchSource','installFetchAuthority','__archiveInclusiveFetchV400']);
 verify('cloud-stability-v401.js',['event-driven-sync-with-no-idle-network-loop','hasPendingLocalChanges','eventDrivenPushLocations']);
 verify('field-integrity-v416.js',['one-location-one-ordered-save-queue','BogatkaFieldIntegrityV416']);
 verify('object-type-normalize-v416.js',['pendingEmptyResets','persistIntentionalEmpty','handleObjectTypeChange']);
@@ -36,7 +36,7 @@ verify('visual-v411.css',['.comparison-shell-v430','border:2px solid #d8b860!imp
 verify('workflow-v414.js',['checklist-guide-v414','structured-notes-v414','history-pagination-v414','BogatkaWorkflowV414']);
 verify('members-v32.js',['create_project_invite','update_project_member_role','remove_project_member']);
 verify('auth-signup-fix-v31.js',['accept_bogatka_project_invite','bogatkaInviteAcceptancePromise']);
-verify('version-authority-v426.js',["functions.invoke('bogatka-version')",'protectLegacyVersionWriters','window.BOGATKA_BUILD','window.BogatkaVersion','registerVersionedWorker','installVersionedBackup',"version:'4.3.6'","versionToken:'436'","sourceCommit:'065d604ef55b7baefadf277010b9e576e739b8d6'"]);
+verify('version-authority-v426.js',["functions.invoke('bogatka-version')",'protectLegacyVersionWriters','window.BOGATKA_BUILD','window.BogatkaVersion','registerVersionedWorker','installVersionedBackup',"version:'4.3.6'","versionToken:'436'","sourceCommit:'4f584e01fcf02a99010e36c2a2eaaf97da3db113'"]);
 verify('readiness-progress-v434.js',['BogatkaReadinessProgressV434','PHOTO_PLAN','buildProgress','landlordRequirements','conclusionRequirements']);
 const versionAuthority=read('version-authority-v426.js');
 if(versionAuthority.includes("version:'4.3.5'")||versionAuthority.includes("versionToken:'435'"))failures.push('version-authority-v426.js contains stale v4.3.5 production markers');
