@@ -1,0 +1,27 @@
+html:not(.panel-authority-ready-v437):not(.panel-authority-failed-v437) .location-overview-v416{
+  visibility:hidden;
+  min-height:156px;
+}
+html:not(.panel-authority-ready-v437):not(.panel-authority-failed-v437) .location-overview-v416::before{
+  content:'Подготавливаем параметры осмотра…';
+  visibility:visible;
+  display:block;
+  box-sizing:border-box;
+  min-height:96px;
+  padding:22px;
+  border:1px solid rgba(196,139,54,.24);
+  border-radius:16px;
+  background:linear-gradient(180deg,#fffaf0,#fff6df);
+  color:#76531f;
+  font-size:14px;
+  font-weight:700;
+}
+.panel-authority-v437{
+  visibility:visible;
+}
+.panel-authority-v437>.panel-toggle-v419{
+  display:grid;
+}
+.panel-authority-failed-v437 .location-overview-v416{
+  visibility:visible;
+}
