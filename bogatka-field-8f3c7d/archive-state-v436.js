@@ -27,6 +27,7 @@
     clearTimeout(installTimer);
 
     const ARCHIVE_KEYS=new Set(['archivedAt','archived_at']);
+    const postPassDirtyIds=new Set();
     const original={
       transportNormalize:Merge.transportNormalize.bind(Merge),
       canonical:Merge.canonical.bind(Merge),
@@ -34,7 +35,12 @@
       clean:Merge.clean.bind(Merge),
       merge:Merge.merge.bind(Merge),
     };
-    const diagnostics={normalized:0,invalid:0,legacyRestores:0,explicitIntentsPreserved:0,remoteStatesApplied:0,ambiguousStates:0,queuedLocationWrites:0,inFlightArchiveIntents:0};
+    const diagnostics={
+      normalized:0,invalid:0,legacyRestores:0,explicitIntentsPreserved:0,
+      remoteStatesApplied:0,ambiguousStates:0,queuedLocationWrites:0,
+      inFlightArchiveIntents:0,postPassDirtyPreserved:0,
+      postPassDirtyConfirmed:0,runtimeWrapperRebinds:0,
+    };
     const has=(value,key)=>Boolean(value&&typeof value==='object'&&Object.hasOwn(value,key));
     const clone=value=>value===undefined?undefined:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
     const enqueueLocation=(id,task)=>{
@@ -174,6 +180,23 @@
       return activity.time>(Date.parse(remote.value)||0);
     }
 
+    function installDirtyCarry(){
+      const current=typeof cloudWriteState==='function'?cloudWriteState:window.cloudWriteState;
+      if(typeof current!=='function')return false;
+      if(current.__archiveDirtyCarryV436)return true;
+      const wrapped=function archiveDirtyCarryWrite(state){
+        const next=state&&typeof state==='object'?state:{};
+        next.dirtyLocations||=[];
+        for(const id of postPassDirtyIds)if(!next.dirtyLocations.includes(id))next.dirtyLocations.push(id);
+        return current.call(this,next);
+      };
+      wrapped.__archiveDirtyCarryV436=true;
+      wrapped.__base=current;
+      window.cloudWriteState=wrapped;
+      try{cloudWriteState=wrapped}catch(_){ }
+      return true;
+    }
+
     function markDirty(id,syncState){
       syncState=syncState&&typeof syncState==='object'?syncState:{};
       syncState.dirtyLocations||=[];
@@ -184,6 +207,24 @@
         cloudWriteState(stored);
       }
       return syncState;
+    }
+
+    function preserveDirtyAfterPass(id,syncState){
+      if(!postPassDirtyIds.has(id))diagnostics.postPassDirtyPreserved++;
+      postPassDirtyIds.add(id);
+      markDirty(id,syncState);
+      const schedule=typeof cloudScheduleSync==='function'?cloudScheduleSync:window.cloudScheduleSync;
+      if(typeof schedule==='function')schedule(0);
+      return true;
+    }
+
+    function confirmDirtyAfterPass(id,remoteState,writeResult){
+      if(!postPassDirtyIds.has(id))return false;
+      const selected=writeResult?.result?.state;
+      if(writeResult?.result?.inFlightArchiveChanged||!selected?.known||!remoteState?.known||!sameState(selected,remoteState))return false;
+      postPassDirtyIds.delete(id);
+      diagnostics.postPassDirtyConfirmed++;
+      return true;
     }
 
     function relevantRow(row,data,item){
@@ -221,15 +262,11 @@
       return mutateLocationData(id,item,(data,currentItem)=>{
         let selected=state;
         const current=resolveLocalState(data,currentItem);
-        const inFlightArchiveChanged=Boolean(
-          expectedPreviousState?.known&&
-          current.state?.known&&
-          !sameState(current.state,expectedPreviousState)
-        );
+        const inFlightArchiveChanged=Boolean(expectedPreviousState?.known&&current.state?.known&&!sameState(current.state,expectedPreviousState));
         if(inFlightArchiveChanged){
           selected=current.state;
           diagnostics.inFlightArchiveIntents+=1;
-          if(syncState)markDirty(id,syncState);
+          preserveDirtyAfterPass(id,syncState);
         }
         applyState(data,'archivedAt',selected);applyState(currentItem,'archivedAt',selected);
         if(selected?.kind==='active')delete data.archivedBy;
@@ -243,7 +280,9 @@
     }
 
     const baseApply=cloudApplyRemote;
-    cloudApplyRemote=async function archiveAwareApply(remoteLocations,remotePhotos,remoteState,syncState){
+    const basePush=cloudPushLocations;
+
+    async function archiveAwareApply(remoteLocations,remotePhotos,remoteState,syncState){
       syncState=syncState&&typeof syncState==='object'?syncState:{};syncState.dirtyLocations||=[];
       const sourceRows=remoteLocations||[];
       const relevant=[];
@@ -277,11 +316,10 @@
       }
       if(intents.size)await State.rawPut()(STORE,locations,'meta:locations');
       return result;
-    };
-    cloudApplyRemote.__archiveStateV436=true;
+    }
+    archiveAwareApply.__archiveStateV436=true;
 
-    const basePush=cloudPushLocations;
-    cloudPushLocations=async function archiveAwarePush(remoteLocations,syncState){
+    async function archiveAwarePush(remoteLocations,syncState){
       syncState=syncState&&typeof syncState==='object'?syncState:{};syncState.dirtyLocations||=[];
       const sourceRows=remoteLocations||[];
       const relevantIds=new Set();
@@ -309,13 +347,46 @@
         const id=row.client_id||row.id;if(!relevantIds.has(id))continue;
         const item=locations.find(entry=>entry.id===id),state=stateFromRow(cohereRow(row));if(!item||!state.known)continue;
         assertValidState(item.title||id,state);
-        await writeLocalState(id,item,state,{writeBaseRow:row,expectedPreviousState:pushedStates.get(id)||null,syncState});
+        const written=await writeLocalState(id,item,state,{writeBaseRow:row,expectedPreviousState:pushedStates.get(id)||null,syncState});
+        confirmDirtyAfterPass(id,state,written);
         diagnostics.remoteStatesApplied++;
       }
       await State.rawPut()(STORE,locations,'meta:locations');
       return result;
-    };
-    cloudPushLocations.__archiveStateV436=true;
+    }
+    archiveAwarePush.__archiveStateV436=true;
+
+    function bindRuntimeWrappers({force=false}={}){
+      const currentApply=typeof cloudApplyRemote==='function'?cloudApplyRemote:window.cloudApplyRemote;
+      const currentPush=typeof cloudPushLocations==='function'?cloudPushLocations:window.cloudPushLocations;
+      const legacy=fn=>Boolean(fn?.__cloudArchiveV400||/WithArchive/.test(fn?.name||''));
+      let rebound=false;
+      if(force||legacy(currentApply)){
+        window.cloudApplyRemote=archiveAwareApply;
+        try{cloudApplyRemote=archiveAwareApply}catch(_){ }
+        rebound=true;
+      }
+      if(force||legacy(currentPush)){
+        window.cloudPushLocations=archiveAwarePush;
+        try{cloudPushLocations=archiveAwarePush}catch(_){ }
+        rebound=true;
+      }
+      if(rebound)diagnostics.runtimeWrapperRebinds++;
+      return rebound;
+    }
+
+    function installLateArchiveProtection(){
+      const rebind=()=>setTimeout(()=>bindRuntimeWrappers({force:true}),0);
+      window.addEventListener('bogatka:cloud-archive-loaded',rebind);
+      const observer=new MutationObserver(records=>{
+        for(const record of records)for(const node of record.addedNodes||[]){
+          if(node?.tagName!=='SCRIPT'||!String(node.src||node.getAttribute?.('src')||'').includes('cloud-archive-v400.js'))continue;
+          node.addEventListener('load',rebind,{once:true});
+        }
+      });
+      observer.observe(document.head,{childList:true});
+      return observer;
+    }
 
     function installSuiteActions(){
       const Suite=window.BogatkaSuite;if(!Suite)return false;
@@ -373,17 +444,29 @@
       return true;
     }
 
-    window.cloudApplyRemote=cloudApplyRemote;window.cloudPushLocations=cloudPushLocations;
-    try{cloudApplyRemote=window.cloudApplyRemote;cloudPushLocations=window.cloudPushLocations}catch(_){ }
+    installDirtyCarry();
+    window.cloudApplyRemote=archiveAwareApply;window.cloudPushLocations=archiveAwarePush;
+    try{cloudApplyRemote=archiveAwareApply;cloudPushLocations=archiveAwarePush}catch(_){ }
+    const lateArchiveObserver=installLateArchiveProtection();
     installSuiteActions();installSyncErrorTargetRecovery();
     const timer=setInterval(()=>{
       const suiteReady=installSuiteActions();
       const syncReady=installSyncErrorTargetRecovery();
+      bindRuntimeWrappers();
       if(suiteReady&&syncReady)clearInterval(timer);
     },100);
     setTimeout(()=>clearInterval(timer),10000);
 
-    window.BogatkaArchiveStateV436={version:'4.3.6',ready:true,installAttempts,installerPersistent:true,normalizeArchiveTime,normalizeArchiveFields,archiveState,stateFromRow,cohereRow,stripArchive,latestArchiveActivity,resolveLocalState,inferLegacyRestore,get diagnostics(){return{...diagnostics}},_test:{sameState,applyState,canonicalizeBase,writeLocalState,mutateLocationData,markDirty,currentRole,canEdit,enqueueLocation}};
+    window.BogatkaArchiveStateV436={
+      version:'4.3.6',ready:true,installAttempts,installerPersistent:true,
+      normalizeArchiveTime,normalizeArchiveFields,archiveState,stateFromRow,cohereRow,
+      stripArchive,latestArchiveActivity,resolveLocalState,inferLegacyRestore,
+      get diagnostics(){return{...diagnostics,postPassDirtyIds:[...postPassDirtyIds]}},
+      _test:{sameState,applyState,canonicalizeBase,writeLocalState,mutateLocationData,markDirty,
+        currentRole,canEdit,enqueueLocation,preserveDirtyAfterPass,confirmDirtyAfterPass,
+        bindRuntimeWrappers,ensureRuntimeWrappers:bindRuntimeWrappers,lateArchiveObserver,
+        get postPassDirtyIds(){return[...postPassDirtyIds]}},
+    };
     window.__bogatkaArchiveStateInstallingV436=false;
   }
 
