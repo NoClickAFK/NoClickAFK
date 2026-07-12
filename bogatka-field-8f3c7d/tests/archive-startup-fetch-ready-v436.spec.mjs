@@ -125,6 +125,12 @@ test('signed-in pre-reveal sync waits for archive-inclusive fetch before its fir
   const archiveHold=new Promise(resolve=>{releaseArchive=resolve});
 
   await page.route('**/@supabase/supabase-js@2*',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
+  await page.route('**/backup-v400.js*',async route=>{
+    const response=await route.fetch();
+    const source=await response.text();
+    const delayed=source.replaceAll('loadSupportModules();',"window.__backupArchiveSupportDelayedV436=(window.__backupArchiveSupportDelayedV436||0)+1;");
+    await route.fulfill({response,body:delayed});
+  });
   await page.route('**/cloud-archive-v400.js*',async route=>{
     await archiveHold;
     await route.continue();
@@ -138,6 +144,8 @@ test('signed-in pre-reveal sync waits for archive-inclusive fetch before its fir
 
   const beforeArchiveRelease=await page.evaluate(()=>({
     fetches:structuredClone(window.__startupArchiveFetchFixture.fetches),
+    backupSupportDelayed:Number(window.__backupArchiveSupportDelayedV436||0),
+    archiveScriptPresent:[...document.scripts].some(script=>script.src.includes('cloud-archive-v400.js')),
     fieldCompatReady:Boolean(window.BogatkaSyncFieldCompatV416?.ready),
     archiveStateReady:Boolean(window.BogatkaArchiveStateV436?.ready),
     archiveFetchReady:Boolean(window.BogatkaSyncFieldCompatV416?.archiveFetchReady),
@@ -146,6 +154,19 @@ test('signed-in pre-reveal sync waits for archive-inclusive fetch before its fir
   }));
 
   releaseArchive();
+  await page.evaluate(async()=>{
+    if(window.__bogatkaCloudArchiveV400)return;
+    const existing=[...document.scripts].find(script=>script.src.includes('cloud-archive-v400.js'));
+    if(existing)return;
+    const script=document.createElement('script');
+    script.src=`./cloud-archive-v400.js?startup-retry=${Date.now()}`;
+    script.async=false;
+    await new Promise((resolve,reject)=>{
+      script.onload=resolve;
+      script.onerror=()=>reject(new Error('Startup archive fetch retry failed'));
+      document.head.appendChild(script);
+    });
+  });
   await page.waitForFunction(()=>window.BogatkaCloud?.firstSyncCompleted===true,{timeout:30000});
   await page.waitForFunction(()=>window.BogatkaSyncFieldCompatV416?._test?.fetchAuthoritySnapshot?.().archiveSource===true,{timeout:10000});
 
@@ -174,6 +195,7 @@ test('signed-in pre-reveal sync waits for archive-inclusive fetch before its fir
   const artifact={beforeArchiveRelease,...result};
   evidence('19-startup-archive-fetch-ready.json',artifact);
 
+  expect(beforeArchiveRelease.backupSupportDelayed).toBeGreaterThanOrEqual(1);
   expect(beforeArchiveRelease.fetches).toEqual([]);
   expect(result.baseFetchCallsBeforeReadiness).toBe(0);
   expect(result.firstFetchSourceKind).toBe('archive-inclusive');
