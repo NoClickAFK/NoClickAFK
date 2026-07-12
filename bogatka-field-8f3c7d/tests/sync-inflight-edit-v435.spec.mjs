@@ -81,6 +81,14 @@ test('in-flight same-location edit survives and converges in one coalesced follo
     };
     fixtureFetch.__archiveInclusiveFetchV400=true;
     fixtureFetch.__archiveFetchSourceKindV436='archive-inclusive';
+    window.BogatkaCloudArchive={
+      ...(window.BogatkaCloudArchive||{}),
+      archiveFetchSource:true,
+      archiveFetchReady:true,
+      archiveFetchSourceRegistered:true,
+      archiveFetchSourceKind:'archive-inclusive',
+      fetchSource:fixtureFetch,
+    };
     window.BogatkaSyncFieldCompatV416.installFetchAuthority(fixtureFetch,{reason:'v435-inflight-test-fixture'});
     cloudApplyRemote=async()=>{};
     cloudDeleteRemovedLocations=async()=>{};
