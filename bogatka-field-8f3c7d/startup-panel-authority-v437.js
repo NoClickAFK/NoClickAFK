@@ -267,21 +267,11 @@
     const root=document.getElementById('locations')||document.body;
     observer=new MutationObserver(records=>{
       diagnostics.observerCallbacks+=1;
-      for(const record of records){
-        if(record.type==='attributes'&&record.attributeName==='data-panel-open-v419'){
-          const section=record.target;
-          const card=section.closest?.('[data-location-card]');
-          const kind=section.dataset.panelAuthorityV437;
-          if(card?.dataset.locationCard&&COPY[kind]&&section.dataset.panelOpenV419!==undefined){
-            panelStates.set(panelKey(card.dataset.locationCard,kind),section.dataset.panelOpenV419!=='0');
-          }
-        }
-      }
       const structural=records.some(record=>record.type==='childList'&&(record.addedNodes.length||record.removedNodes.length));
-      if(!structural&&performance.now()<=selfMutationUntil){diagnostics.ignoredSelfMutations+=1;return}
+      if(!structural){diagnostics.ignoredSelfMutations+=1;return}
       scheduleCanonicalize();
     });
-    observer.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class','data-panel-open-v419','aria-expanded','hidden']});
+    observer.observe(root,{childList:true,subtree:true});
   }
 
   function chainHas(fn,marker){
