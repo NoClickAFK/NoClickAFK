@@ -5,9 +5,7 @@ This tracked file is intentionally compact. The complete per-file JSON inventory
 Files inventoried: **225**.
 
 Observed main-runtime JavaScript requests: **101**.
-
 Observed main-runtime CSS requests: **33**.
-
 Service Worker asset entries: **151**.
 
 ## Classification totals
