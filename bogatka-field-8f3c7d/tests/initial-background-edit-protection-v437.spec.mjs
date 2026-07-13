@@ -4,6 +4,7 @@ import path from 'node:path';
 
 const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=initial-background-edit-protection-v437';
 const OUT=path.resolve('review-artifacts/startup-panels-v437-review');
+const OWNER_NAMES=['saveField','cloudSyncAll','cloudApplyRemote','cloudPushLocations'];
 let EVENT_HEAD='';
 try{
   const event=JSON.parse(await fs.readFile(process.env.GITHUB_EVENT_PATH,'utf8'));
@@ -16,9 +17,67 @@ async function writeEvidence(name,value){
   await fs.writeFile(path.join(OUT,name),JSON.stringify(value,null,2));
 }
 
-async function openApp(page){
+async function installOwnerTrace(page){
+  await page.addInitScript(names=>{
+    const ids=new WeakMap();
+    let nextId=1;
+    const trace={startedAt:performance.now(),scans:0,replacements:[],events:[],last:{}};
+    const idFor=value=>{
+      if(typeof value!=='function')return null;
+      if(!ids.has(value))ids.set(value,nextId++);
+      return ids.get(value);
+    };
+    const liveFunction=name=>{
+      try{
+        if(name==='saveField'&&typeof saveField==='function')return saveField;
+        if(name==='cloudSyncAll'&&typeof cloudSyncAll==='function')return cloudSyncAll;
+        if(name==='cloudApplyRemote'&&typeof cloudApplyRemote==='function')return cloudApplyRemote;
+        if(name==='cloudPushLocations'&&typeof cloudPushLocations==='function')return cloudPushLocations;
+      }catch(_){ }
+      return window[name];
+    };
+    const latestScript=()=>{
+      const scripts=performance.getEntriesByType('resource').filter(entry=>/\.js(?:\?|$)/.test(entry.name));
+      return scripts.at(-1)?.name||document.currentScript?.src||'';
+    };
+    const scan=()=>{
+      trace.scans+=1;
+      for(const name of names){
+        const live=liveFunction(name);
+        const published=window[name];
+        const current={live:idFor(live),window:idFor(published)};
+        const previous=trace.last[name];
+        if(!previous||previous.live!==current.live||previous.window!==current.window){
+          trace.replacements.push({
+            atMs:Number(performance.now().toFixed(1)),name,
+            previous:previous||null,current,
+            liveName:typeof live==='function'?(live.name||'<anonymous>'):typeof live,
+            windowName:typeof published==='function'?(published.name||'<anonymous>'):typeof published,
+            currentScript:document.currentScript?.src||'',latestScript:latestScript(),
+          });
+          trace.last[name]=current;
+        }
+      }
+    };
+    window.addEventListener('bogatka:cloud-archive-loaded',event=>{
+      trace.events.push({atMs:Number(performance.now().toFixed(1)),type:event.type,detail:event.detail||null,latestScript:latestScript()});
+      queueMicrotask(scan);
+      setTimeout(scan,0);
+    });
+    window.__v437OwnerTrace=trace;
+    window.__v437OwnerTraceScan=scan;
+    scan();
+    setInterval(scan,25);
+  },OWNER_NAMES);
+}
+
+async function gotoApp(page){
+  await installOwnerTrace(page);
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP,{waitUntil:'load'});
+}
+
+async function waitForBaseRuntime(page){
   await page.waitForFunction(()=>Boolean(
     window.BogatkaInitialBackgroundEditProtectionV437?.ready&&
     window.BogatkaSyncCompatibility?.version==='4.3.5'&&
@@ -30,7 +89,93 @@ async function openApp(page){
     (typeof cloudSyncing==='undefined'||cloudSyncing===false)
   ),{timeout:30000});
   await page.evaluate(()=>window.BogatkaDurableFieldsV452?.flush?.());
-  await page.waitForFunction(()=>window.BogatkaInitialBackgroundEditProtectionV437.audit().ok,{timeout:10000});
+}
+
+async function collectTerminalDiagnostics(page){
+  return page.evaluate(names=>{
+    const liveFunction=name=>{
+      try{
+        if(name==='saveField'&&typeof saveField==='function')return saveField;
+        if(name==='cloudSyncAll'&&typeof cloudSyncAll==='function')return cloudSyncAll;
+        if(name==='cloudApplyRemote'&&typeof cloudApplyRemote==='function')return cloudApplyRemote;
+        if(name==='cloudPushLocations'&&typeof cloudPushLocations==='function')return cloudPushLocations;
+      }catch(_){ }
+      return window[name];
+    };
+    const chain=fn=>{
+      const nodes=[];
+      const seen=new Set();
+      let current=fn;
+      while(typeof current==='function'&&!seen.has(current)&&nodes.length<40){
+        seen.add(current);
+        const markers=Object.keys(current).filter(key=>key.startsWith('__')&&current[key]===true).sort();
+        nodes.push({name:current.name||'<anonymous>',markers,v437:Boolean(current.__initialBackgroundEditProtectionV437)});
+        current=current.__base;
+      }
+      return{depth:nodes.length,v437MarkerCount:nodes.filter(node=>node.v437).length,cycle:typeof current==='function'&&seen.has(current),nodes};
+    };
+    const owners={};
+    for(const name of names){
+      const live=liveFunction(name);
+      const published=window[name];
+      owners[name]={
+        sameIdentity:live===published,
+        live:{name:typeof live==='function'?(live.name||'<anonymous>'):typeof live,chain:chain(live)},
+        window:{name:typeof published==='function'?(published.name||'<anonymous>'):typeof published,chain:chain(published)},
+      };
+    }
+    const Protection=window.BogatkaInitialBackgroundEditProtectionV437;
+    let audit=null;
+    try{audit=Protection?.audit?.()||null}catch(error){audit={ok:false,failures:[error?.message||String(error)]}}
+    return{
+      audit,
+      legacy:audit?.legacy||null,
+      lifecycle:Protection?.lifecycle||null,
+      generation:Protection?.generation??Protection?.snapshot?.generation??null,
+      snapshotLocationsCount:Protection?.snapshot?.locations?.length??null,
+      runtimeChecks:audit?.runtimeChecks??Protection?.diagnostics?.runtimeChecks??null,
+      terminalPasses:audit?.terminalPasses??Protection?.diagnostics?.terminalPasses??null,
+      terminalReconcileAttempts:window.__bogatkaInitialBackgroundEditTerminalDiagnosticsV437?.attempts??null,
+      terminalStablePasses:window.__bogatkaInitialBackgroundEditTerminalDiagnosticsV437?.stablePasses??null,
+      readiness:{
+        fieldIntegrity:Boolean(window.BogatkaFieldIntegrityV416?.ready),
+        syncCompatibility:Boolean(window.BogatkaSyncCompatibility?.ready),
+        archiveState:Boolean(window.BogatkaArchiveStateV436?.ready),
+        locationData:Boolean(window.BogatkaLocationDataV452?.ready),
+        locationDataStability:Boolean(window.BogatkaLocationDataStabilityV452?.ready),
+        durableFields:Boolean(window.BogatkaDurableFieldsV452?.ready),
+        suiteSaveOrder:Boolean(window.BogatkaSuiteSaveOrderV452?.ready),
+      },
+      owners,
+      replacementTimeline:window.__v437OwnerTrace?{
+        scans:window.__v437OwnerTrace.scans,
+        replacements:[...window.__v437OwnerTrace.replacements],
+        events:[...window.__v437OwnerTrace.events],
+        last:{...window.__v437OwnerTrace.last},
+      }:null,
+      terminalDataset:document.documentElement.dataset.initialBackgroundEditTerminalV437||null,
+      terminalReadyFlag:Boolean(window.__bogatkaInitialBackgroundEditTerminalReadyV437),
+    };
+  },OWNER_NAMES);
+}
+
+async function assertTerminalReady(page){
+  const deadline=Date.now()+10000;
+  let diagnostics=null;
+  while(Date.now()<deadline){
+    diagnostics=await collectTerminalDiagnostics(page);
+    if(diagnostics.audit?.ok)return diagnostics;
+    await page.waitForTimeout(50);
+  }
+  diagnostics=await collectTerminalDiagnostics(page);
+  expect(diagnostics.audit?.ok,`Terminal V437 ownership did not converge:\n${JSON.stringify(diagnostics,null,2)}`).toBe(true);
+  return diagnostics;
+}
+
+async function openApp(page){
+  await gotoApp(page);
+  await waitForBaseRuntime(page);
+  await assertTerminalReady(page);
 }
 
 async function configureFixture(page,{
@@ -129,24 +274,12 @@ async function configureFixture(page,{
         return fixture.currentRemote?[clone(fixture.currentRemote)]:[];
       };
       const builder={
-        select(){return builder},
-        eq(){return builder},
-        is(){return builder},
+        select(){return builder},eq(){return builder},is(){return builder},
         update(value){mode='update';payload=clone(value);return builder},
         upsert(value){mode='upsert';payload=clone(Array.isArray(value)?value[0]:value);return builder},
-        async order(){
-          if(mode==='read')return{data:await read(),error:null};
-          return{data:[clone(await write())],error:null};
-        },
-        async maybeSingle(){
-          if(mode==='read'){
-            const rows=await read();
-            return{data:rows[0]||null,error:null};
-          }
-          return{data:clone(await write()),error:null};
-        },
-        single(){return builder.maybeSingle()},
-        then(resolve,reject){return builder.order().then(resolve,reject)},
+        async order(){if(mode==='read')return{data:await read(),error:null};return{data:[clone(await write())],error:null}},
+        async maybeSingle(){if(mode==='read'){const rows=await read();return{data:rows[0]||null,error:null}}return{data:clone(await write()),error:null}},
+        single(){return builder.maybeSingle()},then(resolve,reject){return builder.order().then(resolve,reject)},
       };
       return builder;
     };
@@ -245,7 +378,7 @@ async function runProtectedScenario(page,{editTiming='after-fetch-start',duringA
   await page.evaluate(()=>window.__fixtureActiveControl?.blur());
   await page.evaluate(()=>cloudSyncAll({manual:true}));
   await page.waitForFunction(()=>window.BogatkaInitialBackgroundEditProtectionV437.lifecycle==='initial-cloud-ready',{timeout:15000});
-  return await page.evaluate(async({before})=>{
+  return page.evaluate(async({before})=>{
     const fixture=window.__initialProtectionFixture;
     const local=await getLocationData(fixture.id);
     const base=await window.BogatkaSyncState.readBase(fixture.id);
@@ -271,7 +404,8 @@ async function runProtectedScenario(page,{editTiming='after-fetch-start',duringA
 }
 
 test('legacy no-base preferLocal reproduces the stale whole-location overwrite',async({page})=>{
-  await openApp(page);
+  await gotoApp(page);
+  await page.waitForFunction(()=>Boolean(window.BogatkaSyncMerge?.merge),{timeout:10000});
   const result=await page.evaluate(()=>window.BogatkaSyncMerge.merge(
     undefined,
     {edited:'LOCAL-USER',untouched:'LOCAL-STALE'},
