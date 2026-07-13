@@ -56,7 +56,10 @@ function installSyncIntegrityGate(){
   const baseCloudInit=cloudInit;
   cloudInit=async function gatedCloudInit(){
     for(let attempt=0;attempt<300;attempt++){
-      if(window.BogatkaSyncIntegrity?.ready&&window.BogatkaSyncCompatibility?.ready&&window.BogatkaSyncFieldCompatV416?.ready)return baseCloudInit();
+      if(window.BogatkaSyncIntegrity?.ready&&window.BogatkaSyncCompatibility?.ready&&window.BogatkaSyncFieldCompatV416?.ready){
+        await window.BogatkaInitialBackgroundEditProtectionV437?.ensureTerminalOwnership?.({reason:'cloud-init'});
+        return baseCloudInit();
+      }
       await new Promise(resolve=>setTimeout(resolve,50));
     }
     throw new Error('Не загрузился модуль безопасной синхронизации. Выполните полное обновление страницы.');
@@ -150,82 +153,6 @@ function installFreshEditorSelectionV463(){
   [100,400,1000,2500].forEach(delay=>setTimeout(wrap,delay));
 }
 
-function installInitialBackgroundEditProtectionTerminalV437(){
-  if(window.__bogatkaInitialBackgroundEditTerminalV437)return;
-  window.__bogatkaInitialBackgroundEditTerminalV437=true;
-  let attempts=0;
-  let stablePasses=0;
-  let timer=null;
-  let legacyAudit=null;
-  const liveFunction=(name)=>{
-    try{
-      if(name==='saveField'&&typeof saveField==='function')return saveField;
-      if(name==='cloudSyncAll'&&typeof cloudSyncAll==='function')return cloudSyncAll;
-      if(name==='cloudApplyRemote'&&typeof cloudApplyRemote==='function')return cloudApplyRemote;
-      if(name==='cloudPushLocations'&&typeof cloudPushLocations==='function')return cloudPushLocations;
-    }catch(_){}
-    return window[name];
-  };
-  const align=(name)=>{
-    const live=liveFunction(name);
-    if(typeof live==='function')window[name]=live;
-    return live;
-  };
-  const inspectLiveOwners=(protection)=>{
-    const failures=[];
-    if(!Number(protection?.snapshot?.generation||0))failures.push('startup-snapshot-missing');
-    if(!window.BogatkaLocationDataV452?.ready)failures.push('location-data-owner-missing');
-    if(!window.BogatkaLocationDataStabilityV452?.ready)failures.push('location-data-stability-owner-missing');
-    if(!window.BogatkaDurableFieldsV452?.ready)failures.push('durable-fields-owner-missing');
-    if(!window.BogatkaSuiteSaveOrderV452?.ready)failures.push('suite-save-order-owner-missing');
-    for(const name of ['saveField','cloudSyncAll','cloudApplyRemote','cloudPushLocations']){
-      if(!liveFunction(name)?.__initialBackgroundEditProtectionV437)failures.push(`${name}-terminal-owner-missing`);
-    }
-    return{ok:failures.length===0,failures,generation:Number(protection?.snapshot?.generation||0),terminalOwnerAuditV437:true};
-  };
-  const installLiveAudit=(protection)=>{
-    if(protection.audit?.__terminalOwnerAuditV437)return;
-    legacyAudit=typeof protection.audit==='function'?protection.audit.bind(protection):null;
-    const terminalAudit=function(){
-      const live=inspectLiveOwners(protection);
-      let legacy=null;
-      try{legacy=legacyAudit?.()||null}catch(error){legacy={ok:false,failures:[error?.message||String(error)]}}
-      return{...live,legacy};
-    };
-    terminalAudit.__terminalOwnerAuditV437=true;
-    protection.audit=terminalAudit;
-  };
-  const reconcile=async()=>{
-    attempts+=1;
-    const protection=window.BogatkaInitialBackgroundEditProtectionV437;
-    let ready=false;
-    if(protection?.ready){
-      align('saveField');
-      align('cloudSyncAll');
-      align('cloudApplyRemote');
-      align('cloudPushLocations');
-      try{await protection.ensureFieldIntegrity?.()}catch(_){}
-      protection.installSaveWrapper?.();
-      protection.installSyncWrapper?.();
-      protection.installApplyPushWrappers?.();
-      const liveAudit=inspectLiveOwners(protection);
-      ready=liveAudit.ok;
-      stablePasses=ready?stablePasses+1:0;
-      document.documentElement.dataset.initialBackgroundEditTerminalV437=ready?'1':'0';
-      if(stablePasses>=8){
-        installLiveAudit(protection);
-        window.__bogatkaInitialBackgroundEditTerminalReadyV437=true;
-        return;
-      }
-    }
-    if(attempts<360){
-      clearTimeout(timer);
-      timer=setTimeout(()=>reconcile().catch(console.error),100);
-    }
-  };
-  reconcile().catch(console.error);
-}
-
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   verifyStaticStylesheetManifest();
@@ -295,7 +222,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./selftest-v400.js'});
   ensureWorkflowEnhancements();
   installFreshEditorSelectionV463();
-  installInitialBackgroundEditProtectionTerminalV437();
+  window.BogatkaInitialBackgroundEditProtectionV437?.ensureTerminalOwnership?.({reason:'v23-loaded'}).catch?.(console.error);
   document.addEventListener('keydown',event=>{
     const target=event.target;
     if(event.key!=='Enter')return;
