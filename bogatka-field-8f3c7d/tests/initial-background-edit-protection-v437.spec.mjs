@@ -205,10 +205,12 @@ async function configureFixture(page,{
     await State.rawPut()(STORE,localRow,`location:${id}`);
     await State.rawPut()(STORE,locations,'meta:locations');
     await State.deleteBase(id);
-    cloudWriteState({
+    const fixtureState=()=>({
       dirtyLocations:dirtyBefore?[id]:[],dirtyPhotos:[],deletedPhotos:{},deletedLocations:{},
       knownLocationIds:remoteExists?[id]:[],knownPhotoIds:[],stateDirty:false,metaDirty:false,
+      projectId:cloudProjectId,userId:cloudSession.user.id,
     });
+    cloudWriteState(fixtureState());
     renderLocations();
     window.BogatkaLocationCardCollapseV422?.setCollapsed?.(document.querySelector(`[data-location-card="${CSS.escape(id)}"]`),false,{persist:false});
     await restoreAllForms({preserveActive:true});
@@ -217,6 +219,7 @@ async function configureFixture(page,{
     Protection.installSaveWrapper();
     Protection.installSyncWrapper();
     Protection.installApplyPushWrappers();
+    cloudWriteState(fixtureState());
 
     const remoteRow=remoteExists?{
       id:`remote-${id}`,project_id:cloudProjectId,client_id:id,title:item.title,address:item.address,note:item.note,
@@ -352,7 +355,7 @@ async function runProtectedScenario(page,{editTiming='after-fetch-start',duringA
   await page.evaluate(()=>window.__initialProtectionFixture.releaseFirstFetch());
   if(duringApplyEdit){
     await page.evaluate(()=>window.__initialProtectionFixture.cloudWriteReached);
-    await editField(page,id,'tech.rentPerMonth','LOCAL-DURING-APPLY',{focus:false});
+    await editField(page,id,'tech.rentPerMonth','7654',{focus:false});
     await page.evaluate(()=>window.__initialProtectionFixture.releaseCloudWrite());
   }
   await page.evaluate(async()=>{
@@ -453,9 +456,9 @@ test('edit during cloudApplyRemote and before debounce remains serialized',async
   test.setTimeout(60000);
   await openApp(page);
   const evidence=await runProtectedScenario(page,{editTiming:'after-fetch-start',duringApplyEdit:true});
-  expect(evidence.finalLocalRow).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'LOCAL-DURING-APPLY'});
-  expect(evidence.finalRemoteRow).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'LOCAL-DURING-APPLY'});
-  expect(evidence.finalPersistedBase).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'LOCAL-DURING-APPLY'});
+  expect(evidence.finalLocalRow).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'7654'});
+  expect(evidence.finalRemoteRow).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'7654'});
+  expect(evidence.finalPersistedBase).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'7654'});
   expect(evidence.patchCount).toBe(1);
   expect(evidence.maxParallelRequests).toBe(1);
   expect(evidence.diagnostics.pendingSaveFlushes).toBeGreaterThan(0);
