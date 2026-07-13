@@ -150,6 +150,66 @@ function installFreshEditorSelectionV463(){
   [100,400,1000,2500].forEach(delay=>setTimeout(wrap,delay));
 }
 
+function installInitialBackgroundEditProtectionTerminalV437(){
+  if(window.__bogatkaInitialBackgroundEditTerminalV437)return;
+  window.__bogatkaInitialBackgroundEditTerminalV437=true;
+  let attempts=0;
+  let stablePasses=0;
+  let timer=null;
+  const liveFunction=(name)=>{
+    try{
+      if(name==='saveField'&&typeof saveField==='function')return saveField;
+      if(name==='cloudSyncAll'&&typeof cloudSyncAll==='function')return cloudSyncAll;
+      if(name==='cloudApplyRemote'&&typeof cloudApplyRemote==='function')return cloudApplyRemote;
+      if(name==='cloudPushLocations'&&typeof cloudPushLocations==='function')return cloudPushLocations;
+    }catch(_){}
+    return window[name];
+  };
+  const align=(name)=>{
+    const live=liveFunction(name);
+    if(typeof live==='function')window[name]=live;
+    return live;
+  };
+  const reconcile=async()=>{
+    attempts+=1;
+    const protection=window.BogatkaInitialBackgroundEditProtectionV437;
+    let ready=false;
+    if(protection?.ready){
+      align('saveField');
+      align('cloudSyncAll');
+      align('cloudApplyRemote');
+      align('cloudPushLocations');
+      try{await protection.ensureFieldIntegrity?.()}catch(_){}
+      protection.installSaveWrapper?.();
+      protection.installSyncWrapper?.();
+      protection.installApplyPushWrappers?.();
+      const audit=protection.audit?.();
+      const finalOwners=Boolean(
+        window.BogatkaLocationDataV452?.ready&&
+        window.BogatkaLocationDataStabilityV452?.ready&&
+        window.BogatkaDurableFieldsV452?.ready&&
+        window.BogatkaSuiteSaveOrderV452?.ready&&
+        liveFunction('saveField')?.__initialBackgroundEditProtectionV437&&
+        liveFunction('cloudSyncAll')?.__initialBackgroundEditProtectionV437&&
+        liveFunction('cloudApplyRemote')?.__initialBackgroundEditProtectionV437&&
+        liveFunction('cloudPushLocations')?.__initialBackgroundEditProtectionV437
+      );
+      ready=Boolean(audit?.ok&&finalOwners);
+      stablePasses=ready?stablePasses+1:0;
+      document.documentElement.dataset.initialBackgroundEditTerminalV437=ready?'1':'0';
+      if(stablePasses>=8){
+        window.__bogatkaInitialBackgroundEditTerminalReadyV437=true;
+        return;
+      }
+    }
+    if(attempts<360){
+      clearTimeout(timer);
+      timer=setTimeout(()=>reconcile().catch(console.error),100);
+    }
+  };
+  reconcile().catch(console.error);
+}
+
 function applyVersion23Enhancements(){
   if(redirectLegacyRecovery())return;
   verifyStaticStylesheetManifest();
@@ -219,6 +279,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./selftest-v400.js'});
   ensureWorkflowEnhancements();
   installFreshEditorSelectionV463();
+  installInitialBackgroundEditProtectionTerminalV437();
   document.addEventListener('keydown',event=>{
     const target=event.target;
     if(event.key!=='Enter')return;
