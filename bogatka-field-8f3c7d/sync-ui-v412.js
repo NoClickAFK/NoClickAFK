@@ -8,6 +8,7 @@
   const baseHandleRealtime=cloudHandleRealtime;
   const baseRenderModal=cloudRenderModal;
   const editorSelector='#app input:not([type="button"]):not([type="submit"]):not([type="file"]),#app textarea,#app select,#app [contenteditable="true"]';
+  const INITIAL_CLOUD_LIFECYCLES=new Set(['initial-cloud-pending','reconciling-early-edits','initial-cloud-error','offline']);
   let refreshTimer=null,inferredBaselines=0,deferredRefreshes=0,compatibilitySuppressed=0;
   let activeSync=null,pendingRerun=false,pendingManual=false,pendingTimer=null,lastSyncError='';
   const diagnostics={
@@ -191,10 +192,19 @@
   function chooseMeta(base,item,row,index,preferLocal){
     return Merge.merge(base?.meta,localMeta(item,index),row?rowMeta(row):undefined,{preferLocal,explicitReset:false});
   }
+  function startupTransientBase(id,row,persistedBase){
+    if(persistedBase||!row)return null;
+    const protection=window.BogatkaInitialBackgroundEditProtectionV437;
+    const snapshot=protection?.snapshot;
+    if(!protection?.ready||!INITIAL_CLOUD_LIFECYCLES.has(protection.lifecycle))return null;
+    if(!snapshot?.locations?.includes(id)||(snapshot.preExistingDirty||[]).includes(id))return null;
+    return protection._test?.startupBaseFor?.(id)||null;
+  }
   async function buildContext(item,index,row,syncState){
     const local=await getLocationData(item.id);
     const cleanLocal=Merge.clean(local);
-    const base=await State.readBase(item.id)||null;
+    const persistedBase=await State.readBase(item.id)||null;
+    const base=persistedBase||startupTransientBase(item.id,row,persistedBase);
     const dirty=(syncState.dirtyLocations||[]).includes(item.id);
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
     const merged=Merge.merge(base?.formData,cleanLocal,row?remoteData(row):undefined,options);
