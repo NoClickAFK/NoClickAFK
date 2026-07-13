@@ -3,9 +3,22 @@
   if(window.BogatkaInitialBackgroundEditProtectionV437?.ready)return;
 
   const VERSION='4.3.7';
-  const SCRIPT='./field-integrity-v416.js';
+  const FIELD_INTEGRITY_SCRIPT='./field-integrity-v416.js';
   const EDITOR_SELECTOR='[data-location][data-field]';
   const ACTIVE_LIFECYCLES=new Set(['initial-cloud-pending','reconciling-early-edits','initial-cloud-error','offline']);
+  const TERMINAL_NAMES=['saveField','cloudSyncAll','cloudApplyRemote','cloudPushLocations'];
+  const OWNER_TOKEN={version:VERSION,domain:'initial-background-edit-protection'};
+  const REQUIRED_APIS=[
+    'BogatkaFieldIntegrityV416','BogatkaSyncCompatibility','BogatkaArchiveStateV436',
+    'BogatkaLocationDataV452','BogatkaLocationDataStabilityV452','BogatkaDurableFieldsV452','BogatkaSuiteSaveOrderV452',
+  ];
+  const COMPAT_MARKERS={
+    saveField:['__fieldIntegrityV416','__launchGateV454'],
+    cloudSyncAll:['__syncConvergenceV435','__archiveStateGateV436','__archiveFetchGateV436'],
+    cloudApplyRemote:['__syncFieldCompatV416','__archiveStateV436'],
+    cloudPushLocations:['__archiveStateV436'],
+  };
+
   const snapshots=new Map();
   const startupDirty=new Set();
   const journal=new Map();
@@ -16,21 +29,28 @@
   const protectedControls=new Map();
   const observedEarlyLocations=new Set();
   const observedEarlyPaths=new Set();
+  const functionIds=new WeakMap();
+  const ownerTimeline=[];
+  let functionSequence=0;
   let lifecycle='local-ready';
   let generation=0;
   let sequence=0;
   let snapshotCaptured=false;
+  let startupDirtyProjectId=null;
   let firstApplyCompleted=false;
   let saveBaseFunction=null;
   let startupWrapped=false;
-  let syncWrapped=false;
-  let applyWrapped=false;
-  let pushWrapped=false;
   let inputInstalled=false;
   let fieldIntegrityPromise=null;
-  let runtimeChecks=0;
-  let terminalPasses=0;
-  let runtimeTimer=null;
+  let terminalPromise=null;
+  let terminalTimer=null;
+  let terminalAttempts=0;
+  let terminalStablePasses=0;
+  let terminalCycle=0;
+  let terminalReason='';
+  let terminalReadyAt=null;
+  let lateEventsInstalled=false;
+  let lastOwnerSignature='';
   const diagnostics={
     initialSyncGeneration:0,
     startupSnapshotsCaptured:0,
@@ -44,11 +64,21 @@
     staleWholeLocationPushesPrevented:0,
     activeControlsSkipped:0,
     initialSyncErrors:0,
+    terminalAttempts:0,
+    terminalStablePasses:0,
+    terminalCycles:0,
+    terminalRebuilds:0,
+    terminalLateEvents:0,
   };
 
   const clone=value=>value===undefined?undefined:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
   const same=(left,right)=>window.BogatkaSyncMerge?.same?window.BogatkaSyncMerge.same(left,right):JSON.stringify(left)===JSON.stringify(right);
   const clean=value=>window.BogatkaSyncMerge?.clean?window.BogatkaSyncMerge.clean(value||{}):clone(value||{});
+  const functionId=fn=>{
+    if(typeof fn!=='function')return null;
+    if(!functionIds.has(fn))functionIds.set(fn,++functionSequence);
+    return functionIds.get(fn);
+  };
   const currentRole=()=>{
     try{return typeof cloudRole==='undefined'?(window.cloudRole??null):(cloudRole??window.cloudRole??null)}catch(_){return window.cloudRole??null}
   };
@@ -58,6 +88,7 @@
   const entriesFor=id=>[...journal.values()].filter(entry=>entry.locationId===id&&entry.generation===generation);
   const journalIds=()=>new Set([...journal.values()].filter(entry=>entry.generation===generation).map(entry=>entry.locationId));
   const getPath=(object,path)=>String(path||'').split('.').reduce((value,key)=>value?.[key],object);
+
   function setPath(object,path,value){
     const keys=String(path||'').split('.');
     let target=object;
@@ -87,19 +118,31 @@
     diagnostics.initialSyncGeneration=generation;
     diagnostics.earlyEditLocations=observedEarlyLocations.size;
     diagnostics.earlyEditPathCount=observedEarlyPaths.size;
+    diagnostics.terminalAttempts=terminalAttempts;
+    diagnostics.terminalStablePasses=terminalStablePasses;
+    diagnostics.terminalCycles=terminalCycle;
   }
 
+  function readActiveStartupState(){
+    try{
+      if(typeof cloudReadState!=='function')return{};
+      const state=cloudReadState();
+      return state&&typeof state==='object'?clone(state):{};
+    }catch(_){return{}}
+  }
   function collectStartupDirty(){
     startupDirty.clear();
-    for(let index=0;index<localStorage.length;index++){
-      const key=localStorage.key(index)||'';
-      if(!key.includes('bogatka_cloud_sync_state'))continue;
-      try{
-        const state=JSON.parse(localStorage.getItem(key)||'{}');
-        for(const id of state?.dirtyLocations||[])startupDirty.add(id);
-      }catch(_){ }
-    }
-    try{for(const id of cloudReadState?.().dirtyLocations||[])startupDirty.add(id)}catch(_){ }
+    const state=readActiveStartupState();
+    let projectId=null;
+    try{projectId=typeof cloudProjectId==='undefined'?null:cloudProjectId}catch(_){projectId=null}
+    startupDirtyProjectId=state.projectId||projectId||null;
+    for(const id of state.dirtyLocations||[])startupDirty.add(id);
+  }
+  function validateStartupDirtyScope(){
+    let projectId=null;
+    try{projectId=typeof cloudProjectId==='undefined'?null:cloudProjectId}catch(_){projectId=null}
+    if(startupDirtyProjectId&&projectId&&startupDirtyProjectId!==projectId)startupDirty.clear();
+    return startupDirty;
   }
   async function captureStartupSnapshot({force=false}={}){
     if(snapshotCaptured&&!force)return api.snapshot;
@@ -135,22 +178,22 @@
   }
 
   function scriptMatches(script){
-    try{return new URL(script.src||'',location.href).pathname===new URL(SCRIPT,location.href).pathname}catch(_){return false}
+    try{return new URL(script.src||'',location.href).pathname===new URL(FIELD_INTEGRITY_SCRIPT,location.href).pathname}catch(_){return false}
   }
   function ensureFieldIntegrity(timeoutMs=4000){
-    if(window.BogatkaFieldIntegrityV416?.ready){installSaveWrapper();return Promise.resolve(true)}
+    if(window.BogatkaFieldIntegrityV416?.ready)return Promise.resolve(true);
     if(fieldIntegrityPromise)return fieldIntegrityPromise;
     fieldIntegrityPromise=new Promise((resolve,reject)=>{
       let script=[...document.scripts].find(scriptMatches);
       if(!script){
         script=document.createElement('script');
-        script.src=SCRIPT;
+        script.src=FIELD_INTEGRITY_SCRIPT;
         script.async=false;
         document.head.appendChild(script);
       }
       const started=performance.now();
       const check=()=>{
-        if(window.BogatkaFieldIntegrityV416?.ready){installSaveWrapper();return resolve(true)}
+        if(window.BogatkaFieldIntegrityV416?.ready)return resolve(true);
         if(performance.now()-started>=timeoutMs)return reject(new Error('Same-location field save queue did not become ready before initial background synchronization.'));
         requestAnimationFrame(check);
       };
@@ -160,7 +203,7 @@
   }
 
   function controlState(control){
-    return {
+    return{
       node:control,
       value:readControl(control),
       focused:document.activeElement===control,
@@ -203,12 +246,75 @@
     document.addEventListener('change',listener,true);
   }
 
-  function installSaveWrapper(){
-    let current=window.saveField;
-    if(typeof current!=='function'){try{current=saveField}catch(_){current=null}}
-    if(typeof current!=='function')return false;
-    if(current.__initialBackgroundEditProtectionV437){saveBaseFunction=current.__baseSaveV437||current.__base;return true}
-    saveBaseFunction=current;
+  function liveFunction(name){
+    try{
+      if(name==='saveField'&&typeof saveField==='function')return saveField;
+      if(name==='cloudSyncAll'&&typeof cloudSyncAll==='function')return cloudSyncAll;
+      if(name==='cloudApplyRemote'&&typeof cloudApplyRemote==='function')return cloudApplyRemote;
+      if(name==='cloudPushLocations'&&typeof cloudPushLocations==='function')return cloudPushLocations;
+    }catch(_){ }
+    return window[name];
+  }
+  function publishFunction(name,fn,reason='publish'){
+    const beforeLive=liveFunction(name);
+    const beforeWindow=window[name];
+    window[name]=fn;
+    try{
+      if(name==='saveField')saveField=fn;
+      else if(name==='cloudSyncAll')cloudSyncAll=fn;
+      else if(name==='cloudApplyRemote')cloudApplyRemote=fn;
+      else if(name==='cloudPushLocations')cloudPushLocations=fn;
+    }catch(_){ }
+    if(beforeLive!==fn||beforeWindow!==fn){
+      ownerTimeline.push({atMs:Number(performance.now().toFixed(1)),name,reason,fromLive:functionId(beforeLive),fromWindow:functionId(beforeWindow),to:functionId(fn),toName:fn?.name||''});
+      if(ownerTimeline.length>160)ownerTimeline.splice(0,ownerTimeline.length-160);
+    }
+    return fn;
+  }
+  function defineMarker(fn,key,value=true){
+    try{Object.defineProperty(fn,key,{value,configurable:true,writable:false,enumerable:false})}catch(_){try{fn[key]=value}catch(__){ }}
+  }
+  function markOwned(fn,name,base){
+    defineMarker(fn,'__initialBackgroundEditProtectionV437',true);
+    defineMarker(fn,'__initialBackgroundEditProtectionOwnerV437',OWNER_TOKEN);
+    defineMarker(fn,'__base',base);
+    defineMarker(fn,'__baseV437',base);
+    for(const marker of COMPAT_MARKERS[name]||[]){
+      let current=base;
+      const seen=new Set();
+      while(typeof current==='function'&&!seen.has(current)){
+        if(current[marker]){defineMarker(fn,marker,true);break}
+        seen.add(current);current=current.__base;
+      }
+    }
+    return fn;
+  }
+  function ownedByUs(fn){return Boolean(typeof fn==='function'&&fn.__initialBackgroundEditProtectionOwnerV437===OWNER_TOKEN)}
+  function chainInfo(fn){
+    const nodes=[];
+    const seen=new Set();
+    let current=fn;
+    while(typeof current==='function'&&!seen.has(current)&&nodes.length<48){
+      seen.add(current);
+      const ownMarkers=Object.getOwnPropertyNames(current).filter(key=>key.startsWith('__')&&current[key]===true).sort();
+      nodes.push({id:functionId(current),name:current.name||'<anonymous>',owned:ownedByUs(current),v437:Boolean(current.__initialBackgroundEditProtectionV437),markers:ownMarkers});
+      current=current.__base;
+    }
+    return{depth:nodes.length,ownedCount:nodes.filter(node=>node.owned).length,v437MarkerCount:nodes.filter(node=>node.v437).length,cycle:typeof current==='function'&&seen.has(current),nodes};
+  }
+  function stripKnownSaveWrappers(fn){
+    const seen=new Set();
+    let current=fn;
+    while(typeof current==='function'&&!seen.has(current)){
+      seen.add(current);
+      if(ownedByUs(current)||current.__fieldIntegrityV416||current.__launchGateV454){current=current.__base;continue}
+      break;
+    }
+    return typeof current==='function'?current:fn;
+  }
+
+  function createSaveWrapper(base){
+    saveBaseFunction=base;
     const wrapped=async function protectedInitialSave(control){
       const id=control?.dataset?.location;
       const path=control?.dataset?.field;
@@ -220,18 +326,32 @@
         return false;
       }
       if(entry&&entry.generation===generation&&entry.savedRevision>=entry.revision)return true;
-      const result=await current.call(this,control);
+      const result=await base.call(this,control);
       const latest=id&&path?journal.get(entryKey(id,path)):null;
       if(latest&&latest.generation===generation)latest.savedRevision=Math.max(latest.savedRevision,latest.revision);
       return result;
     };
-    Object.assign(wrapped,current);
-    wrapped.__initialBackgroundEditProtectionV437=true;
-    wrapped.__base=current;
-    wrapped.__baseSaveV437=current;
-    window.saveField=wrapped;
-    try{saveField=wrapped}catch(_){ }
+    return markOwned(wrapped,'saveField',base);
+  }
+  function normalizeAndInstallSaveWrapper(){
+    const current=liveFunction('saveField');
+    if(typeof current!=='function')return false;
+    if(ownedByUs(current)&&window.saveField===current){saveBaseFunction=current.__baseV437||current.__base;return true}
+    const base=stripKnownSaveWrappers(current);
+    publishFunction('saveField',base,'save-canonical-base');
+    window.BogatkaLaunchGateV454?.installSaveGuard?.();
+    window.BogatkaFieldIntegrityV416?.installSaveQueue?.();
+    const terminalBase=liveFunction('saveField');
+    if(typeof terminalBase!=='function')return false;
+    const wrapped=createSaveWrapper(terminalBase);
+    publishFunction('saveField',wrapped,'save-v437-terminal');
+    diagnostics.terminalRebuilds+=1;
     return true;
+  }
+  function installSaveWrapper(){
+    const current=liveFunction('saveField');
+    if(ownedByUs(current)){saveBaseFunction=current.__baseV437||current.__base;publishFunction('saveField',current,'save-align');return true}
+    return normalizeAndInstallSaveWrapper();
   }
 
   function beginBarriers(ids){
@@ -276,7 +396,7 @@
         const control=latest.control?.isConnected?latest.control:null;
         if(control)clearControlTimers(control);
         if(control&&typeof saveBaseFunction==='function'&&bypassBarrier)await saveBaseFunction(control);
-        else if(control&&typeof window.saveField==='function'&&!bypassBarrier)await window.saveField(control);
+        else if(control&&typeof liveFunction('saveField')==='function'&&!bypassBarrier)await liveFunction('saveField')(control);
         else await persistEntryDirect(latest);
         const after=journal.get(entry.key);
         if(after&&after.generation===generation){after.flushedRevision=Math.max(after.flushedRevision,revision);after.savedRevision=Math.max(after.savedRevision,revision)}
@@ -296,7 +416,7 @@
   function remoteBase(row){
     const formData=clean(row?.form_data||{});
     if(row?.archived_at)formData.archivedAt=row.archived_at;
-    return {
+    return{
       revision:Number(row?.revision||0),updatedAt:row?.updated_at||'',formData,
       meta:{title:row?.title||'',address:row?.address||'',note:row?.note||'',sortOrder:Number(row?.sort_order||0),archivedAt:row?.archived_at||null},
     };
@@ -321,10 +441,7 @@
   function blockUiWrites(){
     const noop=()=>{};
     const asyncNoop=async()=>{};
-    const saved={
-      renderLocations:window.renderLocations,restoreAllForms:window.restoreAllForms,
-      refreshLocation:window.bogatkaRefreshLocationFields,updateSummary:window.updateSummary,
-    };
+    const saved={renderLocations:window.renderLocations,restoreAllForms:window.restoreAllForms,refreshLocation:window.bogatkaRefreshLocationFields,updateSummary:window.updateSummary};
     window.renderLocations=noop;
     window.restoreAllForms=asyncNoop;
     window.bogatkaRefreshLocationFields=asyncNoop;
@@ -401,8 +518,8 @@
     refreshDiagnosticCounts();
     return !pending&&journalIds().size===0;
   }
-
   function makeSafeState(syncState,remoteRows){
+    validateStartupDirtyScope();
     const safe=clone(syncState&&typeof syncState==='object'?syncState:{});
     safe.dirtyLocations||=[];
     const dirty=new Set(safe.dirtyLocations);
@@ -416,133 +533,126 @@
     return safe;
   }
 
-  function installApplyPushWrappers(){
-    if(!window.BogatkaArchiveStateV436?.ready||!window.BogatkaSyncCompatibility?.ready)return false;
-    let currentApply=window.cloudApplyRemote;
-    let currentPush=window.cloudPushLocations;
-    if(typeof currentApply!=='function'||typeof currentPush!=='function')return false;
-
-    if(currentApply.__initialBackgroundEditProtectionV437)applyWrapped=true;
-    else{
-      const baseApply=currentApply;
-      const wrappedApply=async function protectedInitialApply(remoteLocations,remotePhotos,remoteState,syncState){
-        if(!active())return baseApply.apply(this,arguments);
-        setLifecycle('reconciling-early-edits');
-        await ensureFieldIntegrity();
-        installSaveWrapper();
-        const rows=remoteLocations||[];
-        const remoteById=new Map(rows.map(row=>[row.client_id||row.id,row]));
-        const allRemoteIds=[...remoteById.keys()];
-        const safeState=makeSafeState(syncState,rows);
-        const State=window.BogatkaSyncState;
-        const prepared=[];
-        for(const id of journalIds()){
+  function createApplyWrapper(baseApply){
+    const wrapped=async function protectedInitialApply(remoteLocations,remotePhotos,remoteState,syncState){
+      if(!active())return baseApply.apply(this,arguments);
+      setLifecycle('reconciling-early-edits');
+      await ensureFieldIntegrity();
+      const rows=remoteLocations||[];
+      const remoteById=new Map(rows.map(row=>[row.client_id||row.id,row]));
+      const allRemoteIds=[...remoteById.keys()];
+      const safeState=makeSafeState(syncState,rows);
+      const State=window.BogatkaSyncState;
+      const prepared=[];
+      for(const id of journalIds()){
+        const row=remoteById.get(id);
+        if(!row||!snapshots.has(id)||startupDirty.has(id)||isViewer())continue;
+        const persisted=await State.readBase(id);
+        if(persisted)continue;
+        const base=startupBaseFor(id);
+        if(base){transientBases.set(id,base);prepared.push({id,row});skipFirstPushIds.add(id)}
+      }
+      if(isViewer()){
+        for(const entry of [...journal.values()])if(entry.generation===generation&&!startupDirty.has(entry.locationId))journal.delete(entry.key);
+        refreshDiagnosticCounts();
+      }
+      beginBarriers(allRemoteIds);
+      const originalReadBase=State.readBase;
+      State.readBase=async id=>transientBases.has(id)?clone(transientBases.get(id)):originalReadBase(id);
+      const restoreUi=blockUiWrites();
+      try{
+        await flushJournal(allRemoteIds,{bypassBarrier:true});
+        const result=await baseApply(rows,remotePhotos,remoteState,safeState);
+        firstApplyCompleted=true;
+        for(const {id,row} of prepared){
+          await State.writeBase(id,remoteBase(row));
+          diagnostics.transientBasesUsed+=1;
+        }
+        for(const id of allRemoteIds){
+          const data=await getLocationData(id);
           const row=remoteById.get(id);
-          if(!row||!snapshots.has(id)||startupDirty.has(id)||isViewer())continue;
-          const persisted=await State.readBase(id);
-          if(persisted)continue;
-          const base=startupBaseFor(id);
-          if(base){transientBases.set(id,base);prepared.push({id,row});skipFirstPushIds.add(id)}
-        }
-        if(isViewer()){
-          for(const entry of [...journal.values()])if(entry.generation===generation&&!startupDirty.has(entry.locationId))journal.delete(entry.key);
-          refreshDiagnosticCounts();
-        }
-        beginBarriers(allRemoteIds);
-        const originalReadBase=State.readBase;
-        State.readBase=async id=>transientBases.has(id)?clone(transientBases.get(id)):originalReadBase(id);
-        const restoreUi=blockUiWrites();
-        try{
-          await flushJournal(allRemoteIds,{bypassBarrier:true});
-          const result=await baseApply(rows,remotePhotos,remoteState,safeState);
-          firstApplyCompleted=true;
-          for(const {id,row} of prepared){
-            await State.writeBase(id,remoteBase(row));
-            diagnostics.transientBasesUsed+=1;
-          }
-          for(const id of allRemoteIds){
-            const data=await getLocationData(id);
-            const row=remoteById.get(id);
-            if(row)countMergeEvidence(id,row,data);
-          }
-          return result;
-        }catch(error){
-          diagnostics.initialSyncErrors+=1;
-          setLifecycle(navigator.onLine?'initial-cloud-error':'offline',{reason:'apply'});
-          throw error;
-        }finally{
-          State.readBase=originalReadBase;
-          transientBases.clear();
-          restoreUi();
-          restoreJournalControls(allRemoteIds);
-          endBarriers(allRemoteIds);
-          await flushJournal(allRemoteIds,{bypassBarrier:true});
-          restoreJournalControls(allRemoteIds);
-          await hydrateUnrelated(allRemoteIds);
-        }
-      };
-      Object.assign(wrappedApply,currentApply);
-      wrappedApply.__initialBackgroundEditProtectionV437=true;
-      wrappedApply.__base=currentApply;
-      window.cloudApplyRemote=wrappedApply;
-      try{cloudApplyRemote=wrappedApply}catch(_){ }
-      applyWrapped=true;
-    }
-
-    currentPush=window.cloudPushLocations;
-    if(currentPush.__initialBackgroundEditProtectionV437)pushWrapped=true;
-    else{
-      const basePush=currentPush;
-      const wrappedPush=async function protectedInitialPush(remoteLocations,syncState){
-        if(active()&&isViewer())return remoteLocations||[];
-        const skip=[...skipFirstPushIds].filter(id=>(remoteLocations||[]).some(row=>(row.client_id||row.id)===id));
-        if(!skip.length)return basePush.apply(this,arguments);
-        const blocked=new Set(skip);
-        const originalLocations=locations;
-        locations=originalLocations.filter(item=>!blocked.has(item.id));
-        let result;
-        try{result=await basePush(remoteLocations,syncState)}finally{
-          locations=originalLocations;
-          await window.BogatkaSyncState.rawPut()(STORE,locations,'meta:locations');
-        }
-        for(const id of skip){
-          skipFirstPushIds.delete(id);
-          diagnostics.staleWholeLocationPushesPrevented+=1;
-          if(!followUpScheduled.has(id)){
-            followUpScheduled.add(id);
-            diagnostics.followUpSyncsScheduled+=1;
-            if(typeof cloudMarkLocationDirty==='function')cloudMarkLocationDirty(id);
-            else{
-              const state=cloudReadState();state.dirtyLocations||=[];
-              if(!state.dirtyLocations.includes(id))state.dirtyLocations.push(id);
-              cloudWriteState(state);
-              cloudScheduleSync?.(0);
-            }
-          }
+          if(row)countMergeEvidence(id,row,data);
         }
         return result;
-      };
-      Object.assign(wrappedPush,currentPush);
-      wrappedPush.__initialBackgroundEditProtectionV437=true;
-      wrappedPush.__base=currentPush;
-      window.cloudPushLocations=wrappedPush;
-      try{cloudPushLocations=wrappedPush}catch(_){ }
-      pushWrapped=true;
-    }
+      }catch(error){
+        diagnostics.initialSyncErrors+=1;
+        setLifecycle(navigator.onLine?'initial-cloud-error':'offline',{reason:'apply'});
+        throw error;
+      }finally{
+        State.readBase=originalReadBase;
+        transientBases.clear();
+        restoreUi();
+        restoreJournalControls(allRemoteIds);
+        endBarriers(allRemoteIds);
+        await flushJournal(allRemoteIds,{bypassBarrier:true});
+        restoreJournalControls(allRemoteIds);
+        await hydrateUnrelated(allRemoteIds);
+      }
+    };
+    return markOwned(wrapped,'cloudApplyRemote',baseApply);
+  }
+  function createPushWrapper(basePush){
+    const wrapped=async function protectedInitialPush(remoteLocations,syncState){
+      if(active()&&isViewer())return remoteLocations||[];
+      const skip=[...skipFirstPushIds].filter(id=>(remoteLocations||[]).some(row=>(row.client_id||row.id)===id));
+      if(!skip.length)return basePush.apply(this,arguments);
+      const blocked=new Set(skip);
+      const originalLocations=locations;
+      locations=originalLocations.filter(item=>!blocked.has(item.id));
+      let result;
+      try{result=await basePush(remoteLocations,syncState)}finally{
+        locations=originalLocations;
+        await window.BogatkaSyncState.rawPut()(STORE,locations,'meta:locations');
+      }
+      for(const id of skip){
+        skipFirstPushIds.delete(id);
+        diagnostics.staleWholeLocationPushesPrevented+=1;
+        if(!followUpScheduled.has(id)){
+          followUpScheduled.add(id);
+          diagnostics.followUpSyncsScheduled+=1;
+          if(typeof cloudMarkLocationDirty==='function')cloudMarkLocationDirty(id);
+          else{
+            const state=cloudReadState();state.dirtyLocations||=[];
+            if(!state.dirtyLocations.includes(id))state.dirtyLocations.push(id);
+            cloudWriteState(state);
+            cloudScheduleSync?.(0);
+          }
+        }
+      }
+      return result;
+    };
+    return markOwned(wrapped,'cloudPushLocations',basePush);
+  }
+  function normalizeAndInstallApplyPushWrappers(){
+    if(!window.BogatkaArchiveStateV436?.ready||!window.BogatkaSyncCompatibility?.ready)return false;
+    window.BogatkaArchiveStateV436?._test?.ensureRuntimeWrappers?.({force:true});
+    window.BogatkaSyncFieldCompatV416?.install?.();
+    const baseApply=liveFunction('cloudApplyRemote');
+    const basePush=liveFunction('cloudPushLocations');
+    if(typeof baseApply!=='function'||typeof basePush!=='function')return false;
+    publishFunction('cloudApplyRemote',createApplyWrapper(baseApply),'apply-v437-terminal');
+    publishFunction('cloudPushLocations',createPushWrapper(basePush),'push-v437-terminal');
+    diagnostics.terminalRebuilds+=1;
     return true;
   }
+  function installApplyPushWrappers(){
+    const apply=liveFunction('cloudApplyRemote');
+    const push=liveFunction('cloudPushLocations');
+    if(ownedByUs(apply)&&ownedByUs(push)){
+      publishFunction('cloudApplyRemote',apply,'apply-align');
+      publishFunction('cloudPushLocations',push,'push-align');
+      return true;
+    }
+    return normalizeAndInstallApplyPushWrappers();
+  }
 
-  function installSyncWrapper(){
-    if(!window.BogatkaSyncCompatibility?.ready)return false;
-    let current=window.cloudSyncAll;
-    if(typeof current!=='function')return false;
-    if(current.__initialBackgroundEditProtectionV437){syncWrapped=true;return true}
+  function createSyncWrapper(baseSync){
     const wrapped=async function protectedInitialSync(options={}){
       if(!snapshotCaptured)await captureStartupSnapshot();
       if(!navigator.onLine)setLifecycle('offline');
       else if(active()&&lifecycle!=='reconciling-early-edits')setLifecycle('initial-cloud-pending');
       try{
-        const result=await current.call(this,options);
+        const result=await baseSync.call(this,options);
         if(active()&&!result?.deferred&&!result?.skipped){
           const state=typeof cloudReadState==='function'?cloudReadState():{};
           const dirty=new Set(state?.dirtyLocations||[]);
@@ -558,34 +668,152 @@
         throw error;
       }
     };
-    Object.assign(wrapped,current);
-    wrapped.__initialBackgroundEditProtectionV437=true;
-    wrapped.__base=current;
-    window.cloudSyncAll=wrapped;
-    try{cloudSyncAll=wrapped}catch(_){ }
-    syncWrapped=true;
+    return markOwned(wrapped,'cloudSyncAll',baseSync);
+  }
+  function installSyncWrapper(){
+    if(!window.BogatkaSyncCompatibility?.ready)return false;
+    const current=liveFunction('cloudSyncAll');
+    if(typeof current!=='function')return false;
+    if(ownedByUs(current)){publishFunction('cloudSyncAll',current,'sync-align');return true}
+    publishFunction('cloudSyncAll',createSyncWrapper(current),'sync-v437-terminal');
+    diagnostics.terminalRebuilds+=1;
     return true;
+  }
+
+  function terminalDependencies(){
+    const missing=REQUIRED_APIS.filter(name=>!window[name]?.ready);
+    const compat=window.BogatkaSyncFieldCompatV416;
+    if(!compat?.ready)missing.push('BogatkaSyncFieldCompatV416');
+    if(compat?.ready&&!compat.archiveFetchReady)missing.push('archiveFetchReady');
+    if(compat?.ready&&compat.archiveFetchSourceKind!=='archive-inclusive')missing.push('archiveFetchSourceKind');
+    if(!window.BogatkaLaunchGateV454?.ready)missing.push('BogatkaLaunchGateV454');
+    return[...new Set(missing)];
+  }
+  function inspectTerminalOwnership(){
+    const failures=[];
+    const dependencies=terminalDependencies();
+    failures.push(...dependencies.map(name=>`dependency:${name}`));
+    if(!snapshotCaptured||generation<1)failures.push('startup-snapshot-missing');
+    const owners={};
+    for(const name of TERMINAL_NAMES){
+      const live=liveFunction(name);
+      const published=window[name];
+      const chain=chainInfo(live);
+      owners[name]={sameIdentity:live===published,liveId:functionId(live),windowId:functionId(published),name:typeof live==='function'?(live.name||'<anonymous>'):typeof live,chain};
+      if(typeof live!=='function')failures.push(`${name}:missing`);
+      if(live!==published)failures.push(`${name}:lexical-window-mismatch`);
+      if(chain.ownedCount!==1)failures.push(`${name}:v437-owner-count:${chain.ownedCount}`);
+      if(chain.v437MarkerCount!==1)failures.push(`${name}:v437-marker-count:${chain.v437MarkerCount}`);
+      if(chain.cycle)failures.push(`${name}:wrapper-cycle`);
+    }
+    return{
+      ok:failures.length===0,
+      failures,
+      lifecycle,
+      generation,
+      snapshotLocationsCount:snapshots.size,
+      runtimeChecks:terminalAttempts,
+      terminalPasses:terminalStablePasses,
+      terminalReconcileAttempts:terminalAttempts,
+      terminalStablePasses,
+      terminalCycle,
+      terminalReason,
+      terminalReadyAt,
+      dependencies:{missing:dependencies},
+      readiness:Object.fromEntries([...REQUIRED_APIS,'BogatkaSyncFieldCompatV416','BogatkaLaunchGateV454'].map(name=>[name,Boolean(window[name]?.ready)])),
+      owners,
+      ownerTimeline:clone(ownerTimeline),
+    };
+  }
+  function audit(){return inspectTerminalOwnership()}
+
+  function installLateOwnerEvents(){
+    if(lateEventsInstalled)return;
+    lateEventsInstalled=true;
+    window.addEventListener('bogatka:cloud-archive-loaded',()=>{
+      diagnostics.terminalLateEvents+=1;
+      setTimeout(()=>ensureTerminalOwnership({reason:'cloud-archive-loaded'}).catch(error=>console.error(error)),0);
+    });
+  }
+  function currentOwnerSignature(){
+    return TERMINAL_NAMES.map(name=>`${name}:${functionId(liveFunction(name))}:${functionId(window[name])}`).join('|');
+  }
+  function installTerminalOwners(){
+    normalizeAndInstallSaveWrapper();
+    installSyncWrapper();
+    normalizeAndInstallApplyPushWrappers();
+  }
+  function scheduleTerminalStep(run,delay=50){
+    clearTimeout(terminalTimer);
+    terminalTimer=setTimeout(run,delay);
+  }
+  function ensureTerminalOwnership({reason='requested',timeoutMs=15000}={}){
+    const current=inspectTerminalOwnership();
+    if(current.ok){installLateOwnerEvents();return Promise.resolve(current)}
+    if(terminalPromise)return terminalPromise;
+    terminalCycle+=1;
+    terminalReason=reason;
+    terminalAttempts=0;
+    terminalStablePasses=0;
+    lastOwnerSignature='';
+    terminalReadyAt=null;
+    diagnostics.terminalCycles=terminalCycle;
+    const started=performance.now();
+    terminalPromise=new Promise((resolve,reject)=>{
+      const step=()=>{
+        terminalAttempts+=1;
+        refreshDiagnosticCounts();
+        const missing=terminalDependencies();
+        if(!missing.length&&snapshotCaptured){
+          installLateOwnerEvents();
+          let state=inspectTerminalOwnership();
+          if(!state.ok){
+            installTerminalOwners();
+            state=inspectTerminalOwnership();
+          }
+          const signature=currentOwnerSignature();
+          if(state.ok&&signature===lastOwnerSignature)terminalStablePasses+=1;
+          else terminalStablePasses=state.ok?1:0;
+          lastOwnerSignature=signature;
+          diagnostics.terminalStablePasses=terminalStablePasses;
+          document.documentElement.dataset.initialBackgroundEditTerminalV437=state.ok?'1':'0';
+          if(state.ok&&terminalStablePasses>=4){
+            terminalReadyAt=Date.now();
+            window.__bogatkaInitialBackgroundEditTerminalReadyV437=true;
+            clearTimeout(terminalTimer);
+            terminalPromise=null;
+            return resolve(inspectTerminalOwnership());
+          }
+        }
+        if(performance.now()-started>=timeoutMs){
+          const state=inspectTerminalOwnership();
+          terminalPromise=null;
+          return reject(new Error(`Terminal V437 ownership did not converge: ${state.failures.join(', ')}`));
+        }
+        scheduleTerminalStep(step,50);
+      };
+      step();
+    });
+    return terminalPromise;
   }
 
   function wrapStartup(){
     const startup=window.BogatkaStartup;
     const current=startup?.prepareCriticalUi;
     if(!startup||typeof current!=='function')return false;
-    if(current.__initialBackgroundEditProtectionV437){startupWrapped=true;return true}
+    if(current.__initialBackgroundEditStartupV437){startupWrapped=true;return true}
     const wrapped=async function protectedLocalFirstStartup(){
       await captureStartupSnapshot();
       await ensureFieldIntegrity();
-      installSaveWrapper();
       return current.apply(this,arguments);
     };
-    Object.assign(wrapped,current);
-    wrapped.__initialBackgroundEditProtectionV437=true;
-    wrapped.__base=current;
+    defineMarker(wrapped,'__initialBackgroundEditStartupV437',true);
+    defineMarker(wrapped,'__initialBackgroundEditProtectionV437',true);
+    defineMarker(wrapped,'__base',current);
     startup.prepareCriticalUi=wrapped;
     startupWrapped=true;
     return true;
   }
-
   function interceptReadyApi(name,onReady){
     const existing=window[name];
     if(existing){onReady(existing);return}
@@ -602,32 +830,6 @@
       },
     });
   }
-  function scheduleRuntimeCheck(delay=25){
-    clearTimeout(runtimeTimer);
-    runtimeTimer=setTimeout(runtimeCheck,delay);
-  }
-  function runtimeCheck(){
-    runtimeChecks+=1;
-    wrapStartup();
-    if(window.BogatkaFieldIntegrityV416?.ready)installSaveWrapper();
-    if(window.BogatkaSyncCompatibility?.ready)installSyncWrapper();
-    if(window.BogatkaArchiveStateV436?.ready)installApplyPushWrappers();
-    const finalOwnersReady=Boolean(
-      window.BogatkaLocationDataV452?.ready&&
-      window.BogatkaLocationDataStabilityV452?.ready&&
-      window.BogatkaDurableFieldsV452?.ready&&
-      window.BogatkaSuiteSaveOrderV452?.ready
-    );
-    const terminalReady=Boolean(
-      startupWrapped&&syncWrapped&&applyWrapped&&pushWrapped&&finalOwnersReady&&
-      window.saveField?.__initialBackgroundEditProtectionV437&&
-      window.cloudSyncAll?.__initialBackgroundEditProtectionV437&&
-      window.cloudApplyRemote?.__initialBackgroundEditProtectionV437&&
-      window.cloudPushLocations?.__initialBackgroundEditProtectionV437
-    );
-    terminalPasses=terminalReady?terminalPasses+1:0;
-    if(runtimeChecks<480&&terminalPasses<8)scheduleRuntimeCheck(Math.min(250,25+Math.floor(runtimeChecks/80)*25));
-  }
 
   function resetForTest(){
     snapshotCaptured=false;
@@ -635,42 +837,39 @@
     lifecycle='local-ready';
     generation=0;
     sequence=0;
+    startupDirtyProjectId=null;
     snapshots.clear();startupDirty.clear();journal.clear();barriers.clear();transientBases.clear();skipFirstPushIds.clear();followUpScheduled.clear();protectedControls.clear();observedEarlyLocations.clear();observedEarlyPaths.clear();
-    for(const key of Object.keys(diagnostics))diagnostics[key]=0;
+    for(const key of ['initialSyncGeneration','startupSnapshotsCaptured','earlyEditLocations','earlyEditPathCount','pendingSaveFlushes','transientBasesUsed','remoteFieldsAccepted','localEditedFieldsPreserved','followUpSyncsScheduled','staleWholeLocationPushesPrevented','activeControlsSkipped','initialSyncErrors'])diagnostics[key]=0;
     document.documentElement.dataset.initialCloudLifecycleV437='local-ready';
   }
 
   const api=window.BogatkaInitialBackgroundEditProtectionV437={
-    version:VERSION,ready:true,
+    version:VERSION,
+    ready:true,
     captureStartupSnapshot,
     ensureFieldIntegrity,
+    ensureTerminalOwnership,
+    inspectTerminalOwnership,
+    audit,
     installSaveWrapper,
     installSyncWrapper,
     installApplyPushWrappers,
     recordEdit,
     get lifecycle(){return lifecycle},
     get generation(){return generation},
-    get snapshot(){return{generation,locations:[...snapshots.keys()],preExistingDirty:[...startupDirty]}},
-    get diagnostics(){refreshDiagnosticCounts();return clone(diagnostics)},
-    audit(){
-      const failures=[];
-      if(!startupWrapped)failures.push('startup-wrapper-missing');
-      if(window.BogatkaSyncCompatibility?.ready&&!window.cloudSyncAll?.__initialBackgroundEditProtectionV437)failures.push('sync-wrapper-missing');
-      if(window.BogatkaArchiveStateV436?.ready&&!window.cloudApplyRemote?.__initialBackgroundEditProtectionV437)failures.push('apply-wrapper-missing');
-      if(window.BogatkaArchiveStateV436?.ready&&!window.cloudPushLocations?.__initialBackgroundEditProtectionV437)failures.push('push-wrapper-missing');
-      if(window.BogatkaFieldIntegrityV416?.ready&&!window.saveField?.__initialBackgroundEditProtectionV437)failures.push('save-wrapper-missing');
-      return{ok:failures.length===0,failures,lifecycle,generation,terminalPasses};
+    get snapshot(){return{generation,locations:[...snapshots.keys()],preExistingDirty:[...startupDirty],startupDirtyProjectId}},
+    get diagnostics(){refreshDiagnosticCounts();return clone({...diagnostics,ownerTimeline})},
+    _test:{
+      resetForTest,flushJournal,entriesFor,journalIds,remoteBase,startupBaseFor,setLifecycle,collectStartupDirty,validateStartupDirtyScope,
+      get skipFirstPushIds(){return[...skipFirstPushIds]},
+      get startupDirty(){return[...startupDirty]},
+      get ownerToken(){return OWNER_TOKEN},
     },
-    _test:{resetForTest,flushJournal,entriesFor,journalIds,remoteBase,startupBaseFor,setLifecycle,get skipFirstPushIds(){return[...skipFirstPushIds]},get startupDirty(){return[...startupDirty]}},
   };
 
   installInputJournal();
-  interceptReadyApi('BogatkaFieldIntegrityV416',()=>installSaveWrapper());
-  interceptReadyApi('BogatkaSyncCompatibility',()=>{installSyncWrapper();scheduleRuntimeCheck(0)});
-  interceptReadyApi('BogatkaArchiveStateV436',()=>{installApplyPushWrappers();scheduleRuntimeCheck(0)});
-  window.addEventListener('bogatka:cloud-archive-loaded',()=>setTimeout(()=>setTimeout(()=>{applyWrapped=false;pushWrapped=false;terminalPasses=0;installApplyPushWrappers();scheduleRuntimeCheck(0)},0),0));
+  interceptReadyApi('BogatkaStartup',()=>wrapStartup());
   window.addEventListener('offline',()=>{if(snapshotCaptured)setLifecycle('offline')});
   window.addEventListener('online',()=>{if(snapshotCaptured&&lifecycle!=='initial-cloud-ready')setLifecycle('initial-cloud-pending')});
   wrapStartup();
-  scheduleRuntimeCheck(0);
 })();
