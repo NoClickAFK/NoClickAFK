@@ -352,7 +352,7 @@ async function runProtectedScenario(page,{editTiming='after-fetch-start',duringA
   await page.evaluate(()=>window.__initialProtectionFixture.releaseFirstFetch());
   if(duringApplyEdit){
     await page.evaluate(()=>window.__initialProtectionFixture.cloudWriteReached);
-    await editField(page,id,'rent','LOCAL-DURING-APPLY',{focus:false});
+    await editField(page,id,'tech.rentPerMonth','LOCAL-DURING-APPLY',{focus:false});
     await page.evaluate(()=>window.__initialProtectionFixture.releaseCloudWrite());
   }
   await page.evaluate(async()=>{
@@ -386,13 +386,13 @@ async function runProtectedScenario(page,{editTiming='after-fetch-start',duringA
     return{
       head:'',
       preFix:{legacyMerged:before,staleUntouchedFieldWouldPush:before.questions==='LOCAL-STALE-UNTOUCHED'},
-      finalLocalRow:{contact:local.contact,questions:local.questions,rent:local.rent||null,cloudRevision:local.cloudRevision},
-      finalRemoteRow:{contact:fixture.currentRemote.form_data.contact,questions:fixture.currentRemote.form_data.questions,rent:fixture.currentRemote.form_data.rent||null,revision:fixture.currentRemote.revision},
-      finalPersistedBase:{contact:base.formData.contact,questions:base.formData.questions,rent:base.formData.rent||null,revision:base.revision},
+      finalLocalRow:{contact:local.contact,questions:local.questions,rentPerMonth:local.tech?.rentPerMonth||null,cloudRevision:local.cloudRevision},
+      finalRemoteRow:{contact:fixture.currentRemote.form_data.contact,questions:fixture.currentRemote.form_data.questions,rentPerMonth:fixture.currentRemote.form_data.tech?.rentPerMonth||null,revision:fixture.currentRemote.revision},
+      finalPersistedBase:{contact:base.formData.contact,questions:base.formData.questions,rentPerMonth:base.formData.tech?.rentPerMonth||null,revision:base.revision},
       pushCount:fixture.patches.length+fixture.upserts.length,
       patchCount:fixture.patches.length,
       upsertCount:fixture.upserts.length,
-      patchPayloads:fixture.patches.map(payload=>({contact:payload.form_data.contact,questions:payload.form_data.questions,rent:payload.form_data.rent||null})),
+      patchPayloads:fixture.patches.map(payload=>({contact:payload.form_data.contact,questions:payload.form_data.questions,rentPerMonth:payload.form_data.tech?.rentPerMonth||null})),
       fetchCount:fixture.fetchCount,
       maxParallelRequests:fixture.maxParallelRequests,
       dirtyStateAfter:state.dirtyLocations||[],
@@ -413,6 +413,18 @@ test('legacy no-base preferLocal reproduces the stale whole-location overwrite',
     {preferLocal:true,explicitReset:false},
   ));
   expect(result).toEqual({edited:'LOCAL-USER',untouched:'LOCAL-STALE'});
+});
+
+test('clean no-base merge does not publish local-only empty defaults',async({page})=>{
+  await gotoApp(page);
+  await page.waitForFunction(()=>Boolean(window.BogatkaSyncMerge?.merge),{timeout:10000});
+  const result=await page.evaluate(()=>window.BogatkaSyncMerge.merge(
+    undefined,
+    {contact:'LOCAL-STALE',questions:'LOCAL-STALE',tasks:[],comments:[],status:null,objectType:null},
+    {contact:'REMOTE-NEWER',questions:'REMOTE-NEWER'},
+    {preferLocal:false,explicitReset:false},
+  ));
+  expect(result).toEqual({contact:'REMOTE-NEWER',questions:'REMOTE-NEWER'});
 });
 
 for(const editTiming of ['before-sync','after-fetch-start']){
@@ -441,9 +453,9 @@ test('edit during cloudApplyRemote and before debounce remains serialized',async
   test.setTimeout(60000);
   await openApp(page);
   const evidence=await runProtectedScenario(page,{editTiming:'after-fetch-start',duringApplyEdit:true});
-  expect(evidence.finalLocalRow).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rent:'LOCAL-DURING-APPLY'});
-  expect(evidence.finalRemoteRow).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rent:'LOCAL-DURING-APPLY'});
-  expect(evidence.finalPersistedBase).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rent:'LOCAL-DURING-APPLY'});
+  expect(evidence.finalLocalRow).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'LOCAL-DURING-APPLY'});
+  expect(evidence.finalRemoteRow).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'LOCAL-DURING-APPLY'});
+  expect(evidence.finalPersistedBase).toMatchObject({contact:'LOCAL-USER-EDIT',questions:'REMOTE-NEWER-UNTOUCHED',rentPerMonth:'LOCAL-DURING-APPLY'});
   expect(evidence.patchCount).toBe(1);
   expect(evidence.maxParallelRequests).toBe(1);
   expect(evidence.diagnostics.pendingSaveFlushes).toBeGreaterThan(0);
@@ -509,6 +521,7 @@ test('viewer creates no journal or push, and initial fetch failure retries with 
   expect(pending.diagnostics.earlyEditPathCount).toBe(1);
   await page.evaluate(()=>{window.__initialProtectionFixture.releaseFirstFetch()});
   await page.evaluate(()=>cloudSyncAll({manual:true}));
+  await page.waitForFunction(()=>window.BogatkaInitialBackgroundEditProtectionV437.lifecycle==='initial-cloud-ready',{timeout:15000});
   result=await page.evaluate(async()=>({fixture:window.__initialProtectionFixture,local:await getLocationData('retry-v437'),base:await window.BogatkaSyncState.readBase('retry-v437'),lifecycle:window.BogatkaInitialBackgroundEditProtectionV437.lifecycle}));
   expect(result.fixture.patches).toHaveLength(1);
   expect(result.local).toMatchObject({contact:'LOCAL-RETRY',questions:'REMOTE-NEWER-UNTOUCHED'});
