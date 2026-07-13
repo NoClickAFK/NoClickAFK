@@ -493,8 +493,9 @@
     else{
       const basePush=currentPush;
       const wrappedPush=async function protectedInitialPush(remoteLocations,syncState){
+        if(active()&&isViewer())return remoteLocations||[];
         const skip=[...skipFirstPushIds].filter(id=>(remoteLocations||[]).some(row=>(row.client_id||row.id)===id));
-        if(!skip.length||isViewer())return basePush.apply(this,arguments);
+        if(!skip.length)return basePush.apply(this,arguments);
         const blocked=new Set(skip);
         const originalLocations=locations;
         locations=originalLocations.filter(item=>!blocked.has(item.id));
