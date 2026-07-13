@@ -156,6 +156,7 @@ function installInitialBackgroundEditProtectionTerminalV437(){
   let attempts=0;
   let stablePasses=0;
   let timer=null;
+  let legacyAudit=null;
   const liveFunction=(name)=>{
     try{
       if(name==='saveField'&&typeof saveField==='function')return saveField;
@@ -170,6 +171,30 @@ function installInitialBackgroundEditProtectionTerminalV437(){
     if(typeof live==='function')window[name]=live;
     return live;
   };
+  const inspectLiveOwners=(protection)=>{
+    const failures=[];
+    if(!Number(protection?.snapshot?.generation||0))failures.push('startup-snapshot-missing');
+    if(!window.BogatkaLocationDataV452?.ready)failures.push('location-data-owner-missing');
+    if(!window.BogatkaLocationDataStabilityV452?.ready)failures.push('location-data-stability-owner-missing');
+    if(!window.BogatkaDurableFieldsV452?.ready)failures.push('durable-fields-owner-missing');
+    if(!window.BogatkaSuiteSaveOrderV452?.ready)failures.push('suite-save-order-owner-missing');
+    for(const name of ['saveField','cloudSyncAll','cloudApplyRemote','cloudPushLocations']){
+      if(!liveFunction(name)?.__initialBackgroundEditProtectionV437)failures.push(`${name}-terminal-owner-missing`);
+    }
+    return{ok:failures.length===0,failures,generation:Number(protection?.snapshot?.generation||0),terminalOwnerAuditV437:true};
+  };
+  const installLiveAudit=(protection)=>{
+    if(protection.audit?.__terminalOwnerAuditV437)return;
+    legacyAudit=typeof protection.audit==='function'?protection.audit.bind(protection):null;
+    const terminalAudit=function(){
+      const live=inspectLiveOwners(protection);
+      let legacy=null;
+      try{legacy=legacyAudit?.()||null}catch(error){legacy={ok:false,failures:[error?.message||String(error)]}}
+      return{...live,legacy};
+    };
+    terminalAudit.__terminalOwnerAuditV437=true;
+    protection.audit=terminalAudit;
+  };
   const reconcile=async()=>{
     attempts+=1;
     const protection=window.BogatkaInitialBackgroundEditProtectionV437;
@@ -183,21 +208,12 @@ function installInitialBackgroundEditProtectionTerminalV437(){
       protection.installSaveWrapper?.();
       protection.installSyncWrapper?.();
       protection.installApplyPushWrappers?.();
-      const audit=protection.audit?.();
-      const finalOwners=Boolean(
-        window.BogatkaLocationDataV452?.ready&&
-        window.BogatkaLocationDataStabilityV452?.ready&&
-        window.BogatkaDurableFieldsV452?.ready&&
-        window.BogatkaSuiteSaveOrderV452?.ready&&
-        liveFunction('saveField')?.__initialBackgroundEditProtectionV437&&
-        liveFunction('cloudSyncAll')?.__initialBackgroundEditProtectionV437&&
-        liveFunction('cloudApplyRemote')?.__initialBackgroundEditProtectionV437&&
-        liveFunction('cloudPushLocations')?.__initialBackgroundEditProtectionV437
-      );
-      ready=Boolean(audit?.ok&&finalOwners);
+      const liveAudit=inspectLiveOwners(protection);
+      ready=liveAudit.ok;
       stablePasses=ready?stablePasses+1:0;
       document.documentElement.dataset.initialBackgroundEditTerminalV437=ready?'1':'0';
       if(stablePasses>=8){
+        installLiveAudit(protection);
         window.__bogatkaInitialBackgroundEditTerminalReadyV437=true;
         return;
       }
