@@ -214,6 +214,7 @@ async function configureFixture(page,{
     renderLocations();
     window.BogatkaLocationCardCollapseV422?.setCollapsed?.(document.querySelector(`[data-location-card="${CSS.escape(id)}"]`),false,{persist:false});
     await restoreAllForms({preserveActive:true});
+    cloudWriteState(fixtureState());
     await Protection.captureStartupSnapshot({force:true});
     await Protection.ensureFieldIntegrity();
     Protection.installSaveWrapper();
