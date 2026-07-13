@@ -193,22 +193,23 @@
   function chooseMeta(base,item,row,index,preferLocal){
     return Merge.merge(base?.meta,localMeta(item,index),row?rowMeta(row):undefined,{preferLocal,explicitReset:false});
   }
-  function startupTransientBase(id,row,persistedBase){
-    if(persistedBase||!row)return null;
+  function startupProtectionState(id,row){
+    if(!row)return{active:false,clean:false,journaled:false,base:null};
     const protection=window.BogatkaInitialBackgroundEditProtectionV437;
     const snapshot=protection?.snapshot;
-    if(!protection?.ready||!INITIAL_CLOUD_LIFECYCLES.has(protection.lifecycle))return null;
-    if(!snapshot?.locations?.includes(id)||(snapshot.preExistingDirty||[]).includes(id))return null;
-    return protection._test?.startupBaseFor?.(id)||null;
+    const active=Boolean(protection?.ready&&INITIAL_CLOUD_LIFECYCLES.has(protection.lifecycle)&&snapshot?.locations?.includes(id));
+    const clean=Boolean(active&&!(snapshot.preExistingDirty||[]).includes(id));
+    const journaled=Boolean(clean&&protection._test?.journalIds?.().has(id));
+    return{active,clean,journaled,base:clean?protection._test?.startupBaseFor?.(id)||null:null};
   }
   async function buildContext(item,index,row,syncState){
     const local=await getLocationData(item.id);
     const cleanLocal=Merge.clean(local);
     const persistedBase=await State.readBase(item.id)||null;
-    const transientBase=startupTransientBase(item.id,row,persistedBase);
-    const base=persistedBase||transientBase;
+    const startup=startupProtectionState(item.id,row);
+    const base=persistedBase||startup.base;
     const stateDirty=(syncState.dirtyLocations||[]).includes(item.id);
-    const syntheticStartupDirty=Boolean(stateDirty&&transientBase&&Merge.same(cleanLocal,transientBase.formData));
+    const syntheticStartupDirty=Boolean(stateDirty&&startup.clean&&!startup.journaled);
     const dirty=stateDirty&&!syntheticStartupDirty;
     if(syntheticStartupDirty)diagnostics.syntheticStartupDirtyIgnored+=1;
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
