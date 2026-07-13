@@ -17,6 +17,7 @@
     noOpUpdatesAccepted:0,
     revisionRebases:0,
     inFlightLocalMerges:0,
+    syntheticStartupDirtyIgnored:0,
     realConflicts:0,
     lastFailingStage:'',
   };
@@ -204,8 +205,12 @@
     const local=await getLocationData(item.id);
     const cleanLocal=Merge.clean(local);
     const persistedBase=await State.readBase(item.id)||null;
-    const base=persistedBase||startupTransientBase(item.id,row,persistedBase);
-    const dirty=(syncState.dirtyLocations||[]).includes(item.id);
+    const transientBase=startupTransientBase(item.id,row,persistedBase);
+    const base=persistedBase||transientBase;
+    const stateDirty=(syncState.dirtyLocations||[]).includes(item.id);
+    const syntheticStartupDirty=Boolean(stateDirty&&transientBase&&Merge.same(cleanLocal,transientBase.formData));
+    const dirty=stateDirty&&!syntheticStartupDirty;
+    if(syntheticStartupDirty)diagnostics.syntheticStartupDirtyIgnored+=1;
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
     const merged=Merge.merge(base?.formData,cleanLocal,row?remoteData(row):undefined,options);
     const meta=chooseMeta(base,item,row,index,Boolean(syncState.metaDirty)||dirty);
@@ -442,6 +447,7 @@
     diagnostics.noOpUpdatesAccepted=0;
     diagnostics.revisionRebases=0;
     diagnostics.inFlightLocalMerges=0;
+    diagnostics.syntheticStartupDirtyIgnored=0;
     diagnostics.realConflicts=0;
     diagnostics.lastFailingStage='';
   }
