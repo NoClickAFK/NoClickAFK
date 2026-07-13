@@ -491,8 +491,14 @@
   }
 
   function installFunctionOverrides() {
-    window.saveField = saveFieldV400;
-    try { saveField = saveFieldV400; } catch (_) {}
+    const currentSave = window.saveField || ((typeof saveField === "function") ? saveField : null);
+    if (currentSave?.__initialBackgroundEditProtectionV437) {
+      window.saveField = currentSave;
+      try { saveField = currentSave; } catch (_) {}
+    } else {
+      window.saveField = saveFieldV400;
+      try { saveField = saveFieldV400; } catch (_) {}
+    }
     window.saveLocationFromModal = saveLocationFromModalV400;
     try { saveLocationFromModal = saveLocationFromModalV400; } catch (_) {}
 
