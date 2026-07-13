@@ -29,6 +29,7 @@
   let inputInstalled=false;
   let fieldIntegrityPromise=null;
   let runtimeChecks=0;
+  let terminalPasses=0;
   let runtimeTimer=null;
   const diagnostics={
     initialSyncGeneration:0,
@@ -611,7 +612,21 @@
     if(window.BogatkaFieldIntegrityV416?.ready)installSaveWrapper();
     if(window.BogatkaSyncCompatibility?.ready)installSyncWrapper();
     if(window.BogatkaArchiveStateV436?.ready)installApplyPushWrappers();
-    if(runtimeChecks<480&&(!startupWrapped||!syncWrapped||!applyWrapped||!pushWrapped))scheduleRuntimeCheck(Math.min(250,25+Math.floor(runtimeChecks/80)*25));
+    const finalOwnersReady=Boolean(
+      window.BogatkaLocationDataV452?.ready&&
+      window.BogatkaLocationDataStabilityV452?.ready&&
+      window.BogatkaDurableFieldsV452?.ready&&
+      window.BogatkaSuiteSaveOrderV452?.ready
+    );
+    const terminalReady=Boolean(
+      startupWrapped&&syncWrapped&&applyWrapped&&pushWrapped&&finalOwnersReady&&
+      window.saveField?.__initialBackgroundEditProtectionV437&&
+      window.cloudSyncAll?.__initialBackgroundEditProtectionV437&&
+      window.cloudApplyRemote?.__initialBackgroundEditProtectionV437&&
+      window.cloudPushLocations?.__initialBackgroundEditProtectionV437
+    );
+    terminalPasses=terminalReady?terminalPasses+1:0;
+    if(runtimeChecks<480&&terminalPasses<8)scheduleRuntimeCheck(Math.min(250,25+Math.floor(runtimeChecks/80)*25));
   }
 
   function resetForTest(){
@@ -640,10 +655,11 @@
     audit(){
       const failures=[];
       if(!startupWrapped)failures.push('startup-wrapper-missing');
-      if(window.BogatkaSyncCompatibility?.ready&&!syncWrapped)failures.push('sync-wrapper-missing');
-      if(window.BogatkaArchiveStateV436?.ready&&(!applyWrapped||!pushWrapped))failures.push('apply-push-wrapper-missing');
+      if(window.BogatkaSyncCompatibility?.ready&&!window.cloudSyncAll?.__initialBackgroundEditProtectionV437)failures.push('sync-wrapper-missing');
+      if(window.BogatkaArchiveStateV436?.ready&&!window.cloudApplyRemote?.__initialBackgroundEditProtectionV437)failures.push('apply-wrapper-missing');
+      if(window.BogatkaArchiveStateV436?.ready&&!window.cloudPushLocations?.__initialBackgroundEditProtectionV437)failures.push('push-wrapper-missing');
       if(window.BogatkaFieldIntegrityV416?.ready&&!window.saveField?.__initialBackgroundEditProtectionV437)failures.push('save-wrapper-missing');
-      return{ok:failures.length===0,failures,lifecycle,generation};
+      return{ok:failures.length===0,failures,lifecycle,generation,terminalPasses};
     },
     _test:{resetForTest,flushJournal,entriesFor,journalIds,remoteBase,startupBaseFor,setLifecycle,get skipFirstPushIds(){return[...skipFirstPushIds]},get startupDirty(){return[...startupDirty]}},
   };
@@ -652,7 +668,7 @@
   interceptReadyApi('BogatkaFieldIntegrityV416',()=>installSaveWrapper());
   interceptReadyApi('BogatkaSyncCompatibility',()=>{installSyncWrapper();scheduleRuntimeCheck(0)});
   interceptReadyApi('BogatkaArchiveStateV436',()=>{installApplyPushWrappers();scheduleRuntimeCheck(0)});
-  window.addEventListener('bogatka:cloud-archive-loaded',()=>setTimeout(()=>setTimeout(()=>{applyWrapped=false;pushWrapped=false;installApplyPushWrappers()},0),0));
+  window.addEventListener('bogatka:cloud-archive-loaded',()=>setTimeout(()=>setTimeout(()=>{applyWrapped=false;pushWrapped=false;terminalPasses=0;installApplyPushWrappers();scheduleRuntimeCheck(0)},0),0));
   window.addEventListener('offline',()=>{if(snapshotCaptured)setLifecycle('offline')});
   window.addEventListener('online',()=>{if(snapshotCaptured&&lifecycle!=='initial-cloud-ready')setLifecycle('initial-cloud-pending')});
   wrapStartup();
