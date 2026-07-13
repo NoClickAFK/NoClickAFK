@@ -89,7 +89,7 @@ jobs:
           if echo "$CHANGED" | grep -Eq 'backup|restore'; then
             echo bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs >> /tmp/selected-tests.txt
           fi
-          if echo "$CHANGED" | grep -Eq '^(\.github/workflows/bogatka-feature-tests\.yml|\.github/scripts/resolve-feature-diff-base\.sh|bogatka-field-8f3c7d/tests/feature-workflow-diff-base\.spec\.mjs)$'; then
+          if echo "$CHANGED" | grep -Eq '^(\.github/workflows/bogatka-feature-tests\.yml|\.github/scripts/resolve-feature-diff-base\.sh|bogatka-field-8f3c7d/tests/feature-workflow-(diff-base|sync-failure-propagation)\.spec\.mjs)$'; then
             echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
@@ -118,10 +118,20 @@ jobs:
           done
           xargs -a /tmp/selected-tests.txt npx playwright test --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-feature-tests.log
 
+      - name: Run feature workflow regressions
+        if: steps.select.outputs.workflow_changed == 'true'
+        run: |
+          set -o pipefail
+          npx playwright test \
+            bogatka-field-8f3c7d/tests/feature-workflow-diff-base.spec.mjs \
+            bogatka-field-8f3c7d/tests/feature-workflow-sync-failure-propagation.spec.mjs \
+            --workers=1 --reporter=line --output=/tmp/bogatka-workflow-resolver-results \
+            2>&1 | tee /tmp/bogatka-workflow-resolver-tests.log
+
       - name: Run sync safety regressions
         if: steps.select.outputs.sync_changed == 'true'
         run: |
-          set -o pipefail
+          set -uo pipefail
           python3 -m http.server 4173 --bind 127.0.0.1 >> /tmp/bogatka-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
@@ -129,36 +139,74 @@ jobs:
             curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
             sleep 1
           done
-          : > /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs \
-            --grep 'automatic sync waits|clean idle state|multiple realtime notifications' \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs \
-            --grep 'three-way merge|first sync unions|archive and restore|permanent deletion|successful cloud deletion|offline tombstone|remote deletion|viewer cannot' \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs \
-            --grep 'backup contains|field-wise sync merge' \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/sync-inflight-edit-v435.spec.mjs \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/archive-sync-v436.spec.mjs \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/archive-startup-guard-v436.spec.mjs \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/archive-final-races-v436.spec.mjs \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/archive-late-fetch-hydration-v436.spec.mjs \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/archive-startup-fetch-ready-v436.spec.mjs \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
 
-      - name: Run diff-base resolver regression
-        if: steps.select.outputs.workflow_changed == 'true'
-        run: |
-          set -o pipefail
-          npx playwright test bogatka-field-8f3c7d/tests/feature-workflow-diff-base.spec.mjs --workers=1 --reporter=line --output=/tmp/bogatka-workflow-resolver-results 2>&1 | tee /tmp/bogatka-workflow-resolver-tests.log
+          SYNC_LOG=/tmp/bogatka-sync-safety-tests.log
+          : > "$SYNC_LOG"
+          failures=0
+          failed_regressions=()
+
+          run_regression() {
+            local name="$1"
+            shift
+            echo "::group::$name"
+            printf '\n===== %s =====\n' "$name" >> "$SYNC_LOG"
+            set +e
+            "$@" 2>&1 | tee -a "$SYNC_LOG"
+            local command_status=${PIPESTATUS[0]}
+            set -e
+            printf '===== %s exit %s =====\n' "$name" "$command_status" >> "$SYNC_LOG"
+            echo "::endgroup::"
+            if [ "$command_status" -ne 0 ]; then
+              echo "::error::$name failed with exit code $command_status"
+              failures=$((failures + 1))
+              failed_regressions+=("$name ($command_status)")
+            fi
+            return 0
+          }
+
+          finish_regressions() {
+            if [ "$failures" -ne 0 ]; then
+              echo "::error::$failures sync/archive regression suite(s) failed: ${failed_regressions[*]}"
+              return 1
+            fi
+            echo "All sync/archive regression suites passed."
+          }
+
+          run_regression "browser sync stability" \
+            npx playwright test bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs \
+              --grep 'automatic sync waits|clean idle state|multiple realtime notifications' \
+              --workers=1 --reporter=line
+          run_regression "sync integrity" \
+            npx playwright test bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs \
+              --grep 'three-way merge|first sync unions|archive and restore|permanent deletion|successful cloud deletion|offline tombstone|remote deletion|viewer cannot' \
+              --workers=1 --reporter=line
+          run_regression "release integrity" \
+            npx playwright test bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs \
+              --grep 'backup contains|field-wise sync merge' \
+              --workers=1 --reporter=line
+          run_regression "sync convergence v4.3.5" \
+            npx playwright test bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "in-flight edit serialization" \
+            npx playwright test bogatka-field-8f3c7d/tests/sync-inflight-edit-v435.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "archive synchronization v4.3.6" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-sync-v436.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "archive startup guard" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-startup-guard-v436.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "archive final races" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-final-races-v436.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "late fetch hydration" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-late-fetch-hydration-v436.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "archive startup fetch readiness" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-startup-fetch-ready-v436.spec.mjs \
+              --workers=1 --reporter=line
+
+          finish_regressions
 
       - name: Upload startup panels v4.3.7 review artifacts
         if: always()
