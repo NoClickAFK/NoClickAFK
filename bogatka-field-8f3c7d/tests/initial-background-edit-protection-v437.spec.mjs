@@ -24,8 +24,12 @@ async function openApp(page){
     window.BogatkaSyncCompatibility?.version==='4.3.5'&&
     window.BogatkaArchiveStateV436?.version==='4.3.6'&&
     window.BogatkaFieldIntegrityV416?.ready&&
+    window.BogatkaPanelAuthorityV437?.diagnostics&&
+    (window.BogatkaPanelAuthorityV437.diagnostics.cloudBackgroundCompletions+
+      window.BogatkaPanelAuthorityV437.diagnostics.cloudBackgroundErrors)>0&&
     (typeof cloudSyncing==='undefined'||cloudSyncing===false)
   ),{timeout:30000});
+  await page.evaluate(()=>window.BogatkaDurableFieldsV452?.flush?.());
   await page.waitForFunction(()=>window.BogatkaInitialBackgroundEditProtectionV437.audit().ok,{timeout:10000});
 }
 
@@ -49,6 +53,7 @@ async function configureFixture(page,{
     cloudProjectId='project-initial-edit-v437';
     cloudSession={user:{id:'fixture-user-v437'}};
     cloudRole=viewer?'viewer':'owner';
+    window.cloudRole=cloudRole;
     cloudSyncing=false;
     cloudApplyingRemote=false;
     const localRow={...structuredClone(local),updatedAt:'2026-07-13T10:00:00.000Z'};
@@ -94,6 +99,35 @@ async function configureFixture(page,{
     const makeLocationBuilder=()=>{
       let mode='read';
       let payload=null;
+      const write=async()=>{
+        const fixture=window.__initialProtectionFixture;
+        fixture.activeRequests+=1;
+        fixture.maxParallelRequests=Math.max(fixture.maxParallelRequests,fixture.activeRequests);
+        try{
+          const prior=fixture.currentRemote;
+          const revision=Number(prior?.revision||0)+1;
+          const row={
+            ...(prior||{}),id:prior?.id||`remote-${id}`,project_id:cloudProjectId,client_id:id,
+            title:payload.title||item.title,address:payload.address||item.address,note:payload.note||item.note,
+            status:payload.status??null,object_type:payload.object_type??null,
+            form_data:clone(payload.form_data||{}),sort_order:Number(payload.sort_order||0),archived_at:payload.archived_at??null,
+            revision,updated_at:`2026-07-13T10:05:${String(revision).padStart(2,'0')}.000Z`,
+          };
+          fixture.currentRemote=row;
+          if(mode==='update')fixture.patches.push(clone(payload));else fixture.upserts.push(clone(payload));
+          return row;
+        }finally{fixture.activeRequests-=1}
+      };
+      const read=async()=>{
+        const fixture=window.__initialProtectionFixture;
+        fixture.fetchCount+=1;
+        if(fixture.fetchCount===1){
+          fixture.signalFirstFetch();
+          if(fixture.failFirstFetch&&!fixture.failedFetch){fixture.failedFetch=true;throw new Error('fixture-initial-fetch-failure')}
+          if(!fixture.firstFetchReleased)await fixture.firstFetchGate;
+        }
+        return fixture.currentRemote?[clone(fixture.currentRemote)]:[];
+      };
       const builder={
         select(){return builder},
         eq(){return builder},
@@ -101,34 +135,15 @@ async function configureFixture(page,{
         update(value){mode='update';payload=clone(value);return builder},
         upsert(value){mode='upsert';payload=clone(Array.isArray(value)?value[0]:value);return builder},
         async order(){
-          const fixture=window.__initialProtectionFixture;
-          fixture.fetchCount+=1;
-          if(fixture.fetchCount===1){
-            fixture.signalFirstFetch();
-            if(fixture.failFirstFetch&&!fixture.failedFetch){fixture.failedFetch=true;throw new Error('fixture-initial-fetch-failure')}
-            if(!fixture.firstFetchReleased)await fixture.firstFetchGate;
-          }
-          return{data:fixture.currentRemote?[clone(fixture.currentRemote)]:[],error:null};
+          if(mode==='read')return{data:await read(),error:null};
+          return{data:[clone(await write())],error:null};
         },
         async maybeSingle(){
-          const fixture=window.__initialProtectionFixture;
-          if(mode==='read')return{data:fixture.currentRemote?clone(fixture.currentRemote):null,error:null};
-          fixture.activeRequests+=1;
-          fixture.maxParallelRequests=Math.max(fixture.maxParallelRequests,fixture.activeRequests);
-          try{
-            const prior=fixture.currentRemote;
-            const revision=Number(prior?.revision||0)+1;
-            const row={
-              ...(prior||{}),id:prior?.id||`remote-${id}`,project_id:cloudProjectId,client_id:id,
-              title:payload.title||item.title,address:payload.address||item.address,note:payload.note||item.note,
-              status:payload.status??null,object_type:payload.object_type??null,
-              form_data:clone(payload.form_data||{}),sort_order:Number(payload.sort_order||0),archived_at:payload.archived_at??null,
-              revision,updated_at:`2026-07-13T10:05:${String(revision).padStart(2,'0')}.000Z`,
-            };
-            fixture.currentRemote=row;
-            if(mode==='update')fixture.patches.push(clone(payload));else fixture.upserts.push(clone(payload));
-            return{data:clone(row),error:null};
-          }finally{fixture.activeRequests-=1}
+          if(mode==='read'){
+            const rows=await read();
+            return{data:rows[0]||null,error:null};
+          }
+          return{data:clone(await write()),error:null};
         },
         single(){return builder.maybeSingle()},
         then(resolve,reject){return builder.order().then(resolve,reject)},
@@ -155,13 +170,13 @@ async function editField(page,id,field,value,{focus=true,selection=null}={}){
   const locator=page.locator(`[data-location="${id}"][data-field="${field}"]`);
   await expect(locator).toHaveCount(1);
   if(focus)await locator.focus();
-  await locator.evaluate((control,{value,selection})=>{
-    window.__fixtureActiveControl=control;
+  await locator.evaluate((control,{value,selection,focus})=>{
+    if(focus)window.__fixtureActiveControl=control;
     control.value=value;
     if(selection!==null&&typeof control.setSelectionRange==='function')control.setSelectionRange(selection,selection);
     control.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:value}));
-    window.__fixtureSelection={start:control.selectionStart,end:control.selectionEnd};
-  },{value,selection});
+    if(focus)window.__fixtureSelection={start:control.selectionStart,end:control.selectionEnd};
+  },{value,selection,focus});
   return locator;
 }
 
@@ -177,7 +192,7 @@ async function runProtectedScenario(page,{editTiming='after-fetch-start',duringA
   expect(before).toEqual({contact:'LOCAL-USER-EDIT',questions:'LOCAL-STALE-UNTOUCHED'});
 
   if(editTiming==='before-sync')await editField(page,id,'contact','LOCAL-USER-EDIT',{selection:7});
-  await page.evaluate(()=>{window.__fixtureSyncPromise=cloudSyncAll({manual:false})});
+  await page.evaluate(()=>{window.__fixtureSyncPromise=cloudSyncAll({manual:true})});
   await page.evaluate(()=>window.__initialProtectionFixture.firstFetchStartedGate);
   if(editTiming==='after-fetch-start')await editField(page,id,'contact','LOCAL-USER-EDIT',{selection:7});
 
@@ -343,6 +358,7 @@ test('viewer creates no journal or push, and initial fetch failure retries with 
   await page.evaluate(()=>window.__fixtureSyncPromise);
   let result=await page.evaluate(async()=>({fixture:window.__initialProtectionFixture,local:await getLocationData('viewer-v437'),diagnostics:window.BogatkaInitialBackgroundEditProtectionV437.diagnostics,disabled:document.querySelector('[data-location="viewer-v437"][data-field="contact"]').disabled}));
   expect(result.fixture.patches).toHaveLength(0);
+  expect(result.fixture.upserts).toHaveLength(0);
   expect(result.diagnostics.earlyEditPathCount).toBe(0);
   expect(result.local.contact).toBe('REMOTE-NEWER');
   expect(result.disabled).toBe(true);
