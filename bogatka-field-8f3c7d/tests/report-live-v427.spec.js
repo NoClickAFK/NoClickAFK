@@ -153,7 +153,6 @@ test('individual HTML action exports only the selected location without geolocat
     for(let index=0;index<200&&!window.__locationReportDownload;index++)await new Promise(requestAnimationFrame);
     if(!window.__locationReportDownload)throw new Error('Location report download was not captured.');
     const {html,name}=window.__locationReportDownload;
-    await new Promise(resolve=>setTimeout(resolve,0));
     const doc=new DOMParser().parseFromString(html,'text/html');
     const globalHtml=await window.BogatkaLiveReport.build();
     const globalDoc=new DOMParser().parseFromString(globalHtml,'text/html');
