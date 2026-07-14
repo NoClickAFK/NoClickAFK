@@ -207,7 +207,7 @@
     const cleanLocal=Merge.clean(local);
     const persistedBase=await State.readBase(item.id)||null;
     const startup=startupProtectionState(item.id,row);
-    const base=startup.clean&&startup.base?startup.base:persistedBase||startup.base;
+    const base=persistedBase||startup.base;
     const stateDirty=(syncState.dirtyLocations||[]).includes(item.id);
     const syntheticStartupDirty=Boolean(stateDirty&&startup.clean&&!startup.journaled);
     const dirty=stateDirty&&!syntheticStartupDirty;
@@ -224,7 +224,7 @@
   async function fetchRow(clientId){
     if(isPending(clientId))return null;
     const result=await cloudClient.from('locations').select('*').eq('project_id',cloudProjectId).eq('client_id',clientId).maybeSingle();
-    if(result.error)throw new Error(result.message);
+    if(result.error)throw new Error(result.error.message);
     return result.data||null;
   }
   async function conditionalUpdate(row,nextPayload){
