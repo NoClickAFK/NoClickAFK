@@ -21,7 +21,7 @@
   let refreshTimer=null;
   const controlBeforeEdit=new WeakMap();
   const durableRevisions=new WeakMap();
-  const diagnostics={stateChanges:0,blockedEvents:0,blockedWrites:0,durableEarlyWrites:0,durableEarlyWriteErrors:0};
+  const diagnostics={stateChanges:0,blockedEvents:0,blockedWrites:0,durableEarlyWrites:0,durableEarlyWriteErrors:0,remoteBackedDurabilitySkips:0};
 
   const clone=value=>value===undefined?undefined:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
   const runtimeValue=name=>{try{return window[name]??eval(name)}catch(_){return window[name]}};
@@ -32,6 +32,21 @@
   const readCachedRole=(userId,projectId)=>{try{return localStorage.getItem(cacheKey(userId,projectId))||null}catch(_){return null}};
   const writeCachedRole=(userId,projectId,role)=>{if(!userId||!projectId||!['owner','editor','viewer'].includes(role))return;try{localStorage.setItem(cacheKey(userId,projectId),role)}catch(_){ }};
   const mayMutate=()=>state==='owner'||state==='editor'||state==='signed-out-local';
+  const hasCachedCloudSession=()=>{
+    try{
+      for(let index=0;index<localStorage.length;index++){
+        const key=localStorage.key(index)||'';
+        if(!/^sb-.*-auth-token$/.test(key))continue;
+        const raw=localStorage.getItem(key);
+        if(!raw)continue;
+        try{
+          const parsed=JSON.parse(raw);
+          if(parsed?.access_token||parsed?.currentSession?.access_token||parsed?.user?.id)return true;
+        }catch(_){return true}
+      }
+    }catch(_){ }
+    return false;
+  };
 
   function setState(next,nextReason='runtime'){
     if(state===next&&reason===nextReason)return state;
@@ -62,6 +77,7 @@
       if(!navigator.onLine&&cached==='viewer')return setState('offline-cached-viewer','cached-viewer');
       return setState('role-pending',navigator.onLine?'role-unresolved':'offline-role-unresolved');
     }
+    if(!hasCachedCloudSession())return setState('signed-out-local','no-cached-cloud-session');
     if(last?.status==='no-session'||last?.status==='missing-supabase'||(cloud?.ready&&last?.session===false))return setState('signed-out-local','no-cloud-session');
     if(!navigator.onLine){
       const cached=readCachedRole(lastUserId,lastProjectId);
@@ -70,6 +86,11 @@
       return setState('error-readonly','offline-authority-unknown');
     }
     return setState('session-pending','session-unresolved');
+  }
+  function mutationAllowedNow(){
+    const role=currentRole();
+    if(['owner','editor','viewer'].includes(role)||!hasCachedCloudSession())resolveRuntimeState();
+    return mayMutate();
   }
 
   function readControl(control){
@@ -109,13 +130,23 @@
       if(control)control[key]=null;
     }
   }
+  function isLocalOnlyLocation(id){
+    try{
+      const item=(locations||[]).find(entry=>entry.id===id);
+      if(item?.cloudId)return false;
+      const syncState=typeof cloudReadState==='function'?cloudReadState():{};
+      if((syncState?.knownLocationIds||[]).includes(id))return false;
+      return true;
+    }catch(_){return false}
+  }
 
   async function persistEarlyControl(control){
     const Protection=window.BogatkaInitialBackgroundEditProtectionV437;
-    if(!mayMutate()||!Protection?.ready||!ACTIVE_INITIAL_LIFECYCLES.has(Protection.lifecycle))return false;
+    if(!mutationAllowedNow()||!Protection?.ready||!ACTIVE_INITIAL_LIFECYCLES.has(Protection.lifecycle))return false;
     const id=control?.dataset?.location;
     const path=control?.dataset?.field;
     if(!id||!path||(control.type==='radio'&&!control.checked))return false;
+    if(!isLocalOnlyLocation(id)){diagnostics.remoteBackedDurabilitySkips+=1;return false}
     const revision=Number(control.dataset.initialSyncRevisionV437||0);
     if(!revision)return false;
     const last=durableRevisions.get(control)||0;
@@ -162,22 +193,23 @@
   }
   function onMutationEvent(event){
     const control=event.target?.closest?.('[data-location][data-field],[data-global]');
-    if(!mayMutate())return blockEvent(event);
+    if(!mutationAllowedNow())return blockEvent(event);
     if(control?.matches?.('[data-location][data-field]'))queueMicrotask(()=>persistEarlyControl(control));
     queueMicrotask(()=>clearControlRemembered(control));
   }
   function onClick(event){
     const target=event.target?.closest?.(MUTATING_CLICK_SELECTOR);
-    if(target&&!mayMutate())blockEvent(event);
+    if(target&&!mutationAllowedNow())blockEvent(event);
   }
   function onSubmit(event){
-    if(!mayMutate()&&event.target?.closest?.('#locationModal,#cloudInviteForm'))blockEvent(event);
+    if(!mutationAllowedNow()&&event.target?.closest?.('#locationModal,#cloudInviteForm'))blockEvent(event);
   }
 
   function applyDomAuthority(){
     const readonly=!mayMutate();
     for(const element of document.querySelectorAll(MUTATING_CONTROL_SELECTOR)){
       if(readonly){
+        rememberControl(element);
         if(!element.disabled)element.dataset.mutationAuthorityDisabledV437='1';
         element.disabled=true;
         element.setAttribute('aria-disabled','true');
@@ -185,13 +217,14 @@
         element.disabled=false;
         element.removeAttribute('aria-disabled');
         delete element.dataset.mutationAuthorityDisabledV437;
+        clearControlRemembered(element);
       }
     }
   }
 
   function install(){
     document.addEventListener('focusin',onFocusIn,true);
-    document.addEventListener('beforeinput',event=>{if(!mayMutate())blockEvent(event)},true);
+    document.addEventListener('beforeinput',event=>{if(!mutationAllowedNow())blockEvent(event)},true);
     document.addEventListener('input',onMutationEvent,true);
     document.addEventListener('change',onMutationEvent,true);
     document.addEventListener('click',onClick,true);
@@ -208,14 +241,14 @@
 
   window.BogatkaMutationAuthorityV437={
     version:VERSION,ready:true,
-    canMutate:mayMutate,
+    canMutate:mutationAllowedNow,
     refresh:resolveRuntimeState,
-    assertMutationAllowed(){if(mayMutate())return true;diagnostics.blockedWrites+=1;throw new Error('Изменение недоступно до подтверждения прав доступа.');},
+    assertMutationAllowed(){if(mutationAllowedNow())return true;diagnostics.blockedWrites+=1;throw new Error('Изменение недоступно до подтверждения прав доступа.');},
     persistEarlyControl,
     get state(){return state},
     get reason(){return reason},
     get diagnostics(){return{...diagnostics}},
-    _test:{setState,resolveRuntimeState,readCachedRole,writeCachedRole,restoreControl,get durableRevisionCount(){return diagnostics.durableEarlyWrites}},
+    _test:{setState,resolveRuntimeState,readCachedRole,writeCachedRole,restoreControl,hasCachedCloudSession,isLocalOnlyLocation,get durableRevisionCount(){return diagnostics.durableEarlyWrites}},
   };
   install();
 })();
