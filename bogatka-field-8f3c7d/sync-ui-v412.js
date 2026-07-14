@@ -17,7 +17,7 @@
     noOpUpdatesAccepted:0,
     revisionRebases:0,
     inFlightLocalMerges:0,
-    syntheticStartupDirtyIgnored:0,
+    startupBasesUsed:0,
     realConflicts:0,
     lastFailingStage:'',
   };
@@ -194,24 +194,25 @@
     return Merge.merge(base?.meta,localMeta(item,index),row?rowMeta(row):undefined,{preferLocal,explicitReset:false});
   }
   function startupProtectionState(id,row){
-    if(!row)return{active:false,clean:false,journaled:false,base:null};
+    if(!row)return{active:false,clean:false,journaled:false,reconciling:false,base:null};
     const protection=window.BogatkaInitialBackgroundEditProtectionV437;
     const snapshot=protection?.snapshot;
     const active=Boolean(protection?.ready&&INITIAL_CLOUD_LIFECYCLES.has(protection.lifecycle)&&snapshot?.locations?.includes(id));
     const clean=Boolean(active&&!(snapshot.preExistingDirty||[]).includes(id));
     const journaled=Boolean(clean&&protection._test?.journalIds?.().has(id));
-    return{active,clean,journaled,base:clean?protection._test?.startupBaseFor?.(id)||null:null};
+    const reconciling=Boolean(clean&&protection.lifecycle==='reconciling-early-edits');
+    return{active,clean,journaled,reconciling,base:clean?protection._test?.startupBaseFor?.(id)||null:null};
   }
   async function buildContext(item,index,row,syncState){
     const local=await getLocationData(item.id);
     const cleanLocal=Merge.clean(local);
     const persistedBase=await State.readBase(item.id)||null;
     const startup=startupProtectionState(item.id,row);
-    const base=persistedBase||startup.base;
     const stateDirty=(syncState.dirtyLocations||[]).includes(item.id);
-    const syntheticStartupDirty=Boolean(stateDirty&&startup.clean&&!startup.journaled);
-    const dirty=stateDirty&&!syntheticStartupDirty;
-    if(syntheticStartupDirty)diagnostics.syntheticStartupDirtyIgnored+=1;
+    const useStartupBase=Boolean(startup.reconciling&&startup.base&&!stateDirty&&!startup.journaled);
+    const base=useStartupBase?startup.base:persistedBase||startup.base;
+    if(useStartupBase)diagnostics.startupBasesUsed+=1;
+    const dirty=stateDirty;
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
     const merged=Merge.merge(base?.formData,cleanLocal,row?remoteData(row):undefined,options);
     const meta=chooseMeta(base,item,row,index,Boolean(syncState.metaDirty)||dirty);
@@ -448,7 +449,7 @@
     diagnostics.noOpUpdatesAccepted=0;
     diagnostics.revisionRebases=0;
     diagnostics.inFlightLocalMerges=0;
-    diagnostics.syntheticStartupDirtyIgnored=0;
+    diagnostics.startupBasesUsed=0;
     diagnostics.realConflicts=0;
     diagnostics.lastFailingStage='';
   }
