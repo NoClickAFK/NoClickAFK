@@ -24,10 +24,9 @@
   const diagnostics={stateChanges:0,blockedEvents:0,blockedWrites:0,durableEarlyWrites:0,durableEarlyWriteErrors:0,remoteBackedDurabilitySkips:0};
 
   const clone=value=>value===undefined?undefined:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
-  const runtimeValue=name=>{try{return window[name]??eval(name)}catch(_){return window[name]}};
-  const currentSession=()=>runtimeValue('cloudSession')||null;
-  const currentRole=()=>runtimeValue('cloudRole')||null;
-  const currentProjectId=()=>runtimeValue('cloudProjectId')||null;
+  const currentSession=()=>{try{return typeof cloudSession==='undefined'?(window.cloudSession??null):(cloudSession??window.cloudSession??null)}catch(_){return window.cloudSession??null}};
+  const currentRole=()=>{try{return typeof cloudRole==='undefined'?(window.cloudRole??null):(cloudRole??window.cloudRole??null)}catch(_){return window.cloudRole??null}};
+  const currentProjectId=()=>{try{return typeof cloudProjectId==='undefined'?(window.cloudProjectId??null):(cloudProjectId??window.cloudProjectId??null)}catch(_){return window.cloudProjectId??null}};
   const cacheKey=(userId,projectId)=>`${CACHE_PREFIX}:${userId||'unknown'}:${projectId||'unknown'}`;
   const readCachedRole=(userId,projectId)=>{try{return localStorage.getItem(cacheKey(userId,projectId))||null}catch(_){return null}};
   const writeCachedRole=(userId,projectId,role)=>{if(!userId||!projectId||!['owner','editor','viewer'].includes(role))return;try{localStorage.setItem(cacheKey(userId,projectId),role)}catch(_){ }};
