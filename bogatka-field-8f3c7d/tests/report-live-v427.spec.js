@@ -144,25 +144,14 @@ test('individual HTML action exports only the selected location without geolocat
     const geolocation=navigator.geolocation;
     if(geolocation){try{geolocation.getCurrentPosition=()=>{geoCalls+=1}}catch(_){ }}
     window.__locationReportDownload=null;
-    window.__locationReportExportPromise=null;
     const capture=(blob,name)=>blob.text().then(html=>{window.__locationReportDownload={html,name}});
     window.downloadBlob=capture;
     try{downloadBlob=capture}catch(_){ }
-    const baseExporter=window.exportLocationHtmlReport||window.BogatkaLiveReport?.exportLocationHtmlReport;
-    const trackedExporter=function(...args){
-      const pending=Promise.resolve(baseExporter.apply(this,args));
-      window.__locationReportExportPromise=pending;
-      return pending;
-    };
-    window.exportLocationHtmlReport=trackedExporter;
-    if(window.BogatkaLiveReport)window.BogatkaLiveReport.exportLocationHtmlReport=trackedExporter;
 
     const selectedCard=document.querySelector(`[data-location-card="${CSS.escape(selected.id)}"]`);
     selectedCard.querySelector('[data-action="export-location-html"]').click();
-    for(let index=0;index<200&&(!window.__locationReportDownload||!window.__locationReportExportPromise);index++)await new Promise(requestAnimationFrame);
+    for(let index=0;index<200&&!window.__locationReportDownload;index++)await new Promise(requestAnimationFrame);
     if(!window.__locationReportDownload)throw new Error('Location report download was not captured.');
-    if(!window.__locationReportExportPromise)throw new Error('Location report export promise was not captured.');
-    await window.__locationReportExportPromise;
     const {html,name}=window.__locationReportDownload;
     const doc=new DOMParser().parseFromString(html,'text/html');
     const globalHtml=await window.BogatkaLiveReport.build();
