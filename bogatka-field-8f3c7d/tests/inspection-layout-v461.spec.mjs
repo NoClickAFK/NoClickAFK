@@ -44,6 +44,47 @@ async function waitStored(page,id,field,value){
   },{id,field,value},{timeout:15000});
 }
 
+async function runLateLayoutPasses(card){
+  await card.evaluate(async node=>{
+    const id=node.dataset.locationCard;
+    await window.BogatkaLocationProfileV416?.enhanceAll?.({force:true});
+    await window.BogatkaLocationDataV452?.enhanceAll?.();
+    await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
+    window.BogatkaInspectionLayoutV461?.enhanceAll?.();
+    window.BogatkaPanelAuthorityV437?.canonicalizeAll?.();
+    return document.querySelector(`[data-location-card="${CSS.escape(id)}"]`)?.dataset.inspectionLayoutV462;
+  });
+}
+
+async function layoutSnapshot(card){
+  return card.evaluate(node=>{
+    const overview=node.querySelector('.location-overview-v416');
+    const left=node.querySelector('.inspection-card-v416');
+    const right=node.querySelector('.landlord-card-v416');
+    const task=node.querySelector('.next-task-card-v447');
+    const inspectionGrid=node.querySelector('.inspection-grid-v416');
+    const landlordGrid=node.querySelector('.landlord-grid-v416');
+    return{
+      viewportWidth:window.innerWidth,
+      compact:window.matchMedia('(max-width:700px)').matches,
+      overviewWidth:overview.getBoundingClientRect().width,
+      overviewScroll:overview.scrollWidth,
+      leftWidth:left.getBoundingClientRect().width,
+      rightWidth:right.getBoundingClientRect().width,
+      taskWidth:task.getBoundingClientRect().width,
+      columns:getComputedStyle(overview).gridTemplateColumns,
+      leftColumns:getComputedStyle(inspectionGrid).gridTemplateColumns,
+      rightColumns:getComputedStyle(landlordGrid).gridTemplateColumns,
+      leftInline:inspectionGrid.style.getPropertyValue('grid-template-columns'),
+      rightInline:landlordGrid.style.getPropertyValue('grid-template-columns'),
+      leftInlinePriority:inspectionGrid.style.getPropertyPriority('grid-template-columns'),
+      rightInlinePriority:landlordGrid.style.getPropertyPriority('grid-template-columns'),
+      landlordOverflow:landlordGrid.scrollWidth-landlordGrid.clientWidth,
+      responsiveOwner:window.BogatkaInspectionLayoutV461?.responsiveOwner||'',
+    };
+  });
+}
+
 test('inspection context is redistributed into two balanced cards without duplicate visible controls',async({page})=>{
   const card=await openApp(page);
   const fields=['objectSource','listingUrl','objectSourceOther','inspectionPurpose','inspectionParticipants','inspectionResult'];
@@ -155,23 +196,14 @@ test('moved controls keep persistence, conditional source behavior and viewer pr
 
 test('mobile layout stays single-column and overflow free',async({page})=>{
   const card=await openApp(page,390,900);
-  const result=await card.evaluate(node=>{
-    const overview=node.querySelector('.location-overview-v416');
-    const left=node.querySelector('.inspection-card-v416');
-    const right=node.querySelector('.landlord-card-v416');
-    const task=node.querySelector('.next-task-card-v447');
-    const landlordGrid=node.querySelector('.landlord-grid-v416');
-    return{
-      overviewWidth:overview.getBoundingClientRect().width,
-      overviewScroll:overview.scrollWidth,
-      leftWidth:left.getBoundingClientRect().width,
-      rightWidth:right.getBoundingClientRect().width,
-      taskWidth:task.getBoundingClientRect().width,
-      columns:getComputedStyle(overview).gridTemplateColumns,
-      rightColumns:getComputedStyle(landlordGrid).gridTemplateColumns,
-      landlordOverflow:landlordGrid.scrollWidth-landlordGrid.clientWidth,
-    };
-  });
+  const result=await layoutSnapshot(card);
+  expect(result.viewportWidth).toBe(390);
+  expect(result.compact).toBe(true);
+  expect(result.responsiveOwner).toBe('inspection-layout-v461.css');
+  expect(result.leftInline).toBe('');
+  expect(result.rightInline).toBe('');
+  expect(result.leftInlinePriority).toBe('');
+  expect(result.rightInlinePriority).toBe('');
   expect(result.overviewScroll).toBeLessThanOrEqual(Math.ceil(result.overviewWidth)+1);
   expect(result.leftWidth).toBeLessThanOrEqual(result.overviewWidth+1);
   expect(result.rightWidth).toBeLessThanOrEqual(result.overviewWidth+1);
@@ -179,6 +211,33 @@ test('mobile layout stays single-column and overflow free',async({page})=>{
   expect(result.columns.split(' ').length).toBe(1);
   expect(result.rightColumns.split(' ').length).toBe(1);
   expect(result.landlordOverflow).toBeLessThanOrEqual(1);
+
+  await runLateLayoutPasses(card);
+  const lateMobile=await layoutSnapshot(card);
+  expect(lateMobile.compact).toBe(true);
+  expect(lateMobile.leftColumns.split(' ').length).toBe(1);
+  expect(lateMobile.rightColumns.split(' ').length).toBe(1);
+  expect(lateMobile.rightInline).toBe('');
+  expect(lateMobile.landlordOverflow).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({width:1440,height:900});
+  await runLateLayoutPasses(card);
+  await expect.poll(async()=>((await layoutSnapshot(card)).rightColumns.split(' ').length)).toBe(2);
+  const desktop=await layoutSnapshot(card);
+  expect(desktop.compact).toBe(false);
+  expect(desktop.leftColumns.split(' ').length).toBe(2);
+  expect(desktop.rightColumns.split(' ').length).toBe(2);
+  expect(desktop.rightInline).toBe('');
+
+  await page.setViewportSize({width:390,height:900});
+  await runLateLayoutPasses(card);
+  await expect.poll(async()=>((await layoutSnapshot(card)).rightColumns.split(' ').length)).toBe(1);
+  const resizedMobile=await layoutSnapshot(card);
+  expect(resizedMobile.compact).toBe(true);
+  expect(resizedMobile.leftColumns.split(' ').length).toBe(1);
+  expect(resizedMobile.rightColumns.split(' ').length).toBe(1);
+  expect(resizedMobile.rightInline).toBe('');
+  expect(resizedMobile.landlordOverflow).toBeLessThanOrEqual(1);
 });
 
 test('v461 assets are present in the offline cache manifest without depending on app startup',async({request})=>{
