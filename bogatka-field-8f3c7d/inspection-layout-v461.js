@@ -24,6 +24,7 @@ const LEFT=['inspectionPurpose','inspectionResult'];
 const RIGHT=['objectSource','listingUrl','objectSourceOther','inspectionParticipants'];
 const WIDE=new Set(['inspectionPurpose','inspectionResult','objectSourceOther','inspectionParticipants']);
 let timer=null;
+let enhancing=false;
 
 const fieldSelector=field=>`[data-field="${CSS.escape(field)}"]`;
 const visibleControl=(card,field)=>card.querySelector(fieldSelector(field));
@@ -206,24 +207,30 @@ function placeCard(card){
 }
 
 function enhanceAll(){
-  patchLabels();
-  let ready=0;
-  for(const card of document.querySelectorAll('[data-location-card]'))if(placeCard(card))ready++;
-  return ready;
+  if(enhancing)return 0;
+  enhancing=true;
+  try{
+    patchLabels();
+    let ready=0;
+    for(const card of document.querySelectorAll('[data-location-card]'))if(placeCard(card))ready++;
+    return ready;
+  }finally{enhancing=false}
 }
 
 function schedule(delay=70){clearTimeout(timer);timer=setTimeout(()=>{try{enhanceAll();}catch(error){console.error(error);}},delay);}
 function install(){
   const root=document.getElementById('locations')||document.body;
   new MutationObserver(records=>{
-    if(records.some(record=>record.addedNodes.length||record.removedNodes.length))schedule(90);
-  }).observe(root,{childList:true});
+    if(!records.some(record=>record.addedNodes.length||record.removedNodes.length))return;
+    try{enhanceAll();}catch(error){console.error(error)}
+    schedule(90);
+  }).observe(root,{childList:true,subtree:true});
   schedule(20);
   [250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>schedule(0),delay));
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 window.addEventListener('load',()=>schedule(30),{once:true});
-window.addEventListener('resize',()=>schedule(0));
+window.addEventListener('resize',()=>{try{enhanceAll();}catch(error){console.error(error)}});
 window.BogatkaInspectionLayoutV461={version:VERSION,ready:true,LABELS,SOURCE_LABELS,enhanceAll,placeCard};
 })();
