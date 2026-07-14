@@ -63,8 +63,8 @@
     if(row?.archived_at)data.archivedAt=row.archived_at;
     return data;
   };
-  const payload=(item,index,data,meta,updatedBy)=>Merge.transportNormalize({
-    project_id:cloudProjectId,
+  const payload=(item,index,data,meta,projectId,updatedBy)=>Merge.transportNormalize({
+    project_id:projectId||cloudProjectId,
     client_id:item.id,
     title:meta.title||meta.address||'Без названия',
     address:meta.address||null,
@@ -216,7 +216,7 @@
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
     const merged=Merge.merge(base?.formData,cleanLocal,row?remoteData(row):undefined,options);
     const meta=chooseMeta(base,item,row,index,Boolean(syncState.metaDirty)||dirty);
-    const nextPayload=payload(item,index,merged,meta,syncState?.userId);
+    const nextPayload=payload(item,index,merged,meta,syncState?.projectId,syncState?.userId);
     return {
       id:item.id,item,index,row,base,local,merged,meta,payload:nextPayload,dirty,
       needsPush:!row||!Merge.same(comparable(nextPayload),comparable(row)),
