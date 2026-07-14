@@ -254,6 +254,16 @@
     if(target!=='inspection'&&target!=='landlord')return;
     const card=button.closest('[data-location-card]');
     if(!card)return;
+    // Readiness is the capture-phase owner for these two top-panel targets.
+    // Stop the legacy V448 navigation handler from applying a second partial
+    // state, then establish the complete canonical state synchronously so the
+    // click returns with exact aria/dataset/storage values already committed.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    try{
+      setCanonicalTopPanelState(card,target,{persist:true});
+      window.BogatkaPanelAuthorityV437?.canonicalizeAll?.();
+    }catch(error){console.error(error);return}
     finalizePanelLayout(card).then(current=>{
       setCanonicalTopPanelState(current,target,{persist:true});
       window.BogatkaPanelAuthorityV437?.canonicalizeAll?.();
