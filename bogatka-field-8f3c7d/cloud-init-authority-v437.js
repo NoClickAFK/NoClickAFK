@@ -3,7 +3,12 @@
   if(window.BogatkaCloudInitAuthorityV437?.ready)return;
 
   const VERSION='4.3.7';
-  const diagnostics={delegateCalls:0,singletonCalls:0,createClientCalls:0,getSessionCalls:0,authListenerCalls:0};
+  const diagnostics={
+    delegateCalls:0,singletonCalls:0,
+    createClientCalls:0,appCreateClientCalls:0,auxiliaryCreateClientCalls:0,
+    getSessionCalls:0,appGetSessionCalls:0,
+    authListenerCalls:0,appAuthListenerCalls:0,
+  };
   let installed=false;
   let instrumented=false;
 
@@ -12,12 +17,23 @@
     const base=window.supabase.createClient.bind(window.supabase);
     window.supabase.createClient=function(...args){
       diagnostics.createClientCalls+=1;
+      const isAppClient=args[2]?.auth?.persistSession===true;
+      if(isAppClient)diagnostics.appCreateClientCalls+=1;
+      else diagnostics.auxiliaryCreateClientCalls+=1;
       const client=base(...args);
       if(client?.auth&&!client.auth.__cloudInitAuthorityV437){
         const getSession=client.auth.getSession?.bind(client.auth);
         const onAuthStateChange=client.auth.onAuthStateChange?.bind(client.auth);
-        if(getSession)client.auth.getSession=async function(...sessionArgs){diagnostics.getSessionCalls+=1;return getSession(...sessionArgs)};
-        if(onAuthStateChange)client.auth.onAuthStateChange=function(...listenerArgs){diagnostics.authListenerCalls+=1;return onAuthStateChange(...listenerArgs)};
+        if(getSession)client.auth.getSession=async function(...sessionArgs){
+          diagnostics.getSessionCalls+=1;
+          if(isAppClient)diagnostics.appGetSessionCalls+=1;
+          return getSession(...sessionArgs);
+        };
+        if(onAuthStateChange)client.auth.onAuthStateChange=function(...listenerArgs){
+          diagnostics.authListenerCalls+=1;
+          if(isAppClient)diagnostics.appAuthListenerCalls+=1;
+          return onAuthStateChange(...listenerArgs);
+        };
         try{Object.defineProperty(client.auth,'__cloudInitAuthorityV437',{value:true})}catch(_){client.auth.__cloudInitAuthorityV437=true}
       }
       return client;
