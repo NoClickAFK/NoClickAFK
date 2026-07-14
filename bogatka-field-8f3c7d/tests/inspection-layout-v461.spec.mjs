@@ -64,6 +64,25 @@ async function layoutSnapshot(card){
     const task=node.querySelector('.next-task-card-v447');
     const inspectionGrid=node.querySelector('.inspection-grid-v416');
     const landlordGrid=node.querySelector('.landlord-grid-v416');
+    const matchedGridRules=[];
+    const scanRules=(rules,source,media='')=>{
+      for(const rule of rules||[]){
+        if(rule instanceof CSSMediaRule){
+          const matches=matchMedia(rule.conditionText).matches;
+          if(matches)scanRules(rule.cssRules,source,rule.conditionText);
+          continue;
+        }
+        if(!(rule instanceof CSSStyleRule))continue;
+        const value=rule.style.getPropertyValue('grid-template-columns');
+        if(!value)continue;
+        let matches=false;
+        try{matches=landlordGrid.matches(rule.selectorText)}catch(_){matches=false}
+        if(matches)matchedGridRules.push({source,media,selector:rule.selectorText,value,priority:rule.style.getPropertyPriority('grid-template-columns')});
+      }
+    };
+    for(const sheet of document.styleSheets){
+      try{scanRules(sheet.cssRules,sheet.href?.split('/').pop()||'inline')}catch(_){ }
+    }
     return{
       viewportWidth:window.innerWidth,
       compact:window.matchMedia('(max-width:700px)').matches,
@@ -81,6 +100,10 @@ async function layoutSnapshot(card){
       rightInlinePriority:landlordGrid.style.getPropertyPriority('grid-template-columns'),
       landlordOverflow:landlordGrid.scrollWidth-landlordGrid.clientWidth,
       responsiveOwner:window.BogatkaInspectionLayoutV461?.responsiveOwner||'',
+      overviewClass:overview.className,
+      landlordGridClass:landlordGrid.className,
+      children:[...landlordGrid.children].map(child=>({className:child.className,hidden:child.hidden,display:getComputedStyle(child).display,column:getComputedStyle(child).gridColumn,columnStart:getComputedStyle(child).gridColumnStart,columnEnd:getComputedStyle(child).gridColumnEnd})),
+      matchedGridRules,
     };
   });
 }
@@ -209,14 +232,14 @@ test('mobile layout stays single-column and overflow free',async({page})=>{
   expect(result.rightWidth).toBeLessThanOrEqual(result.overviewWidth+1);
   expect(result.taskWidth).toBeLessThanOrEqual(result.leftWidth);
   expect(result.columns.split(' ').length).toBe(1);
-  expect(result.rightColumns.split(' ').length).toBe(1);
+  expect(result.rightColumns.split(' ').length,`V461 mobile snapshot: ${JSON.stringify(result)}`).toBe(1);
   expect(result.landlordOverflow).toBeLessThanOrEqual(1);
 
   await runLateLayoutPasses(card);
   const lateMobile=await layoutSnapshot(card);
   expect(lateMobile.compact).toBe(true);
   expect(lateMobile.leftColumns.split(' ').length).toBe(1);
-  expect(lateMobile.rightColumns.split(' ').length).toBe(1);
+  expect(lateMobile.rightColumns.split(' ').length,`V461 late mobile snapshot: ${JSON.stringify(lateMobile)}`).toBe(1);
   expect(lateMobile.rightInline).toBe('');
   expect(lateMobile.landlordOverflow).toBeLessThanOrEqual(1);
 
