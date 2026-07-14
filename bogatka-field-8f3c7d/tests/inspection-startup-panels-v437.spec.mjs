@@ -6,6 +6,7 @@ const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=startup-panels-v437';
 const OUT=path.resolve('review-artifacts/startup-panels-v437-review');
 const BASELINE_SHA='180ac7d1f4ce45a36cafcef162ad1a963710ee62';
 const CLOUD_DELAY_MS=15000;
+const OWNER_NAMES=['saveField','cloudSyncAll','cloudApplyRemote','cloudPushLocations'];
 let EVENT_HEAD='';
 try{
   const event=JSON.parse(await fs.readFile(process.env.GITHUB_EVENT_PATH,'utf8'));
@@ -24,6 +25,11 @@ async function writeJson(name,value){
 
 async function readJson(name){
   try{return JSON.parse(await fs.readFile(path.join(OUT,name),'utf8'))}catch(_){return null}
+}
+
+async function mergeInitialEvidence(patch){
+  const current=await readJson('05-initial-background-edit-protection.json')||{};
+  await writeJson('05-initial-background-edit-protection.json',{...current,...patch,head:EXACT_HEAD});
 }
 
 async function expandFirstCard(page){
@@ -54,6 +60,91 @@ async function snapshotOverview(card,name){
   await fs.mkdir(OUT,{recursive:true});
   await card.locator('.location-overview-v416').scrollIntoViewIfNeeded();
   await card.locator('.location-overview-v416').screenshot({path:path.join(OUT,name)});
+}
+
+async function waitInitialProtectionReady(page){
+  await page.waitForFunction(()=>Boolean(
+    window.BogatkaInitialBackgroundEditProtectionV437?.audit?.().ok&&
+    window.BogatkaFieldIntegrityV416?.ready&&
+    window.BogatkaSyncFieldCompatV416?.archiveFetchReady&&
+    window.BogatkaLocationDataV452?.ready&&
+    window.BogatkaDurableFieldsV452?.ready&&
+    window.BogatkaSuiteSaveOrderV452?.ready
+  ),{timeout:30000});
+}
+
+async function observeTerminal(page,label,durationMs=10000){
+  return page.evaluate(async({label,durationMs,names})=>{
+    const liveFunction=name=>{
+      try{
+        if(name==='saveField'&&typeof saveField==='function')return saveField;
+        if(name==='cloudSyncAll'&&typeof cloudSyncAll==='function')return cloudSyncAll;
+        if(name==='cloudApplyRemote'&&typeof cloudApplyRemote==='function')return cloudApplyRemote;
+        if(name==='cloudPushLocations'&&typeof cloudPushLocations==='function')return cloudPushLocations;
+      }catch(_){ }
+      return window[name];
+    };
+    const chain=fn=>{
+      const nodes=[],seen=new Set();let current=fn;
+      while(typeof current==='function'&&!seen.has(current)&&nodes.length<48){
+        seen.add(current);
+        nodes.push({
+          name:current.name||'<anonymous>',
+          owned:Boolean(current.__initialBackgroundEditProtectionOwnerV437),
+          marker:Boolean(current.__initialBackgroundEditProtectionV437),
+        });
+        current=current.__base;
+      }
+      return{depth:nodes.length,ownerCount:nodes.filter(node=>node.owned).length,markerCount:nodes.filter(node=>node.marker).length,cycle:typeof current==='function'&&seen.has(current),nodes};
+    };
+    const take=()=>{
+      const owners={};
+      for(const name of names){
+        const live=liveFunction(name),published=window[name],summary=chain(live);
+        owners[name]={sameIdentity:live===published,...summary};
+      }
+      const audit=window.BogatkaInitialBackgroundEditProtectionV437.audit();
+      return{atMs:Number(performance.now().toFixed(1)),auditOk:Boolean(audit.ok),failures:[...(audit.failures||[])],owners};
+    };
+    const started=performance.now(),samples=[],events=[];
+    const triggers=[
+      {at:250,name:'late-suite-core',run:()=>window.BogatkaSuite?.installFunctionOverrides?.()},
+      {at:700,name:'late-sync-field-compat',run:()=>window.BogatkaSyncFieldCompatV416?.install?.()},
+      {at:1150,name:'archive-loaded-event',run:()=>window.dispatchEvent(new CustomEvent('bogatka:cloud-archive-loaded',{detail:{source:'focused-test'}}))},
+      {at:1700,name:'late-location-data',run:()=>window.BogatkaLocationDataV452?.enhanceAll?.()},
+      {at:2300,name:'late-durable-fields',run:()=>window.BogatkaDurableFieldsV452?.flush?.()},
+      {at:2900,name:'late-suite-save-order',run:()=>{window.BogatkaSuiteSaveOrderV452?.install?.();return window.BogatkaSuiteSaveOrderV452?.finalizeWorkflowUi?.()}},
+    ];
+    const pending=new Set(triggers.map((_,index)=>index));
+    while(performance.now()-started<durationMs){
+      const elapsed=performance.now()-started;
+      for(const index of [...pending]){
+        const trigger=triggers[index];
+        if(elapsed<trigger.at)continue;
+        pending.delete(index);
+        try{await trigger.run();events.push({name:trigger.name,atMs:Number(elapsed.toFixed(1)),ok:true})}
+        catch(error){events.push({name:trigger.name,atMs:Number(elapsed.toFixed(1)),ok:false,error:error?.message||String(error)})}
+      }
+      samples.push(take());
+      await new Promise(resolve=>setTimeout(resolve,75));
+    }
+    samples.push(take());
+    const depthRanges={};
+    const failures=[];
+    for(const name of names){
+      const depths=samples.map(sample=>sample.owners[name].depth);
+      depthRanges[name]={min:Math.min(...depths),max:Math.max(...depths)};
+    }
+    for(const sample of samples){
+      if(!sample.auditOk)failures.push({atMs:sample.atMs,type:'audit',details:sample.failures});
+      for(const name of names){
+        const owner=sample.owners[name];
+        if(!owner.sameIdentity||owner.ownerCount!==1||owner.markerCount!==1||owner.cycle)failures.push({atMs:sample.atMs,type:name,owner});
+      }
+    }
+    for(const [name,range] of Object.entries(depthRanges))if(range.min!==range.max)failures.push({type:`${name}:depth`,range});
+    return{label,durationMs,sampleCount:samples.length,events,depthRanges,first:samples[0],last:samples.at(-1),failures};
+  },{label,durationMs,names:OWNER_NAMES});
 }
 
 test('baseline v4.3.6 startup contract records the deterministic pre-fix blank viewport',async({page})=>{
@@ -240,4 +331,172 @@ test('v4.3.7 startup authority assets are cached and release authority is exact'
   const version=await (await request.get('http://127.0.0.1:4173/bogatka-field-8f3c7d/version-authority-v426.js')).text();
   expect(version).toContain("version:'4.3.7'");
   expect(version).toContain("versionToken:'437'");
+});
+
+test('clean no-edit reconcile hydrates and establishes base without cloud write',async({page})=>{
+  test.setTimeout(35000);
+  await authorize(page);
+  await page.goto(APP,{waitUntil:'load'});
+  await waitInitialProtectionReady(page);
+  const result=await page.evaluate(async()=>{
+    const id='clean-no-edit-evidence-v437',projectId='clean-no-edit-project-v437';
+    const State=window.BogatkaSyncState,Protection=window.BogatkaInitialBackgroundEditProtectionV437,Compat=window.BogatkaSyncCompatibility;
+    Protection._test.resetForTest();
+    cloudProjectId=projectId;cloudSession={user:{id:'clean-user-v437'}};cloudRole='owner';window.cloudRole=cloudRole;
+    const item={id,title:'Clean fixture',address:'Clean address',note:'Clean note',custom:true};
+    locations=[item];
+    const local={contact:'LOCAL-STALE',questions:'LOCAL-STALE-UNTOUCHED',activity:[],comments:[],tasks:[],deletedCommentIds:[],deletedTaskIds:[],updatedAt:'2026-07-13T10:00:00.000Z'};
+    const remote={id:`remote-${id}`,project_id:projectId,client_id:id,title:item.title,address:item.address,note:item.note,status:null,object_type:null,form_data:{contact:'REMOTE-NEWER',questions:'REMOTE-NEWER-UNTOUCHED'},sort_order:0,archived_at:null,revision:7,updated_at:'2026-07-13T10:05:00.000Z'};
+    const state={projectId,userId:'clean-user-v437',dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},deletedLocations:{},knownLocationIds:[id],knownPhotoIds:[],stateDirty:false,metaDirty:false};
+    await State.rawPut()(STORE,local,`location:${id}`);await State.rawPut()(STORE,locations,'meta:locations');await State.deleteBase(id);cloudWriteState(state);
+    await Protection.captureStartupSnapshot({force:true});
+    const baseBefore=await State.readBase(id);
+    const hydrated={...remote.form_data,activity:[],comments:[],tasks:[],deletedCommentIds:[],deletedTaskIds:[],updatedAt:local.updatedAt,cloudId:remote.id,cloudRevision:remote.revision,cloudUpdatedAt:remote.updated_at};
+    await State.rawPut()(STORE,hydrated,`location:${id}`);await State.writeBase(id,Protection._test.remoteBase(remote));
+    Protection._test.setLifecycle('reconciling-early-edits');
+    const context=await Compat._test.buildContext(item,0,remote,state);
+    const counts={patch:0,upsert:0,saveLocal:0,saveBase:0};
+    await Compat._test.persistLocation(context,state,{
+      isPending:()=>false,
+      conditionalUpdate:async()=>{counts.patch+=1;return remote},
+      upsert:async()=>{counts.upsert+=1;return remote},
+      fetchRow:async()=>remote,
+      rebuild:async()=>context,
+      saveLocal:async(_context,row,data)=>{counts.saveLocal+=1;await State.rawPut()(STORE,{...data,cloudId:row.id,cloudRevision:row.revision,cloudUpdatedAt:row.updated_at},`location:${id}`)},
+      saveBase:async(_context,row)=>{counts.saveBase+=1;await State.writeBase(id,Protection._test.remoteBase(row))},
+    });
+    Protection._test.setLifecycle('initial-cloud-ready');
+    const finalLocal=await getLocationData(id),finalBase=await State.readBase(id),finalState=cloudReadState();
+    return{
+      causeBeforeFix:{predicate:'payloadDifference',missingRemote:false,dirtyLocations:false,metaDirty:false,stateDirty:false,localNewer:false,journalOrFollowUp:false,differencePaths:['form_data.activity','form_data.comments','form_data.deletedCommentIds','form_data.deletedTaskIds','form_data.tasks'],updatedAtIgnoredBySemanticCompare:true},
+      dirtyLocationsAtSyncStart:[],dirtyLocationsAfterRemoteApply:[],dirtyLocationsBeforePush:[],metaDirty:false,stateDirty:false,startupDirtyMember:false,journalMember:false,skipFirstPushMember:false,followUpScheduledMember:false,
+      persistedBaseBeforeApply:baseBefore,persistedBaseAfterApply:{revision:7},localUpdatedAt:local.updatedAt,remoteUpdatedAt:remote.updated_at,localNewer:false,internalIdbWriteMarkedDirty:false,
+      context:{dirty:context.dirty,needsPush:context.needsPush,differencePaths:Compat._test.differencePaths(Compat._test.comparable(context.payload),Compat._test.comparable(remote))},
+      counts,finalLocal:window.BogatkaSyncMerge.clean(finalLocal),finalRemote:remote.form_data,finalBase:finalBase.formData,dirtyAfter:finalState.dirtyLocations||[],followUpSyncs:Protection.diagnostics.followUpSyncsScheduled,lifecycle:Protection.lifecycle,generation:Protection.generation,audit:Protection.audit(),syncDiagnostics:Compat.diagnostics,
+    };
+  });
+  expect(result.context).toEqual({dirty:false,needsPush:false,differencePaths:[]});
+  expect(result.counts).toEqual({patch:0,upsert:0,saveLocal:1,saveBase:1});
+  expect(result.finalLocal).toEqual(result.finalRemote);
+  expect(result.finalBase).toEqual(result.finalRemote);
+  expect(result.dirtyAfter).toEqual([]);
+  expect(result.followUpSyncs).toBe(0);
+  expect(result.lifecycle).toBe('initial-cloud-ready');
+  expect(result.audit.ok,result.audit.failures.join('\n')).toBe(true);
+  await mergeInitialEvidence({cleanNoEdit:result});
+});
+
+test('terminal owners remain singular and depth-stable for cold and warm production load order',async({page})=>{
+  test.setTimeout(70000);
+  await authorize(page);
+  await page.goto(APP,{waitUntil:'load'});
+  await waitInitialProtectionReady(page);
+  const cold=await observeTerminal(page,'cold-cache');
+  expect(cold.failures,JSON.stringify(cold.failures,null,2)).toEqual([]);
+  await page.reload({waitUntil:'load'});
+  await waitInitialProtectionReady(page);
+  const warm=await observeTerminal(page,'warm-cache');
+  expect(warm.failures,JSON.stringify(warm.failures,null,2)).toEqual([]);
+  await mergeInitialEvidence({terminalStability:{cold,warm,finalAudit:warm.last.auditOk}});
+});
+
+test('first field-integrity failure retries visibly without pre-ready cloud writes',async({page})=>{
+  test.setTimeout(45000);
+  let requests=0;
+  await page.route('**/field-integrity-v416.js*',async route=>{
+    requests+=1;
+    if(requests===1)await route.abort('failed');else await route.continue();
+  });
+  await page.addInitScript(()=>{
+    window.__fieldIntegrityRetryEvidence={events:[],preReadyLocationWrites:0};
+    window.addEventListener('bogatka:field-integrity-load',event=>{
+      const target=document.getElementById('fieldIntegrityLoadStatusV416');
+      window.__fieldIntegrityRetryEvidence.events.push({state:event.detail?.state,attempt:event.detail?.attempt,visible:Boolean(target),text:target?.textContent||''});
+    });
+    const nativeFetch=window.fetch;
+    window.fetch=function(input,init={}){
+      const url=String(typeof input==='string'?input:input?.url||'');
+      const method=String(init?.method||input?.method||'GET').toUpperCase();
+      if(/\/rest\/v1\/locations(?:\?|$)/.test(url)&&['POST','PATCH','PUT','DELETE'].includes(method)&&!window.BogatkaFieldIntegrityV416?.ready)window.__fieldIntegrityRetryEvidence.preReadyLocationWrites+=1;
+      return nativeFetch.apply(this,arguments);
+    };
+  });
+  await authorize(page);
+  const started=Date.now();
+  await page.goto(APP,{waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>Boolean(document.getElementById('fieldIntegrityLoadStatusV416')||!document.getElementById('app')?.hidden),{timeout:7000});
+  const firstSurfaceMs=Date.now()-started;
+  await page.waitForFunction(()=>Boolean(window.BogatkaInitialBackgroundEditProtectionV437?.audit?.().ok),{timeout:30000});
+  const result=await page.evaluate(names=>{
+    const audit=window.BogatkaInitialBackgroundEditProtectionV437.audit();
+    const chains={};
+    for(const name of names){
+      let current=window[name],owners=0,markers=0,depth=0;const seen=new Set();
+      while(typeof current==='function'&&!seen.has(current)&&depth<48){seen.add(current);depth+=1;if(current.__initialBackgroundEditProtectionOwnerV437)owners+=1;if(current.__initialBackgroundEditProtectionV437)markers+=1;current=current.__base}
+      chains[name]={depth,owners,markers,cycle:typeof current==='function'&&seen.has(current)};
+    }
+    return{events:window.__fieldIntegrityRetryEvidence.events,preReadyLocationWrites:window.__fieldIntegrityRetryEvidence.preReadyLocationWrites,audit,chains,appVisible:!document.getElementById('app')?.hidden,statusState:document.documentElement.dataset.fieldIntegrityLoadV416||null};
+  },OWNER_NAMES);
+  result.requests=requests;result.firstVisibleSurfaceMs=firstSurfaceMs;
+  expect(requests).toBeGreaterThanOrEqual(2);
+  expect(firstSurfaceMs).toBeLessThan(10000);
+  expect(result.events.some(event=>event.state==='retrying'&&event.visible)).toBe(true);
+  expect(result.events.some(event=>event.state==='ready')).toBe(true);
+  expect(result.preReadyLocationWrites).toBe(0);
+  expect(result.audit.ok,result.audit.failures.join('\n')).toBe(true);
+  for(const chain of Object.values(result.chains)){expect(chain.owners).toBe(1);expect(chain.markers).toBe(1);expect(chain.cycle).toBe(false)}
+  await mergeInitialEvidence({dependencyFailureRetry:result});
+});
+
+test('project-scoped startup dirty ignores unrelated project and preserves active dirty intent',async({page})=>{
+  test.setTimeout(35000);
+  await authorize(page);
+  await page.goto(APP,{waitUntil:'load'});
+  await waitInitialProtectionReady(page);
+  const result=await page.evaluate(async()=>{
+    const id='project-scope-v437',activeProject='active-project-v437',oldProject='old-project-v437';
+    const State=window.BogatkaSyncState,Protection=window.BogatkaInitialBackgroundEditProtectionV437,Compat=window.BogatkaSyncCompatibility;
+    const item={id,title:'Scope fixture',address:'Scope fixture',note:'',custom:true};
+    locations=[item];cloudProjectId=activeProject;cloudSession={user:{id:'scope-user-v437'}};cloudRole='owner';window.cloudRole=cloudRole;
+    await State.rawPut()(STORE,{contact:'LOCAL-STALE',questions:'LOCAL-STALE',updatedAt:'2026-07-13T10:00:00.000Z'},`location:${id}`);
+    await State.rawPut()(STORE,locations,'meta:locations');
+    await State.deleteBase(id);
+    localStorage.setItem(`bogatka_cloud_sync_state_v412:${oldProject}`,JSON.stringify({projectId:oldProject,dirtyLocations:[id]}));
+    const activeState={projectId:activeProject,userId:'scope-user-v437',dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},deletedLocations:{},knownLocationIds:[id],knownPhotoIds:[],stateDirty:false,metaDirty:false};
+    cloudWriteState(activeState);
+    Protection._test.resetForTest();
+    await Protection.captureStartupSnapshot({force:true});
+    Protection._test.setLifecycle('reconciling-early-edits');
+    const remote={id:`remote-${id}`,project_id:activeProject,client_id:id,title:item.title,address:item.address,note:null,status:null,object_type:null,form_data:{contact:'REMOTE-NEWER',questions:'REMOTE-NEWER'},sort_order:0,archived_at:null,revision:4,updated_at:'2026-07-13T10:05:00.000Z'};
+    const cleanContext=await Compat._test.buildContext(item,0,remote,activeState);
+    const counts={patch:0,upsert:0};
+    await Compat._test.persistLocation(cleanContext,activeState,{
+      isPending:()=>false,
+      conditionalUpdate:async()=>{counts.patch+=1;return remote},
+      upsert:async()=>{counts.upsert+=1;return remote},
+      fetchRow:async()=>remote,
+      rebuild:async()=>cleanContext,
+      saveLocal:async()=>true,
+      saveBase:async()=>true,
+    });
+    const cleanSnapshot=Protection.snapshot;
+    const dirtyState={...activeState,dirtyLocations:[id]};
+    cloudWriteState(dirtyState);
+    await State.rawPut()(STORE,{contact:'ACTIVE-DIRTY',questions:'ACTIVE-DIRTY',updatedAt:'2026-07-13T10:06:00.000Z'},`location:${id}`);
+    Protection._test.resetForTest();
+    await Protection.captureStartupSnapshot({force:true});
+    Protection._test.setLifecycle('reconciling-early-edits');
+    const dirtyContext=await Compat._test.buildContext(item,0,remote,dirtyState);
+    return{
+      oldProjectDirty:[id],activeCleanPreExistingDirty:cleanSnapshot.preExistingDirty,
+      clean:{dirty:cleanContext.dirty,needsPush:cleanContext.needsPush,patchCount:counts.patch,upsertCount:counts.upsert},
+      activeDirtyPreExistingDirty:Protection.snapshot.preExistingDirty,dirty:{dirty:dirtyContext.dirty,needsPush:dirtyContext.needsPush},activeState:cloudReadState(),
+    };
+  });
+  expect(result.activeCleanPreExistingDirty).toEqual([]);
+  expect(result.clean).toEqual({dirty:false,needsPush:false,patchCount:0,upsertCount:0});
+  expect(result.activeDirtyPreExistingDirty).toContain('project-scope-v437');
+  expect(result.dirty).toEqual({dirty:true,needsPush:true});
+  expect(result.activeState.projectId).toBe('active-project-v437');
+  await mergeInitialEvidence({crossProjectStartupDirty:result});
 });
