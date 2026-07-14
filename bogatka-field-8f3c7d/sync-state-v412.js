@@ -3,12 +3,22 @@
   if(typeof cloudReadState!=='function'||typeof cloudWriteState!=='function'||typeof idbPut!=='function')return;
   const legacyRead=cloudReadState,legacyWrite=cloudWriteState,currentPut=idbPut;
   let noOpPuts=0;
+  const currentProjectId=()=>{
+    try{return typeof cloudProjectId==='undefined'?null:cloudProjectId}catch(_){return null}
+  };
+  const currentUserId=()=>{
+    try{return typeof cloudSession==='undefined'?null:(cloudSession?.user?.id??null)}catch(_){return null}
+  };
   const normalize=state=>{
     state=state&&typeof state==='object'?state:{};
     state.dirtyLocations||=[];state.dirtyPhotos||=[];state.deletedPhotos||={};state.deletedLocations||={};state.knownLocationIds||=[];state.knownPhotoIds||=[];
+    const projectId=currentProjectId();
+    if(projectId)state.projectId=projectId;
+    const userId=currentUserId();
+    if(userId)state.userId=userId;
     return state;
   };
-  const key=()=>cloudProjectId?`bogatka_cloud_sync_state_v412:${cloudProjectId}`:'';
+  const key=()=>currentProjectId()?`bogatka_cloud_sync_state_v412:${currentProjectId()}`:'';
   cloudReadState=function scopedCloudReadState(){
     const scoped=key();
     if(!scoped)return normalize(legacyRead());
@@ -16,9 +26,11 @@
       const saved=localStorage.getItem(scoped);
       if(saved)return normalize(JSON.parse(saved));
       const old=normalize(legacyRead());
-      const migrated=!old.projectId||old.projectId===cloudProjectId?old:{};
-      localStorage.setItem(scoped,JSON.stringify(normalize(migrated)));
-      return normalize(migrated);
+      const projectId=currentProjectId();
+      const migrated=!old.projectId||old.projectId===projectId?old:{};
+      const normalized=normalize(migrated);
+      localStorage.setItem(scoped,JSON.stringify(normalized));
+      return normalized;
     }catch(_){return normalize({})}
   };
   cloudWriteState=function scopedCloudWriteState(state){
@@ -45,7 +57,7 @@
 
   const rawPut=()=>typeof cloudOriginalIdbPut!=='undefined'&&cloudOriginalIdbPut?cloudOriginalIdbPut:currentPut;
   const rawDelete=()=>typeof cloudOriginalIdbDelete!=='undefined'&&cloudOriginalIdbDelete?cloudOriginalIdbDelete:idbDelete;
-  const baseKey=id=>`syncbase:v412:${cloudProjectId}:${id}`;
+  const baseKey=id=>`syncbase:v412:${currentProjectId()}:${id}`;
   window.BogatkaSyncState={
     version:'4.1.2',ready:true,key,normalize,rawPut,rawDelete,baseKey,
     readBase:id=>idbGet(STORE,baseKey(id)),
