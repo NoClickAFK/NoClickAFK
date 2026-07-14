@@ -5,6 +5,7 @@ const BOGATKA_STATIC_STYLE_MANIFEST=Object.freeze([
   'traffic-competitors-v453.css','launch-gate-v454.css','opening-project-v455.css',
 ]);
 const BOGATKA_VISIBLE_VERSION='4.3.7';
+const BOGATKA_FIELD_INTEGRITY_SRC='./field-integrity-v416.js';
 
 function verifyStaticStylesheetManifest(){
   const loaded=new Set([...document.head.querySelectorAll('link[rel="stylesheet"]')].map(link=>new URL(link.href,location.href).pathname.split('/').pop()));
@@ -13,8 +14,62 @@ function verifyStaticStylesheetManifest(){
   return missing.length===0;
 }
 
+function updateFieldIntegrityLoadState(state,attempt=1){
+  document.documentElement.dataset.fieldIntegrityLoadV416=state;
+  let target=document.getElementById('fieldIntegrityLoadStatusV416');
+  if(state==='ready'){
+    target?.remove();
+  }else{
+    if(!target){
+      target=document.createElement('div');
+      target.id='fieldIntegrityLoadStatusV416';
+      target.setAttribute('role','status');
+      target.setAttribute('aria-live','polite');
+      Object.assign(target.style,{position:'fixed',left:'50%',top:'16px',transform:'translateX(-50%)',zIndex:'100000',maxWidth:'min(92vw,560px)',padding:'10px 14px',borderRadius:'12px',background:'#fff8e6',border:'1px solid #d9b96e',boxShadow:'0 8px 28px rgba(34,28,18,.18)',font:'600 14px/1.35 system-ui,sans-serif',color:'#4b3a18',textAlign:'center'});
+      (document.body||document.documentElement).appendChild(target);
+    }
+    target.textContent=state==='retrying'
+      ?'Повторно загружаем защиту локальных изменений…'
+      :state==='error'
+        ?'Не удалось загрузить защиту локальных изменений. Облачная отправка остановлена; локальные данные сохранены.'
+        :'Подготавливаем безопасное локальное сохранение…';
+    target.dataset.attempt=String(attempt);
+  }
+  window.dispatchEvent(new CustomEvent('bogatka:field-integrity-load',{detail:{state,attempt}}));
+}
+
+function loadFieldIntegrityWithRetry(attributes){
+  const expectedPath=new URL(BOGATKA_FIELD_INTEGRITY_SRC,location.href).pathname;
+  const existing=[...document.scripts].find(script=>{
+    try{return new URL(script.src||'',location.href).pathname===expectedPath}catch(_){return false}
+  });
+  if(existing&&existing.dataset.bogatkaLoadFailed!=='1')return existing;
+  existing?.remove();
+  const appendAttempt=attempt=>{
+    updateFieldIntegrityLoadState(attempt===1?'loading':'retrying',attempt);
+    const script=document.createElement('script');
+    script.async=false;
+    script.src=attempt===1?BOGATKA_FIELD_INTEGRITY_SRC:`${BOGATKA_FIELD_INTEGRITY_SRC}?retry=${Date.now()}`;
+    script.dataset.bogatkaFieldIntegrityAttempt=String(attempt);
+    for(const [key,value] of Object.entries(attributes))if(key!=='src')script.setAttribute(key,value);
+    script.addEventListener('load',()=>updateFieldIntegrityLoadState('ready',attempt),{once:true});
+    script.addEventListener('error',()=>{
+      script.dataset.bogatkaLoadFailed='1';
+      if(attempt<2){
+        updateFieldIntegrityLoadState('retrying',attempt+1);
+        script.remove();
+        queueMicrotask(()=>appendAttempt(attempt+1));
+      }else updateFieldIntegrityLoadState('error',attempt);
+    },{once:true});
+    document.head.appendChild(script);
+    return script;
+  };
+  return appendAttempt(1);
+}
+
 function loadBogatkaPatch(tagName,attributes){
   const marker=attributes.src||attributes.href;
+  if(tagName==='script'&&marker===BOGATKA_FIELD_INTEGRITY_SRC)return loadFieldIntegrityWithRetry(attributes);
   if(marker&&document.querySelector(`${tagName}[src="${marker}"],${tagName}[href="${marker}"]`))return;
   if(tagName==='link'&&attributes.rel==='stylesheet'){
     console.error(`Активный stylesheet должен быть объявлен статически в index.html: ${marker||'unknown'}`);
@@ -24,6 +79,7 @@ function loadBogatkaPatch(tagName,attributes){
   if(tagName==='script')element.async=false;
   Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,value));
   document.head.appendChild(element);
+  return element;
 }
 
 function redirectLegacyRecovery(){
@@ -190,7 +246,7 @@ function applyVersion23Enhancements(){
   loadBogatkaPatch('script',{src:'./workflow-refine-v440.js'});
   loadBogatkaPatch('script',{src:'./score-guide-fix-v415.js'});
   loadBogatkaPatch('script',{src:'./sync-field-compat-v416.js'});
-  loadBogatkaPatch('script',{src:'./field-integrity-v416.js'});
+  loadBogatkaPatch('script',{src:BOGATKA_FIELD_INTEGRITY_SRC});
   loadBogatkaPatch('script',{src:'./object-type-normalize-v416.js'});
   loadBogatkaPatch('script',{src:'./location-profile-v416.js'});
   loadBogatkaPatch('script',{src:'./location-evaluation-refine-v446.js'});
