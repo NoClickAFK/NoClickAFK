@@ -14,7 +14,13 @@ async function writeEvidence(name,value){await fs.mkdir(OUT,{recursive:true});aw
 async function openApp(page){
   await authorize(page);
   await page.goto(APP,{waitUntil:'load'});
-  await page.waitForFunction(()=>Boolean(window.BogatkaMutationAuthorityV437?.ready&&window.BogatkaInitialBackgroundEditProtectionV437?.ready&&window.BogatkaCloudInitAuthorityV437?.ready),{timeout:30000});
+  await page.waitForFunction(()=>Boolean(
+    window.BogatkaMutationAuthorityV437?.ready&&
+    window.BogatkaInitialBackgroundEditProtectionV437?.ready&&
+    window.BogatkaCloudInitAuthorityV437?.ready&&
+    window.BogatkaSyncState?.rawPut&&
+    window.BogatkaFieldIntegrityV416?.enqueueLocation
+  ),{timeout:30000});
 }
 
 test('local-only early input is persisted through the existing per-location queue before debounce',async({page})=>{
