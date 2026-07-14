@@ -24,6 +24,8 @@ const LEFT=['inspectionPurpose','inspectionResult'];
 const RIGHT=['objectSource','listingUrl','objectSourceOther','inspectionParticipants'];
 const WIDE=new Set(['inspectionPurpose','inspectionResult','objectSourceOther','inspectionParticipants']);
 let timer=null;
+let observer=null;
+let observerRoot=null;
 let enhancing=false;
 
 const fieldSelector=field=>`[data-field="${CSS.escape(field)}"]`;
@@ -31,6 +33,10 @@ const visibleControl=(card,field)=>card.querySelector(fieldSelector(field));
 const fieldWrapper=control=>control?.closest('label.field')||null;
 const isEditing=card=>{const active=document.activeElement;return Boolean(active&&card.contains(active)&&/^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName));};
 const premiumTrigger=select=>select?.nextElementSibling?.classList?.contains('premium-select-trigger')?select.nextElementSibling:null;
+
+function observe(){
+  if(observer&&observerRoot)observer.observe(observerRoot,{childList:true,subtree:true});
+}
 
 function syncPremium(select){
   if(!select||select.tagName!=='SELECT')return true;
@@ -47,7 +53,12 @@ function syncPremium(select){
     else if(typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
     return true;
   }
-  return !select.classList.contains('premium-native-select');
+  // A late compatibility replacement can leave a select marked as premium while
+  // its visible trigger is missing. Never expose a zero-height control: fall back
+  // to the native select until the standard premium enhancer becomes available.
+  select.classList.remove('premium-native-select');
+  delete select.dataset.premiumSelect;
+  return true;
 }
 
 function applyResponsiveGrids(...grids){
@@ -167,6 +178,8 @@ function patchLabels(){
 
 function placeCard(card){
   if(!card?.dataset?.locationCard||isEditing(card))return false;
+  delete card.dataset.inspectionLayoutV461;
+  delete card.dataset.inspectionLayoutV462;
   const inspection=card.querySelector('.inspection-card-v416');
   const landlord=card.querySelector('.landlord-card-v416');
   const inspectionGrid=inspection?.querySelector('.inspection-grid-v416');
@@ -209,28 +222,58 @@ function placeCard(card){
 function enhanceAll(){
   if(enhancing)return 0;
   enhancing=true;
+  observer?.disconnect();
   try{
     patchLabels();
     let ready=0;
     for(const card of document.querySelectorAll('[data-location-card]'))if(placeCard(card))ready++;
     return ready;
-  }finally{enhancing=false}
+  }finally{
+    enhancing=false;
+    observe();
+  }
 }
 
-function schedule(delay=70){clearTimeout(timer);timer=setTimeout(()=>{try{enhanceAll();}catch(error){console.error(error);}},delay);}
+function schedule(delay=70){
+  clearTimeout(timer);
+  timer=setTimeout(()=>{try{enhanceAll();}catch(error){console.error(error);}},delay);
+}
+
+function cardsForRecord(record){
+  const cards=new Set();
+  const target=record.target instanceof Element?record.target.closest('[data-location-card]'):null;
+  if(target)cards.add(target);
+  for(const node of record.addedNodes){
+    if(!(node instanceof Element))continue;
+    const own=node.matches('[data-location-card]')?node:node.closest('[data-location-card]');
+    if(own)cards.add(own);
+    node.querySelectorAll?.('[data-location-card]').forEach(card=>cards.add(card));
+  }
+  return cards;
+}
+
 function install(){
-  const root=document.getElementById('locations')||document.body;
-  new MutationObserver(records=>{
-    if(!records.some(record=>record.addedNodes.length||record.removedNodes.length))return;
-    try{enhanceAll();}catch(error){console.error(error)}
-    schedule(90);
-  }).observe(root,{childList:true,subtree:true});
+  observerRoot=document.getElementById('locations')||document.body;
+  observer=new MutationObserver(records=>{
+    if(enhancing)return;
+    let structural=false;
+    for(const record of records){
+      if(!record.addedNodes.length&&!record.removedNodes.length)continue;
+      structural=true;
+      for(const card of cardsForRecord(record)){
+        delete card.dataset.inspectionLayoutV461;
+        delete card.dataset.inspectionLayoutV462;
+      }
+    }
+    if(structural)schedule(0);
+  });
+  observe();
   schedule(20);
   [250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>schedule(0),delay));
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 window.addEventListener('load',()=>schedule(30),{once:true});
-window.addEventListener('resize',()=>{try{enhanceAll();}catch(error){console.error(error)}});
+window.addEventListener('resize',()=>schedule(0));
 window.BogatkaInspectionLayoutV461={version:VERSION,ready:true,LABELS,SOURCE_LABELS,enhanceAll,placeCard};
 })();
