@@ -2,15 +2,15 @@
 
 This tracked file is intentionally compact. The complete per-file JSON inventory is generated in CI and uploaded as the `bogatka-dependency-inventory` GitHub Actions artifact.
 
-Files inventoried: **232**.
+Files inventoried: **234**.
 
-Observed main-runtime JavaScript requests: **103**.
+Observed main-runtime JavaScript requests: **105**.
 Observed main-runtime CSS requests: **34**.
-Service Worker asset entries: **154**.
+Service Worker asset entries: **156**.
 
 ## Classification totals
 
-- `ACTIVE_CANONICAL`: 98
+- `ACTIVE_CANONICAL`: 100
 - `ACTIVE_BASE`: 21
 - `COMPATIBILITY_REQUIRED`: 23
 - `MERGE_INTO_CANONICAL`: 0
