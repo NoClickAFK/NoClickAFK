@@ -64,25 +64,24 @@
 
   function applyDomAuthority(){
     const readonly=!mayMutate();
-    // During session lookup we enforce deny-by-default through capture guards without
-    // setting native disabled. Several legacy enhancers inspect enabled controls once
-    // while constructing the local shell; disabling them for a few milliseconds would
-    // permanently skip those layouts. A confirmed signed-in unresolved/viewer state is
-    // hard-disabled as required.
+    // Before session lookup completes, capture guards deny mutation without adding
+    // disabled/aria-disabled attributes. Legacy one-shot enhancers inspect those
+    // attributes while constructing custom selects and panel grids. Once a signed-in
+    // session is known but its role is unresolved, native hard read-only is applied.
     const hardReadonly=readonly&&state!=='session-pending';
     for(const element of document.querySelectorAll(MUTATING_CONTROL_SELECTOR)){
       if(readonly)rememberControl(element);
       if(hardReadonly){
         if(!element.disabled)element.dataset.mutationAuthorityDisabledV437='1';
         element.disabled=true;
-      }else if(element.dataset.mutationAuthorityDisabledV437==='1'){
-        element.disabled=false;
-        delete element.dataset.mutationAuthorityDisabledV437;
-      }
-      if(readonly)element.setAttribute('aria-disabled','true');
-      else{
+        element.setAttribute('aria-disabled','true');
+      }else{
+        if(element.dataset.mutationAuthorityDisabledV437==='1'){
+          element.disabled=false;
+          delete element.dataset.mutationAuthorityDisabledV437;
+        }
         element.removeAttribute('aria-disabled');
-        clearControlRemembered(element);
+        if(!readonly)clearControlRemembered(element);
       }
     }
   }
