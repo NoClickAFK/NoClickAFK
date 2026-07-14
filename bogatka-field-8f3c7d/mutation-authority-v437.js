@@ -47,11 +47,49 @@
     return false;
   };
 
+  function readControl(control){
+    if(control.type==='checkbox'||control.type==='radio')return Boolean(control.checked);
+    return control.value;
+  }
+  function rememberControl(control){if(control&&!controlBeforeEdit.has(control))controlBeforeEdit.set(control,readControl(control))}
+  function restoreControl(control){
+    if(!control)return;
+    const before=controlBeforeEdit.get(control);
+    if(before===undefined)return;
+    if(control.type==='checkbox'||control.type==='radio')control.checked=Boolean(before);
+    else control.value=before??'';
+    if(control.tagName==='SELECT')window.BogatkaSelectSync?.syncVisibleSelect?.(control);
+  }
+  function clearControlRemembered(control){if(control)controlBeforeEdit.delete(control)}
+
+  function applyDomAuthority(){
+    const readonly=!mayMutate();
+    // During session lookup we enforce deny-by-default through capture guards without
+    // setting native disabled. Several legacy enhancers inspect enabled controls once
+    // while constructing the local shell; disabling them for a few milliseconds would
+    // permanently skip those layouts. A confirmed signed-in unresolved/viewer state is
+    // hard-disabled as required.
+    const hardReadonly=readonly&&state!=='session-pending';
+    for(const element of document.querySelectorAll(MUTATING_CONTROL_SELECTOR)){
+      if(readonly)rememberControl(element);
+      if(hardReadonly){
+        if(!element.disabled)element.dataset.mutationAuthorityDisabledV437='1';
+        element.disabled=true;
+      }else if(element.dataset.mutationAuthorityDisabledV437==='1'){
+        element.disabled=false;
+        delete element.dataset.mutationAuthorityDisabledV437;
+      }
+      if(readonly)element.setAttribute('aria-disabled','true');
+      else{
+        element.removeAttribute('aria-disabled');
+        clearControlRemembered(element);
+      }
+    }
+  }
+
   function setState(next,nextReason='runtime'){
-    if(state===next&&reason===nextReason)return state;
-    state=next;
-    reason=nextReason;
-    diagnostics.stateChanges+=1;
+    if(state===next&&reason===nextReason){applyDomAuthority();return state}
+    state=next;reason=nextReason;diagnostics.stateChanges+=1;
     document.documentElement.dataset.mutationAuthorityV437=next;
     document.documentElement.classList.toggle('mutation-readonly-v437',!mayMutate());
     applyDomAuthority();
@@ -92,25 +130,6 @@
     return mayMutate();
   }
 
-  function readControl(control){
-    if(control.type==='checkbox')return Boolean(control.checked);
-    if(control.type==='radio')return Boolean(control.checked);
-    return control.value;
-  }
-  function restoreControl(control){
-    if(!control)return;
-    const before=controlBeforeEdit.get(control);
-    if(before===undefined)return;
-    if(control.type==='checkbox'||control.type==='radio')control.checked=Boolean(before);
-    else control.value=before??'';
-    if(control.tagName==='SELECT')window.BogatkaSelectSync?.syncVisibleSelect?.(control);
-  }
-  function rememberControl(control){
-    if(!control||controlBeforeEdit.has(control))return;
-    controlBeforeEdit.set(control,readControl(control));
-  }
-  function clearControlRemembered(control){if(control)controlBeforeEdit.delete(control)}
-
   function setPath(object,path,value){
     const keys=String(path||'').split('.').filter(Boolean);
     let target=object;
@@ -148,8 +167,7 @@
     if(!isLocalOnlyLocation(id)){diagnostics.remoteBackedDurabilitySkips+=1;return false}
     const revision=Number(control.dataset.initialSyncRevisionV437||0);
     if(!revision)return false;
-    const last=durableRevisions.get(control)||0;
-    if(last>=revision)return true;
+    if((durableRevisions.get(control)||0)>=revision)return true;
     clearSaveTimers(control);
     const task=async()=>{
       const latestRevision=Number(control.dataset.initialSyncRevisionV437||0);
@@ -196,30 +214,8 @@
     if(control?.matches?.('[data-location][data-field]'))queueMicrotask(()=>persistEarlyControl(control));
     queueMicrotask(()=>clearControlRemembered(control));
   }
-  function onClick(event){
-    const target=event.target?.closest?.(MUTATING_CLICK_SELECTOR);
-    if(target&&!mutationAllowedNow())blockEvent(event);
-  }
-  function onSubmit(event){
-    if(!mutationAllowedNow()&&event.target?.closest?.('#locationModal,#cloudInviteForm'))blockEvent(event);
-  }
-
-  function applyDomAuthority(){
-    const readonly=!mayMutate();
-    for(const element of document.querySelectorAll(MUTATING_CONTROL_SELECTOR)){
-      if(readonly){
-        rememberControl(element);
-        if(!element.disabled)element.dataset.mutationAuthorityDisabledV437='1';
-        element.disabled=true;
-        element.setAttribute('aria-disabled','true');
-      }else if(element.dataset.mutationAuthorityDisabledV437==='1'){
-        element.disabled=false;
-        element.removeAttribute('aria-disabled');
-        delete element.dataset.mutationAuthorityDisabledV437;
-        clearControlRemembered(element);
-      }
-    }
-  }
+  function onClick(event){const target=event.target?.closest?.(MUTATING_CLICK_SELECTOR);if(target&&!mutationAllowedNow())blockEvent(event)}
+  function onSubmit(event){if(!mutationAllowedNow()&&event.target?.closest?.('#locationModal,#cloudInviteForm'))blockEvent(event)}
 
   function install(){
     document.addEventListener('focusin',onFocusIn,true);
