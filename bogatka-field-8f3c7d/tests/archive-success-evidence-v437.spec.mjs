@@ -17,7 +17,7 @@ async function openApp(page){
 test('successful no-op retry clears authoritative cloud error state and writes matching evidence',async({page})=>{
   test.setTimeout(60000);
   await openApp(page);
-  const setup=await page.evaluate(async id=>{
+  await page.evaluate(async id=>{
     window.BogatkaMutationAuthorityV437?._test?.setState?.('owner','archive-evidence');
     const now='2026-07-14T15:00:00.000Z';
     const item={id,title:'Archive success fixture',address:'Fixture address',note:'',custom:true,cloudId:`remote-${id}`,archivedAt:null};
@@ -35,7 +35,7 @@ test('successful no-op retry clears authoritative cloud error state and writes m
     cloudSession={user:{id:'fixture-owner-v437',email:'fixture@example.test',user_metadata:{display_name:'Fixture'}}};
     cloudProjectId=remote.project_id;cloudRole='owner';window.cloudRole='owner';
     cloudWriteState({projectId:cloudProjectId,userId:cloudSession.user.id,dirtyLocations:[],dirtyPhotos:[],deletedPhotos:{},deletedLocations:{},knownLocationIds:[id],knownPhotoIds:[],stateDirty:false,metaDirty:false});
-    const calls={locationReads:0,patch:0,upsert:0,projectWrites:0,photoWrites:0};
+    const calls=window.__archiveSuccessCalls={locationReads:0,patch:0,upsert:0,projectWrites:0,photoWrites:0};
     const clone=value=>value===undefined?undefined:structuredClone(value);
     const readBuilder=data=>{
       const builder={
@@ -78,16 +78,15 @@ test('successful no-op retry clears authoritative cloud error state and writes m
     cloudRenderModal();
     window.BogatkaSyncCompatibility._test.showSyncError(new Error('fixture archive conflict'));
     document.querySelector('#cloudModal')?.classList.remove('hidden');
-    return{remote,calls};
   },ID);
 
   await expect(page.locator('#cloudStatusTitle')).toHaveText('Облако: ошибка');
   const result=await page.evaluate(async()=>{
     const syncResult=await cloudSyncAll({manual:true});
     const state=cloudReadState();
-    const calls=window.__archiveSuccessCalls||null;
     return{
       syncResult,
+      calls:{...window.__archiveSuccessCalls},
       message:document.querySelector('#cloudMessage')?.textContent||'',
       statusTitle:document.querySelector('#cloudStatusTitle')?.textContent||'',
       topPill:document.querySelector('#cloudTopPill')?.textContent||'',
@@ -101,6 +100,7 @@ test('successful no-op retry clears authoritative cloud error state and writes m
   await expect(page.locator('#cloudStatusTitle')).toHaveText('Облако: синхронизировано');
   await expect(page.locator('#cloudTopPill')).toHaveText('Облако синхронизировано');
   await expect(page.locator('#cloudIndicator')).toHaveClass(/ready/);
+  expect(result.calls).toMatchObject({patch:0,upsert:0,projectWrites:0,photoWrites:0});
   expect(result.dirtyLocations).toEqual([]);
   expect(result.metaDirty).toBe(false);
   expect(result.stateDirty).toBe(false);
@@ -108,6 +108,6 @@ test('successful no-op retry clears authoritative cloud error state and writes m
   evidence({
     message:result.message,statusTitle:result.statusTitle,topPill:result.topPill,indicatorClass:result.indicatorClass,
     errorCleared:true,dirtyLocations:result.dirtyLocations,metaDirty:result.metaDirty,stateDirty:result.stateDirty,
-    noOpSynchronization:true,patch:0,upsert:0,projectWrites:0,photoWrites:0,
+    noOpSynchronization:true,...result.calls,
   });
 });
