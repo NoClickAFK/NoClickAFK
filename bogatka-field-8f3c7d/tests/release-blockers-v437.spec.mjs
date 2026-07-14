@@ -75,27 +75,35 @@ test('role-pending and viewer block mutations while owner editor and signed-out 
   const result=await page.evaluate(async()=>{
     const Authority=window.BogatkaMutationAuthorityV437;
     const input=document.querySelector('[data-global="inspector"]');
-    const attempt=state=>{
-      Authority._test.setState(state,'focused-test');
+    const original={session:cloudSession,role:cloudRole,projectId:cloudProjectId,token:localStorage.getItem('sb-release-auth-token')};
+    const attempt=()=>{
       const before=input.value;
-      input.value=`attempt-${state}`;
-      input.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:state}));
-      return{state,disabled:input.disabled,before,after:input.value,allowed:Authority.canMutate()};
+      input.value=`attempt-${Authority.state}`;
+      input.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:Authority.state}));
+      return{state:Authority.state,disabled:input.disabled,before,after:input.value,allowed:Authority.canMutate()};
     };
-    return{
-      pending:attempt('role-pending'),
-      viewer:attempt('viewer'),
-      owner:attempt('owner'),
-      editor:attempt('editor'),
-      signedOut:attempt('signed-out-local'),
-      diagnostics:Authority.diagnostics,
-    };
+    localStorage.setItem('sb-release-auth-token',JSON.stringify({access_token:'fixture',user:{id:'viewer-release-v437'}}));
+    cloudSession={user:{id:'viewer-release-v437'}};cloudProjectId='project-release-v437';cloudRole=null;window.cloudRole=null;
+    Authority.refresh();
+    const pending=attempt();
+    cloudRole='viewer';window.cloudRole='viewer';Authority.refresh();
+    const viewer=attempt();
+    cloudRole='owner';window.cloudRole='owner';Authority.refresh();
+    const owner=attempt();
+    cloudRole='editor';window.cloudRole='editor';Authority.refresh();
+    const editor=attempt();
+    cloudSession=null;cloudRole=null;cloudProjectId=null;window.cloudRole=null;localStorage.removeItem('sb-release-auth-token');Authority.refresh();
+    const signedOut=attempt();
+    cloudSession=original.session;cloudRole=original.role;cloudProjectId=original.projectId;window.cloudRole=original.role;
+    if(original.token===null)localStorage.removeItem('sb-release-auth-token');else localStorage.setItem('sb-release-auth-token',original.token);
+    Authority.refresh();
+    return{pending,viewer,owner,editor,signedOut,diagnostics:Authority.diagnostics};
   });
-  expect(result.pending).toMatchObject({disabled:true,allowed:false});
-  expect(result.viewer).toMatchObject({disabled:true,allowed:false});
-  expect(result.owner).toMatchObject({disabled:false,allowed:true});
-  expect(result.editor).toMatchObject({disabled:false,allowed:true});
-  expect(result.signedOut).toMatchObject({disabled:false,allowed:true});
+  expect(result.pending).toMatchObject({state:'role-pending',disabled:true,allowed:false});
+  expect(result.viewer).toMatchObject({state:'viewer',disabled:true,allowed:false});
+  expect(result.owner).toMatchObject({state:'owner',disabled:false,allowed:true});
+  expect(result.editor).toMatchObject({state:'editor',disabled:false,allowed:true});
+  expect(result.signedOut).toMatchObject({state:'signed-out-local',disabled:false,allowed:true});
   expect(result.pending.after).toBe(result.pending.before);
   expect(result.viewer.after).toBe(result.viewer.before);
   await writeEvidence('07-delayed-role-mutation-authority.json',result);
@@ -123,7 +131,7 @@ test('legacy load and local-first callers delegate to one canonical cloud single
   expect(result.singletonCalls).toBe(2);
   expect(result.sameResult).toBe(true);
   expect(result.delegateMarker).toBe(true);
-  expect(result.diagnostics.createClientCalls).toBeLessThanOrEqual(1);
-  expect(result.diagnostics.authListenerCalls).toBeLessThanOrEqual(1);
+  expect(result.diagnostics.appCreateClientCalls).toBeLessThanOrEqual(1);
+  expect(result.diagnostics.appAuthListenerCalls).toBeLessThanOrEqual(1);
   await writeEvidence('08-cloud-init-singleton-counters.json',result);
 });
