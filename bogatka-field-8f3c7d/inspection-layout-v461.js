@@ -239,33 +239,11 @@ function schedule(delay=70){
   timer=setTimeout(()=>{try{enhanceAll();}catch(error){console.error(error);}},delay);
 }
 
-function cardsForRecord(record){
-  const cards=new Set();
-  const target=record.target instanceof Element?record.target.closest('[data-location-card]'):null;
-  if(target)cards.add(target);
-  for(const node of record.addedNodes){
-    if(!(node instanceof Element))continue;
-    const own=node.matches('[data-location-card]')?node:node.closest('[data-location-card]');
-    if(own)cards.add(own);
-    node.querySelectorAll?.('[data-location-card]').forEach(card=>cards.add(card));
-  }
-  return cards;
-}
-
 function install(){
   observerRoot=document.getElementById('locations')||document.body;
   observer=new MutationObserver(records=>{
     if(enhancing)return;
-    let structural=false;
-    for(const record of records){
-      if(!record.addedNodes.length&&!record.removedNodes.length)continue;
-      structural=true;
-      for(const card of cardsForRecord(record)){
-        delete card.dataset.inspectionLayoutV461;
-        delete card.dataset.inspectionLayoutV462;
-      }
-    }
-    if(structural)schedule(0);
+    if(records.some(record=>record.addedNodes.length||record.removedNodes.length))schedule(0);
   });
   observe();
   schedule(20);
