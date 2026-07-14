@@ -157,8 +157,8 @@ async function screenshotCard(card,name){
 const completeInspection={status:'Осмотрен',objectType:'Торговое помещение',date:'2026-07-10',time:'12:00',floorLocation:'1 этаж',premiseCondition:'Готово',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',inspectionPurpose:'Первичный осмотр',inspectionResult:'Параметры подтверждены'};
 const completeLandlord={ownerName:'ООО Собственник',contactRole:'Собственник',contact:'Иван Иванов',contactPhone:'+375290000000'};
 
-test('listing and other-source readiness actions open the final landlord panel and exact field',async({page})=>{
-  let card=await openApp(page);
+test('listing readiness action opens the final landlord panel and exact field',async({page})=>{
+  const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await patchData(page,id,{...completeInspection,...completeLandlord,objectSource:'Объявление',listingUrl:'',objectSourceOther:'',inspectionParticipants:''});
   await openProgressPlan(card);
@@ -179,10 +179,8 @@ test('listing and other-source readiness actions open the final landlord panel a
   await expect(landlordItem.locator('.fill-plan-copy-v448 small')).toContainText('ссылка на объявление');
   await landlordItem.locator('[data-progress-target-v448="landlord"]').click();
 
-  const landlordToggle=card.locator('.landlord-card-v416 > .panel-toggle-v419');
-  const inspectionToggle=card.locator('.inspection-card-v416 > .panel-toggle-v419');
-  await expect(landlordToggle).toHaveAttribute('aria-expanded','true');
-  await expect(inspectionToggle).toHaveAttribute('aria-expanded','false');
+  await expect(card.locator('.landlord-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','true');
+  await expect(card.locator('.inspection-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
   expectLandlordNavigationState(await panelState(page,id));
   await runLatePanelPasses(page,id);
   expectLandlordNavigationState(await panelState(page,id));
@@ -233,19 +231,25 @@ test('listing and other-source readiness actions open the final landlord panel a
   expect(new Set(idempotence.totals).size).toBe(1);
   for(const labels of idempotence.labels)expect(new Set(labels).size).toBe(labels.length);
   expect(idempotence.privateCache).toBe(false);
+});
 
-  await patchData(page,id,{objectSource:'Другое',objectSourceOther:'',listingUrl:''});
+test('other-source readiness action preserves canonical panel state through late passes and reload',async({page})=>{
+  let card=await openApp(page);
+  const id=await card.getAttribute('data-location-card');
+  await patchData(page,id,{...completeInspection,...completeLandlord,objectSource:'Другое',objectSourceOther:'',listingUrl:'',inspectionParticipants:''});
   await openProgressPlan(card);
+
   const landlordOther=await metricGroup(page,id,'landlord');
   expect(landlordOther.missingLabels).toContain('уточнение источника объекта');
   expect(landlordOther.missingFields).toEqual(['objectSourceOther']);
   expect(landlordOther.missingLabels).not.toContain('ссылка на объявление');
+
   await collapseTopPanels(card);
   await rememberPanelNodes(page,id);
   const otherItem=card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])');
   await otherItem.locator('[data-progress-target-v448="landlord"]').click();
-  await expect(landlordToggle).toHaveAttribute('aria-expanded','true');
-  await expect(inspectionToggle).toHaveAttribute('aria-expanded','false');
+  await expect(card.locator('.landlord-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','true');
+  await expect(card.locator('.inspection-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
   expectLandlordNavigationState(await panelState(page,id));
   await runLatePanelPasses(page,id);
   expectLandlordNavigationState(await panelState(page,id));
