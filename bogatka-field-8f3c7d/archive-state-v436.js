@@ -376,7 +376,10 @@
     }
 
     function installLateArchiveProtection(){
-      const rebind=()=>setTimeout(()=>bindRuntimeWrappers({force:true}),0);
+      const rebind=()=>setTimeout(()=>{
+        bindRuntimeWrappers({force:true});
+        window.BogatkaInitialBackgroundEditProtectionV437?.installApplyPushWrappers?.();
+      },0);
       window.addEventListener('bogatka:cloud-archive-loaded',rebind);
       const observer=new MutationObserver(records=>{
         for(const record of records)for(const node of record.addedNodes||[]){
