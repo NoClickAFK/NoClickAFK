@@ -62,12 +62,15 @@ function syncPremium(select){
   return true;
 }
 
-function applyResponsiveGrids(...grids){
-  const compact=window.matchMedia?.('(max-width:700px)')?.matches??window.innerWidth<=700;
-  const columns=compact?'minmax(0,1fr)':'repeat(2,minmax(0,1fr))';
+function clearResponsiveGridOverrides(...grids){
+  // Responsive column ownership belongs exclusively to inspection-layout-v461.css.
+  // Remove the former inline !important value so media queries remain authoritative
+  // through initial load, resize and every late compatibility enhancement pass.
   for(const grid of grids){
     if(!grid)continue;
-    grid.style.setProperty('grid-template-columns',columns,'important');
+    if(grid.style.getPropertyValue('grid-template-columns')||grid.style.getPropertyPriority('grid-template-columns')){
+      grid.style.removeProperty('grid-template-columns');
+    }
   }
 }
 
@@ -188,7 +191,7 @@ function placeCard(card){
   const extra=inspection?.querySelector('.inspection-extra-v452');
   if(!inspectionGrid||!landlordGrid||!extra)return false;
   patchExtraLookup(extra,card);
-  applyResponsiveGrids(inspectionGrid,landlordGrid);
+  clearResponsiveGridOverrides(inspectionGrid,landlordGrid);
 
   const controls={};
   for(const field of [...LEFT,...RIGHT]){
@@ -261,5 +264,5 @@ function install(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 window.addEventListener('load',()=>schedule(30),{once:true});
 window.addEventListener('resize',()=>schedule(0));
-window.BogatkaInspectionLayoutV461={version:VERSION,ready:true,LABELS,SOURCE_LABELS,enhanceAll,placeCard};
+window.BogatkaInspectionLayoutV461={version:VERSION,ready:true,LABELS,SOURCE_LABELS,responsiveOwner:'inspection-layout-v461.css',enhanceAll,placeCard};
 })();
