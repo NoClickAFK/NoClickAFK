@@ -14,7 +14,11 @@
     }catch(_){return false}
   }
   const hasOwn=(value,key)=>Boolean(value&&typeof value==='object'&&Object.hasOwn(value,key));
-  const archiveValue=(data,meta)=>hasOwn(data,'archivedAt')?data.archivedAt:(hasOwn(meta,'archivedAt')?meta.archivedAt:null);
+  const archiveSelection=(data,meta)=>{
+    if(hasOwn(data,'archivedAt'))return{known:true,value:data.archivedAt};
+    if(hasOwn(meta,'archivedAt')&&meta.archivedAt!==null&&meta.archivedAt!==undefined)return{known:true,value:meta.archivedAt};
+    return{known:false,value:null};
+  };
   const payloadUserId=syncState=>syncState?.userId??cloudSession?.user?.id??null;
   const deletionMap=state=>state?.deletedLocations&&typeof state.deletedLocations==='object'?state.deletedLocations:{};
   const pendingIds=state=>new Set(Object.keys(deletionMap(state)));
@@ -51,26 +55,36 @@
   }
   const remoteData=row=>{
     const data=Merge.clean(row?.form_data||{});
-    if(hasOwn(row,'archived_at'))data.archivedAt=row.archived_at;
+    if((row?.archived_at!==null&&row?.archived_at!==undefined)||hasOwn(data,'archivedAt'))data.archivedAt=row?.archived_at??data.archivedAt;
     return data;
   };
-  const rowMeta=row=>({title:row?.title||'',address:row?.address||'',note:row?.note||'',sortOrder:Number(row?.sort_order||0),archivedAt:hasOwn(row,'archived_at')?row.archived_at:null});
-  const localMeta=(item,index)=>({title:item?.title||item?.address||'',address:item?.address||'',note:item?.note||'',sortOrder:index,archivedAt:hasOwn(item,'archivedAt')?item.archivedAt:null});
+  function rowMeta(row){
+    const meta={title:row?.title||'',address:row?.address||'',note:row?.note||'',sortOrder:Number(row?.sort_order||0)};
+    if((row?.archived_at!==null&&row?.archived_at!==undefined)||hasOwn(row?.form_data,'archivedAt'))meta.archivedAt=row?.archived_at??row.form_data.archivedAt;
+    return meta;
+  }
+  function localMeta(item,index){
+    const meta={title:item?.title||item?.address||'',address:item?.address||'',note:item?.note||'',sortOrder:index};
+    if(hasOwn(item,'archivedAt'))meta.archivedAt=item.archivedAt;
+    return meta;
+  }
   function payload(item,index,data,meta,syncState){
-    const archivedAt=archiveValue(data,meta);
+    const archive=archiveSelection(data,meta);
     const formData=Merge.clean(data);
-    formData.archivedAt=archivedAt;
+    if(archive.known)formData.archivedAt=archive.value;else delete formData.archivedAt;
     return {
-      project_id:syncState?.projectId||cloudProjectId,client_id:item.id,title:meta.title||meta.address||'Без названия',address:meta.address||null,note:meta.note||null,
+      project_id:syncState?.projectId??cloudProjectId,client_id:item.id,title:meta.title||meta.address||'Без названия',address:meta.address||null,note:meta.note||null,
       status:data.status||null,object_type:data.objectType||null,form_data:formData,sort_order:Number(meta.sortOrder||0),
-      archived_at:archivedAt,updated_by:payloadUserId(syncState),
+      archived_at:archive.value,updated_by:payloadUserId(syncState),
     };
   }
   function comparable(value){
     if(!value)return null;
     const formData=Merge.clean(value.form_data||{});
-    const archivedAt=hasOwn(value,'archived_at')?value.archived_at:(hasOwn(formData,'archivedAt')?formData.archivedAt:null);
-    formData.archivedAt=archivedAt;
+    const formKnown=hasOwn(formData,'archivedAt');
+    const topKnown=hasOwn(value,'archived_at');
+    const archivedAt=topKnown?value.archived_at:(formKnown?formData.archivedAt:null);
+    if((topKnown&&archivedAt!==null&&archivedAt!==undefined)||formKnown)formData.archivedAt=archivedAt;else delete formData.archivedAt;
     return {
       project_id:value.project_id,client_id:value.client_id||value.id,title:value.title||'',address:value.address||null,note:value.note||null,
       status:value.status||null,object_type:value.object_type||null,form_data:formData,
@@ -220,7 +234,8 @@
       await saveLocal(item.id,context.merged,row,context.local);
       if(row){
         item.cloudId=row.id;item.title=context.meta.title||item.title;item.address=context.meta.address||'';item.note=context.meta.note||'';
-        if(hasOwn(context.meta,'archivedAt'))item.archivedAt=context.meta.archivedAt;else delete item.archivedAt;
+        const archive=archiveSelection(context.merged,context.meta);
+        if(archive.known)item.archivedAt=archive.value;else delete item.archivedAt;
         if(!Merge.same(beforeMeta,localMeta(item,index))){metaChanged=true;structuralChanged=true;}
       }
       if(context.needsPush)mergedRows++;
@@ -229,7 +244,7 @@
       const id=row.client_id||row.id;
       if(contexts.has(id)||filtered.pending.has(id))continue;
       const item={id,title:row.title,address:row.address||'',note:row.note||'',custom:!DEFAULT_LOCATIONS.some(entry=>entry.id===id),cloudId:row.id,createdAt:row.created_at,updatedAt:row.updated_at};
-      if(hasOwn(row,'archived_at'))item.archivedAt=row.archived_at;
+      if((row?.archived_at!==null&&row?.archived_at!==undefined)||hasOwn(row?.form_data,'archivedAt'))item.archivedAt=row?.archived_at??row.form_data.archivedAt;
       locations.push(item);
       const context=await buildContext(item,locations.length-1,row,syncState);
       contexts.set(id,context);
@@ -241,6 +256,8 @@
     if(metaChanged)await State.rawPut()(STORE,locations,'meta:locations');
     const safeState={
       ...syncState,
+      projectId:syncState?.projectId??cloudProjectId??null,
+      userId:syncState?.userId??cloudSession?.user?.id??null,
       dirtyLocations:[...new Set([...contexts.keys(),...remoteLocations.map(row=>row.client_id||row.id)])].filter(id=>!filtered.pending.has(id)),
       knownLocationIds:[],
     };
@@ -319,6 +336,7 @@
     hydrateLocationCard,
     get lastApply(){return structuredClone(lastApply);},
     get diagnostics(){return {revisionRetries,noOpCloudWrites,mergedRows,localNoOpPuts:State.noOpPuts,contexts:contexts.size,stateKey:State.key()};},
+    _test:{payload,comparable,buildContext,payloadUserId,archiveSelection},
     principle:'three-way-field-merge-with-revision-checked-location-writes-and-deletion-tombstones',
   };
   lockArchiveModalAction();
