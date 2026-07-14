@@ -48,6 +48,42 @@ test('transport normalization matches JSON semantics without losing explicit res
   writeEvidence('01-transport-normalization.json',result);
 });
 
+test('payload identity is context-first, session fallback and null-safe in both active builders',async({page})=>{
+  await openApp(page);
+  const result=await page.evaluate(async()=>{
+    const Runtime=window.BogatkaSyncIntegrity._test;
+    const Compat=window.BogatkaSyncCompatibility._test;
+    const State=window.BogatkaSyncState;
+    const item={id:'payload-identity-v437',title:'Identity fixture',address:'Identity address',note:''};
+    const meta={title:item.title,address:item.address,note:'',sortOrder:0};
+    const data={contact:'IDENTITY'};
+    cloudProjectId='session-project-v437';
+    cloudSession=null;
+    locations=[item];
+    await State.rawPut()(STORE,data,`location:${item.id}`);
+    await State.deleteBase(item.id);
+    const runtimeExplicit=Runtime.payload(item,0,data,meta,{projectId:'context-project-v437',userId:'context-user-v437'});
+    const runtimeAnonymous=Runtime.payload(item,0,data,meta,{projectId:'context-project-v437'});
+    const compatExplicit=await Compat.buildContext(item,0,null,{projectId:'context-project-v437',userId:'context-user-v437',dirtyLocations:[item.id],metaDirty:false});
+    const compatAnonymous=await Compat.buildContext(item,0,null,{projectId:'context-project-v437',dirtyLocations:[item.id],metaDirty:false});
+    cloudSession={user:{id:'session-user-v437'}};
+    const runtimeSigned=Runtime.payload(item,0,data,meta,{projectId:'context-project-v437'});
+    const compatSigned=await Compat.buildContext(item,0,null,{projectId:'context-project-v437',dirtyLocations:[item.id],metaDirty:false});
+    const runtimeContextOverridesSession=Runtime.payload(item,0,data,meta,{projectId:'context-project-v437',userId:'context-user-v437'});
+    return{
+      runtime:{explicit:runtimeExplicit.updated_by,anonymous:runtimeAnonymous.updated_by,signed:runtimeSigned.updated_by,contextOverridesSession:runtimeContextOverridesSession.updated_by},
+      compatibility:{explicit:compatExplicit.payload.updated_by,anonymous:compatAnonymous.payload.updated_by,signed:compatSigned.payload.updated_by},
+      projects:{runtime:runtimeExplicit.project_id,compatibility:compatExplicit.payload.project_id},
+    };
+  });
+  expect(result).toEqual({
+    runtime:{explicit:'context-user-v437',anonymous:null,signed:'session-user-v437',contextOverridesSession:'context-user-v437'},
+    compatibility:{explicit:'context-user-v437',anonymous:null,signed:'session-user-v437'},
+    projects:{runtime:'context-project-v437',compatibility:'context-project-v437'},
+  });
+  writeEvidence('00-session-safe-payload.json',result);
+});
+
 test('database no-op at revision 7403 is accepted once and saves the remote base',async({page})=>{
   await openApp(page);
   const fixture=row({formData:{contact:'Анна',nested:{stable:true}}});
