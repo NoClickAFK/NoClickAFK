@@ -58,7 +58,7 @@
   }
   function mergeValue(base,local,remote,options={},path=''){
     if(same(local,remote))return clone(local);
-    if(base===ABSENT&&remote===ABSENT&&!options.preferLocal&&emptyLike(local))return ABSENT;
+    if(base===ABSENT&&remote===ABSENT&&!options.explicitReset&&emptyLike(local))return ABSENT;
     const localChanged=!same(local,base),remoteChanged=!same(remote,base);
     if(localChanged&&!remoteChanged)return clone(local);
     if(remoteChanged&&!localChanged)return clone(remote);
