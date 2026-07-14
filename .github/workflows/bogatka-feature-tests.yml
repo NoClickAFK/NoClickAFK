@@ -119,6 +119,7 @@ jobs:
           done
           FEATURE_LOG=/tmp/bogatka-feature-tests.log
           REPORT_LIVE_TEST=bogatka-field-8f3c7d/tests/report-live-v427.spec.js
+          REPORT_SINGLE_PATTERN='individual HTML action exports only the selected location without geolocation'
           : > "$FEATURE_LOG"
           awk -v report="$REPORT_LIVE_TEST" '$0 != report' /tmp/selected-tests.txt > /tmp/selected-tests-main.txt
           if [ -s /tmp/selected-tests-main.txt ]; then
@@ -126,7 +127,9 @@ jobs:
               2>&1 | tee -a "$FEATURE_LOG"
           fi
           if grep -Fxq "$REPORT_LIVE_TEST" /tmp/selected-tests.txt; then
-            npx playwright test "$REPORT_LIVE_TEST" --workers=1 --reporter=line \
+            npx playwright test "$REPORT_LIVE_TEST" --grep-invert "$REPORT_SINGLE_PATTERN" --workers=1 --reporter=line \
+              2>&1 | tee -a "$FEATURE_LOG"
+            npx playwright test "$REPORT_LIVE_TEST" --grep "$REPORT_SINGLE_PATTERN" --workers=1 --reporter=line \
               2>&1 | tee -a "$FEATURE_LOG"
           fi
 
