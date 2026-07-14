@@ -9,7 +9,14 @@ function writeEvidence(name,value){
   mkdirSync(ARTIFACT_DIR,{recursive:true});
   writeFileSync(path.join(ARTIFACT_DIR,name),JSON.stringify(value,null,2));
 }
-
+async function waitForCloudPhase(page){
+  await page.waitForFunction(()=>{
+    const authority=window.BogatkaPanelAuthorityV437;
+    if(!authority)return true;
+    const diagnostics=authority.diagnostics;
+    return diagnostics.cloudBackgroundCompletions+diagnostics.cloudBackgroundErrors>0;
+  },{timeout:20000});
+}
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'load'});
@@ -17,6 +24,7 @@ async function openApp(page){
   await page.waitForFunction(()=>window.BogatkaSyncCompatibility?.version==='4.3.5');
   await page.waitForFunction(()=>window.BogatkaFieldIntegrityV416?.ready===true);
   await page.waitForFunction(()=>typeof cloudSyncing==='undefined'||cloudSyncing===false);
+  await waitForCloudPhase(page);
 }
 
 test('in-flight same-location edit survives and converges in one coalesced follow-up',async({page})=>{
