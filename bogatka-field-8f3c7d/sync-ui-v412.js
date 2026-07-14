@@ -18,6 +18,9 @@
     revisionRebases:0,
     inFlightLocalMerges:0,
     startupBasesUsed:0,
+    archiveComparisonsResolved:0,
+    lastDifferencePaths:[],
+    lastLegacyDifferencePaths:[],
     realConflicts:0,
     lastFailingStage:'',
   };
@@ -27,6 +30,7 @@
     Object.defineProperty(stability,'suppressedUiRefreshes',{configurable:true,get(){return suppressedDescriptor.get.call(stability)+compatibilitySuppressed}});
   }
 
+  const hasOwn=(value,key)=>Boolean(value&&typeof value==='object'&&Object.hasOwn(value,key));
   const activeEditor=()=>Boolean(document.activeElement?.matches?.(editorSelector));
   const pendingReset=id=>{
     try{
@@ -42,41 +46,50 @@
     address:item?.address||row?.address||'',
     note:item?.note||row?.note||'',
     sortOrder:index,
-    archivedAt:item?.archivedAt||row?.archived_at||null,
+    archivedAt:hasOwn(item,'archivedAt')?item.archivedAt:(hasOwn(row,'archived_at')?row.archived_at:null),
   });
   const rowMeta=row=>({
     title:row?.title||'',
     address:row?.address||'',
     note:row?.note||'',
     sortOrder:Number(row?.sort_order||0),
-    archivedAt:row?.archived_at||null,
+    archivedAt:hasOwn(row,'archived_at')?row.archived_at:null,
   });
   const localMeta=(item,index)=>({
     title:item?.title||item?.address||'',
     address:item?.address||'',
     note:item?.note||'',
     sortOrder:index,
-    archivedAt:item?.archivedAt||null,
+    archivedAt:hasOwn(item,'archivedAt')?item.archivedAt:null,
   });
   const remoteData=row=>{
     const data=Merge.clean(row?.form_data||{});
-    if(row?.archived_at)data.archivedAt=row.archived_at;
+    if(hasOwn(row,'archived_at'))data.archivedAt=row.archived_at;
     return data;
   };
-  const payload=(item,index,data,meta,projectId,updatedBy)=>Merge.transportNormalize({
-    project_id:projectId||cloudProjectId,
-    client_id:item.id,
-    title:meta.title||meta.address||'Без названия',
-    address:meta.address||null,
-    note:meta.note||null,
-    status:data.status||null,
-    object_type:data.objectType||null,
-    form_data:Merge.clean(data),
-    sort_order:Number(meta.sortOrder||0),
-    archived_at:data.archivedAt||meta.archivedAt||null,
-    updated_by:updatedBy||cloudSession?.user?.id||null,
-  });
-  const comparable=value=>value?Merge.transportNormalize({
+  const archiveValue=(data,meta)=>hasOwn(data,'archivedAt')?data.archivedAt:(hasOwn(meta,'archivedAt')?meta.archivedAt:null);
+  const coherentFormData=(data,archivedAt)=>{
+    const formData=Merge.clean(data);
+    formData.archivedAt=archivedAt;
+    return formData;
+  };
+  const payload=(item,index,data,meta,projectId,updatedBy)=>{
+    const archivedAt=archiveValue(data,meta);
+    return Merge.transportNormalize({
+      project_id:projectId??cloudProjectId,
+      client_id:item.id,
+      title:meta.title||meta.address||'Без названия',
+      address:meta.address||null,
+      note:meta.note||null,
+      status:data.status||null,
+      object_type:data.objectType||null,
+      form_data:coherentFormData(data,archivedAt),
+      sort_order:Number(meta.sortOrder||0),
+      archived_at:archivedAt,
+      updated_by:updatedBy??cloudSession?.user?.id??null,
+    });
+  };
+  const legacyComparable=value=>value?Merge.transportNormalize({
     project_id:value.project_id,
     client_id:value.client_id||value.id,
     title:value.title||'',
@@ -88,6 +101,24 @@
     sort_order:Number(value.sort_order||0),
     archived_at:value.archived_at||null,
   }):null;
+  const comparable=value=>{
+    if(!value)return null;
+    const formData=Merge.clean(value.form_data||{});
+    const archivedAt=hasOwn(value,'archived_at')?value.archived_at:(hasOwn(formData,'archivedAt')?formData.archivedAt:null);
+    formData.archivedAt=archivedAt;
+    return Merge.transportNormalize({
+      project_id:value.project_id,
+      client_id:value.client_id||value.id,
+      title:value.title||'',
+      address:value.address||null,
+      note:value.note||null,
+      status:value.status||null,
+      object_type:value.object_type||null,
+      form_data:formData,
+      sort_order:Number(value.sort_order||0),
+      archived_at:archivedAt,
+    });
+  };
 
   function differencePaths(left,right,path='',result=[]){
     if(result.length>=12||Merge.same(left,right))return result;
@@ -279,9 +310,16 @@
         throw new Error(`Не удалось подтвердить облачную запись локации «${context.item.title||context.id}».`);
       }
 
+      const legacyDesired=legacyComparable(context.payload);
+      const legacyRemote=legacyComparable(row);
+      const legacyPaths=differencePaths(legacyDesired,legacyRemote).slice(0,12);
       const desired=comparable(context.payload);
       const remote=comparable(row);
+      const paths=differencePaths(desired,remote).slice(0,12);
+      diagnostics.lastLegacyDifferencePaths=legacyPaths;
+      diagnostics.lastDifferencePaths=paths;
       if(Merge.same(desired,remote)){
+        if(legacyPaths.length)diagnostics.archiveComparisonsResolved++;
         if(!written)diagnostics.noOpUpdatesAccepted++;
         await adapter.saveLocal(context,row,remoteData(row));
         await adapter.saveBase(context,row);
@@ -291,10 +329,10 @@
 
       const signature=`${Number(row.revision||0)}|${Merge.canonical(desired)}|${Merge.canonical(remote)}`;
       if(seen.has(signature)){
-        const paths=differencePaths(desired,remote).slice(0,6);
+        const conflictPaths=paths.slice(0,6);
         diagnostics.realConflicts++;
-        diagnostics.lastFailingStage=`non-converging:${paths.join(',')||'unknown'}`;
-        throw new Error(`Конфликт синхронизации локации «${context.item.title||context.id}». Не удалось согласовать поля: ${paths.join(', ')||'неизвестно'}.`);
+        diagnostics.lastFailingStage=`non-converging:${conflictPaths.join(',')||'unknown'}`;
+        throw new Error(`Конфликт синхронизации локации «${context.item.title||context.id}». Не удалось согласовать поля: ${conflictPaths.join(', ')||'неизвестно'}.`);
       }
       seen.add(signature);
       if(Number(row.revision||0)!==previousRevision||!written)diagnostics.revisionRebases++;
@@ -302,6 +340,7 @@
       context=await adapter.rebuild(context,row,syncState);
     }
     const paths=differencePaths(comparable(context.payload),comparable(context.row)).slice(0,6);
+    diagnostics.lastDifferencePaths=paths;
     diagnostics.realConflicts++;
     diagnostics.lastFailingStage=`retry-limit:${paths.join(',')||'unknown'}`;
     throw new Error(`Конфликт синхронизации локации «${context.item.title||context.id}». Повторите синхронизацию.`);
@@ -319,7 +358,7 @@
       if(row){
         finalRows.set(item.id,row);
         item.cloudId=row.id;
-        if(row.archived_at)item.archivedAt=row.archived_at;else delete item.archivedAt;
+        if(hasOwn(row,'archived_at'))item.archivedAt=row.archived_at;else delete item.archivedAt;
       }else finalRows.delete(item.id);
     }
     await State.rawPut()(STORE,locations.filter(item=>!isPending(item.id)),'meta:locations');
@@ -450,6 +489,9 @@
     diagnostics.revisionRebases=0;
     diagnostics.inFlightLocalMerges=0;
     diagnostics.startupBasesUsed=0;
+    diagnostics.archiveComparisonsResolved=0;
+    diagnostics.lastDifferencePaths=[];
+    diagnostics.lastLegacyDifferencePaths=[];
     diagnostics.realConflicts=0;
     diagnostics.lastFailingStage='';
   }
@@ -467,6 +509,7 @@
     },
     _test:{
       comparable,
+      legacyComparable,
       differencePaths,
       persistLocation,
       buildContext,
