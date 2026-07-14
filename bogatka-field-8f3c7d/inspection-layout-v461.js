@@ -44,8 +44,10 @@ function syncPremium(select){
   let trigger=premiumTrigger(select);
   const expectsPremium=select.dataset.premiumSelect==='1'||select.classList.contains('premium-native-select');
   if(!trigger&&expectsPremium&&typeof bogatkaEnhanceSelect==='function'){
+    // Preserve the native premium marker while asking the canonical enhancer to
+    // restore its visible trigger. Removing the marker here caused the premium
+    // observer and V461 to repeatedly undo each other during startup.
     delete select.dataset.premiumSelect;
-    select.classList.remove('premium-native-select');
     bogatkaEnhanceSelect(select);
     trigger=premiumTrigger(select);
   }
@@ -54,12 +56,10 @@ function syncPremium(select){
     else if(typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
     return true;
   }
-  // A late compatibility replacement can leave a select marked as premium while
-  // its visible trigger is missing. Never expose a zero-height control: fall back
-  // to the native select until the standard premium enhancer becomes available.
-  select.classList.remove('premium-native-select');
-  delete select.dataset.premiumSelect;
-  return true;
+  // A select already claimed by the premium enhancer is not layout-ready until
+  // its visible trigger exists. Leave its classes intact and let the existing
+  // observer schedule one later V461 pass.
+  return !expectsPremium;
 }
 
 function clearResponsiveGridOverrides(...grids){
