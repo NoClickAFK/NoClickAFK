@@ -647,12 +647,11 @@
   }
 
   function createSyncWrapper(baseSync){
-    const wrapped=async function protectedInitialSync(options={}){
-      if(!snapshotCaptured)await captureStartupSnapshot();
-      if(!navigator.onLine)setLifecycle('offline');
-      else if(active()&&lifecycle!=='reconciling-early-edits')setLifecycle('initial-cloud-pending');
-      try{
-        const result=await baseSync.call(this,options);
+    let activeBasePromise=null;
+    let activeObservedPromise=null;
+    const observe=basePromise=>{
+      if(basePromise===activeBasePromise&&activeObservedPromise)return activeObservedPromise;
+      const observed=Promise.resolve(basePromise).then(async result=>{
         if(active()&&!result?.deferred&&!result?.skipped){
           const state=typeof cloudReadState==='function'?cloudReadState():{};
           const dirty=new Set(state?.dirtyLocations||[]);
@@ -661,12 +660,30 @@
           else if(navigator.onLine)setLifecycle('initial-cloud-pending');
         }
         return result;
-      }catch(error){
+      },async error=>{
         diagnostics.initialSyncErrors+=1;
         try{await flushJournal([...journalIds()],{bypassBarrier:true})}catch(_){ }
         setLifecycle(navigator.onLine?'initial-cloud-error':'offline',{reason:'sync'});
         throw error;
-      }
+      });
+      activeBasePromise=basePromise;
+      activeObservedPromise=observed;
+      const clear=()=>{
+        if(activeObservedPromise===observed){activeBasePromise=null;activeObservedPromise=null}
+      };
+      observed.then(clear,clear);
+      return observed;
+    };
+    const invoke=function(options={}){
+      if(!navigator.onLine)setLifecycle('offline');
+      else if(active()&&lifecycle!=='reconciling-early-edits')setLifecycle('initial-cloud-pending');
+      let basePromise;
+      try{basePromise=baseSync.call(this,options)}catch(error){basePromise=Promise.reject(error)}
+      return observe(basePromise);
+    };
+    const wrapped=function protectedInitialSync(options={}){
+      if(!snapshotCaptured)return captureStartupSnapshot().then(()=>invoke.call(this,options));
+      return invoke.call(this,options);
     };
     return markOwned(wrapped,'cloudSyncAll',baseSync);
   }
