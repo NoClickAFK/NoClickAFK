@@ -6,6 +6,8 @@ const APP='http://127.0.0.1:4173/bogatka-field-8f3c7d/?v=archive-success-evidenc
 const OUT=path.resolve('review-artifacts/archive-sync-v436-review');
 const ID='archive-success-v437';
 
+// The workflow reruns this test after all ten mandatory sync/archive suites so
+// these canonical 06-* files cannot be overwritten by legacy helper evidence.
 function evidence(value){mkdirSync(OUT,{recursive:true});writeFileSync(path.join(OUT,'06-synchronized-cloud-modal.json'),JSON.stringify(value,null,2))}
 
 async function openApp(page){
