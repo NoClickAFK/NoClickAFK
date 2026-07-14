@@ -64,17 +64,22 @@
   });
   const remoteData=row=>{
     const data=Merge.clean(row?.form_data||{});
-    if(hasOwn(row,'archived_at'))data.archivedAt=row.archived_at;
+    if((row?.archived_at!==null&&row?.archived_at!==undefined)||hasOwn(data,'archivedAt'))data.archivedAt=row?.archived_at??data.archivedAt;
     return data;
   };
-  const archiveValue=(data,meta)=>hasOwn(data,'archivedAt')?data.archivedAt:(hasOwn(meta,'archivedAt')?meta.archivedAt:null);
-  const coherentFormData=(data,archivedAt)=>{
+  const archiveSelection=(data,meta)=>{
+    if(hasOwn(data,'archivedAt'))return{known:true,value:data.archivedAt};
+    if(hasOwn(meta,'archivedAt')&&meta.archivedAt!==null&&meta.archivedAt!==undefined)return{known:true,value:meta.archivedAt};
+    return{known:false,value:null};
+  };
+  const coherentFormData=(data,archive)=>{
     const formData=Merge.clean(data);
-    formData.archivedAt=archivedAt;
+    if(archive.known)formData.archivedAt=archive.value;
+    else delete formData.archivedAt;
     return formData;
   };
   const payload=(item,index,data,meta,projectId,updatedBy)=>{
-    const archivedAt=archiveValue(data,meta);
+    const archive=archiveSelection(data,meta);
     return Merge.transportNormalize({
       project_id:projectId??cloudProjectId,
       client_id:item.id,
@@ -83,9 +88,9 @@
       note:meta.note||null,
       status:data.status||null,
       object_type:data.objectType||null,
-      form_data:coherentFormData(data,archivedAt),
+      form_data:coherentFormData(data,archive),
       sort_order:Number(meta.sortOrder||0),
-      archived_at:archivedAt,
+      archived_at:archive.value,
       updated_by:updatedBy??cloudSession?.user?.id??null,
     });
   };
@@ -104,8 +109,11 @@
   const comparable=value=>{
     if(!value)return null;
     const formData=Merge.clean(value.form_data||{});
-    const archivedAt=hasOwn(value,'archived_at')?value.archived_at:(hasOwn(formData,'archivedAt')?formData.archivedAt:null);
-    formData.archivedAt=archivedAt;
+    const formKnown=hasOwn(formData,'archivedAt');
+    const topKnown=hasOwn(value,'archived_at');
+    const archivedAt=topKnown?value.archived_at:(formKnown?formData.archivedAt:null);
+    if((topKnown&&archivedAt!==null&&archivedAt!==undefined)||formKnown)formData.archivedAt=archivedAt;
+    else delete formData.archivedAt;
     return Merge.transportNormalize({
       project_id:value.project_id,
       client_id:value.client_id||value.id,
