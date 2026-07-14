@@ -63,7 +63,7 @@
     if(row?.archived_at)data.archivedAt=row.archived_at;
     return data;
   };
-  const payload=(item,index,data,meta)=>Merge.transportNormalize({
+  const payload=(item,index,data,meta,updatedBy)=>Merge.transportNormalize({
     project_id:cloudProjectId,
     client_id:item.id,
     title:meta.title||meta.address||'Без названия',
@@ -74,7 +74,7 @@
     form_data:Merge.clean(data),
     sort_order:Number(meta.sortOrder||0),
     archived_at:data.archivedAt||meta.archivedAt||null,
-    updated_by:cloudSession.user.id,
+    updated_by:updatedBy||cloudSession?.user?.id||null,
   });
   const comparable=value=>value?Merge.transportNormalize({
     project_id:value.project_id,
@@ -216,7 +216,7 @@
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
     const merged=Merge.merge(base?.formData,cleanLocal,row?remoteData(row):undefined,options);
     const meta=chooseMeta(base,item,row,index,Boolean(syncState.metaDirty)||dirty);
-    const nextPayload=payload(item,index,merged,meta);
+    const nextPayload=payload(item,index,merged,meta,syncState?.userId);
     return {
       id:item.id,item,index,row,base,local,merged,meta,payload:nextPayload,dirty,
       needsPush:!row||!Merge.same(comparable(nextPayload),comparable(row)),
