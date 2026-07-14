@@ -13,6 +13,9 @@
       return Boolean(pending?.all||(pending?.locations||[]).includes(id));
     }catch(_){return false}
   }
+  const hasOwn=(value,key)=>Boolean(value&&typeof value==='object'&&Object.hasOwn(value,key));
+  const archiveValue=(data,meta)=>hasOwn(data,'archivedAt')?data.archivedAt:(hasOwn(meta,'archivedAt')?meta.archivedAt:null);
+  const payloadUserId=syncState=>syncState?.userId??cloudSession?.user?.id??null;
   const deletionMap=state=>state?.deletedLocations&&typeof state.deletedLocations==='object'?state.deletedLocations:{};
   const pendingIds=state=>new Set(Object.keys(deletionMap(state)));
   const isPending=id=>pendingIds(typeof cloudReadState==='function'?cloudReadState():{}).has(id);
@@ -48,24 +51,30 @@
   }
   const remoteData=row=>{
     const data=Merge.clean(row?.form_data||{});
-    if(row?.archived_at)data.archivedAt=row.archived_at;
+    if(hasOwn(row,'archived_at'))data.archivedAt=row.archived_at;
     return data;
   };
-  const rowMeta=row=>({title:row?.title||'',address:row?.address||'',note:row?.note||'',sortOrder:Number(row?.sort_order||0),archivedAt:row?.archived_at||null});
-  const localMeta=(item,index)=>({title:item?.title||item?.address||'',address:item?.address||'',note:item?.note||'',sortOrder:index,archivedAt:item?.archivedAt||null});
-  function payload(item,index,data,meta){
+  const rowMeta=row=>({title:row?.title||'',address:row?.address||'',note:row?.note||'',sortOrder:Number(row?.sort_order||0),archivedAt:hasOwn(row,'archived_at')?row.archived_at:null});
+  const localMeta=(item,index)=>({title:item?.title||item?.address||'',address:item?.address||'',note:item?.note||'',sortOrder:index,archivedAt:hasOwn(item,'archivedAt')?item.archivedAt:null});
+  function payload(item,index,data,meta,syncState){
+    const archivedAt=archiveValue(data,meta);
+    const formData=Merge.clean(data);
+    formData.archivedAt=archivedAt;
     return {
-      project_id:cloudProjectId,client_id:item.id,title:meta.title||meta.address||'Без названия',address:meta.address||null,note:meta.note||null,
-      status:data.status||null,object_type:data.objectType||null,form_data:Merge.clean(data),sort_order:Number(meta.sortOrder||0),
-      archived_at:data.archivedAt||meta.archivedAt||null,updated_by:cloudSession.user.id,
+      project_id:syncState?.projectId||cloudProjectId,client_id:item.id,title:meta.title||meta.address||'Без названия',address:meta.address||null,note:meta.note||null,
+      status:data.status||null,object_type:data.objectType||null,form_data:formData,sort_order:Number(meta.sortOrder||0),
+      archived_at:archivedAt,updated_by:payloadUserId(syncState),
     };
   }
   function comparable(value){
     if(!value)return null;
+    const formData=Merge.clean(value.form_data||{});
+    const archivedAt=hasOwn(value,'archived_at')?value.archived_at:(hasOwn(formData,'archivedAt')?formData.archivedAt:null);
+    formData.archivedAt=archivedAt;
     return {
       project_id:value.project_id,client_id:value.client_id||value.id,title:value.title||'',address:value.address||null,note:value.note||null,
-      status:value.status||null,object_type:value.object_type||null,form_data:Merge.clean(value.form_data||{}),
-      sort_order:Number(value.sort_order||0),archived_at:value.archived_at||null,
+      status:value.status||null,object_type:value.object_type||null,form_data:formData,
+      sort_order:Number(value.sort_order||0),archived_at:archivedAt,
     };
   }
   async function saveBase(id,row){
@@ -103,7 +112,7 @@
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
     const merged=Merge.merge(base?.formData,cleanLocal,row?remoteData(row):undefined,options);
     const meta=chooseMeta(base,item,row,index,Boolean(syncState.metaDirty)||dirty);
-    const nextPayload=payload(item,index,merged,meta);
+    const nextPayload=payload(item,index,merged,meta,syncState);
     return {id:item.id,item,index,row,base,local,merged,meta,payload:nextPayload,dirty,needsPush:!row||!Merge.same(comparable(nextPayload),comparable(row))};
   }
   async function fetchRow(clientId){
@@ -211,7 +220,7 @@
       await saveLocal(item.id,context.merged,row,context.local);
       if(row){
         item.cloudId=row.id;item.title=context.meta.title||item.title;item.address=context.meta.address||'';item.note=context.meta.note||'';
-        if(context.meta.archivedAt)item.archivedAt=context.meta.archivedAt;else delete item.archivedAt;
+        if(hasOwn(context.meta,'archivedAt'))item.archivedAt=context.meta.archivedAt;else delete item.archivedAt;
         if(!Merge.same(beforeMeta,localMeta(item,index))){metaChanged=true;structuralChanged=true;}
       }
       if(context.needsPush)mergedRows++;
@@ -220,7 +229,7 @@
       const id=row.client_id||row.id;
       if(contexts.has(id)||filtered.pending.has(id))continue;
       const item={id,title:row.title,address:row.address||'',note:row.note||'',custom:!DEFAULT_LOCATIONS.some(entry=>entry.id===id),cloudId:row.id,createdAt:row.created_at,updatedAt:row.updated_at};
-      if(row.archived_at)item.archivedAt=row.archived_at;
+      if(hasOwn(row,'archived_at'))item.archivedAt=row.archived_at;
       locations.push(item);
       const context=await buildContext(item,locations.length-1,row,syncState);
       contexts.set(id,context);
