@@ -24,6 +24,7 @@ const LEFT=['inspectionPurpose','inspectionResult'];
 const RIGHT=['objectSource','listingUrl','objectSourceOther','inspectionParticipants'];
 const WIDE=new Set(['inspectionPurpose','inspectionResult','objectSourceOther','inspectionParticipants']);
 let timer=null;
+let timerDue=Infinity;
 let observer=null;
 let observerRoot=null;
 let enhancing=false;
@@ -235,8 +236,15 @@ function enhanceAll(){
 }
 
 function schedule(delay=70){
-  clearTimeout(timer);
-  timer=setTimeout(()=>{try{enhanceAll();}catch(error){console.error(error);}},delay);
+  const due=performance.now()+Math.max(0,delay);
+  if(timer!==null&&timerDue<=due)return;
+  if(timer!==null)clearTimeout(timer);
+  timerDue=due;
+  timer=setTimeout(()=>{
+    timer=null;
+    timerDue=Infinity;
+    try{enhanceAll();}catch(error){console.error(error)}
+  },Math.max(0,delay));
 }
 
 function install(){
