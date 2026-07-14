@@ -29,11 +29,33 @@ const fieldSelector=field=>`[data-field="${CSS.escape(field)}"]`;
 const visibleControl=(card,field)=>card.querySelector(fieldSelector(field));
 const fieldWrapper=control=>control?.closest('label.field')||null;
 const isEditing=card=>{const active=document.activeElement;return Boolean(active&&card.contains(active)&&/^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName));};
+const premiumTrigger=select=>select?.nextElementSibling?.classList?.contains('premium-select-trigger')?select.nextElementSibling:null;
 
 function syncPremium(select){
-  if(!select||select.tagName!=='SELECT')return;
-  if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-  else if(typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,select.nextElementSibling);
+  if(!select||select.tagName!=='SELECT')return true;
+  let trigger=premiumTrigger(select);
+  const expectsPremium=select.dataset.premiumSelect==='1'||select.classList.contains('premium-native-select');
+  if(!trigger&&expectsPremium&&typeof bogatkaEnhanceSelect==='function'){
+    delete select.dataset.premiumSelect;
+    select.classList.remove('premium-native-select');
+    bogatkaEnhanceSelect(select);
+    trigger=premiumTrigger(select);
+  }
+  if(trigger){
+    if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
+    else if(typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+    return true;
+  }
+  return !select.classList.contains('premium-native-select');
+}
+
+function applyResponsiveGrids(...grids){
+  const compact=window.matchMedia?.('(max-width:700px)')?.matches??window.innerWidth<=700;
+  const columns=compact?'minmax(0,1fr)':'repeat(2,minmax(0,1fr))';
+  for(const grid of grids){
+    if(!grid)continue;
+    grid.style.setProperty('grid-template-columns',columns,'important');
+  }
 }
 
 function setCaption(wrapper,text){
@@ -64,14 +86,14 @@ function insertSequence(container,nodes,before){
 }
 
 function rewriteSource(select){
-  if(!select)return;
+  if(!select)return false;
   const current=select.value;
   for(const option of select.options){
     const next=SOURCE_LABELS[option.value];
     if(next&&option.textContent!==next)option.textContent=next;
   }
   if(select.value!==current)select.value=current;
-  syncPremium(select);
+  return syncPremium(select);
 }
 
 function normalizeUrl(value){
@@ -87,7 +109,7 @@ function syncSource(card){
   const source=visibleControl(card,'objectSource');
   const other=visibleControl(card,'objectSourceOther');
   const listing=visibleControl(card,'listingUrl');
-  if(!source||!other||!listing)return;
+  if(!source||!other||!listing)return false;
   const otherWrapper=fieldWrapper(other);
   const listingWrapper=fieldWrapper(listing);
   const showOther=source.value==='Другое';
@@ -106,7 +128,7 @@ function syncSource(card){
     if(href){link.href=href;link.textContent='Открыть объявление';}
     else{link.removeAttribute('href');link.textContent='Проверьте ссылку';}
   }
-  rewriteSource(source);
+  return rewriteSource(source);
 }
 
 function bindSource(card){
@@ -151,6 +173,7 @@ function placeCard(card){
   const extra=inspection?.querySelector('.inspection-extra-v452');
   if(!inspectionGrid||!landlordGrid||!extra)return false;
   patchExtraLookup(extra,card);
+  applyResponsiveGrids(inspectionGrid,landlordGrid);
 
   const controls={};
   for(const field of [...LEFT,...RIGHT]){
@@ -173,9 +196,10 @@ function placeCard(card){
   if(inspectionCopy)inspectionCopy.textContent='Статус, параметры осмотра, следующий шаг и итог.';
   if(landlordCopy)landlordCopy.textContent='Контакты, источник объекта и предварительные договорённости.';
 
-  rewriteSource(controls.objectSource);
+  const sourceReady=rewriteSource(controls.objectSource);
   bindSource(card);
-  syncSource(card);
+  const sourceStateReady=syncSource(card);
+  if(!sourceReady||!sourceStateReady)return false;
   card.dataset.inspectionLayoutV461='1';
   card.dataset.inspectionLayoutV462='1';
   return true;
@@ -200,5 +224,6 @@ function install(){
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 window.addEventListener('load',()=>schedule(30),{once:true});
+window.addEventListener('resize',()=>schedule(0));
 window.BogatkaInspectionLayoutV461={version:VERSION,ready:true,LABELS,SOURCE_LABELS,enhanceAll,placeCard};
 })();
