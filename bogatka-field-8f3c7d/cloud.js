@@ -785,6 +785,12 @@ async function cloudPublishReport() {
     cloudSetMessage("Сначала войдите, чтобы создать постоянную ссылку на отчёт.", "info");
     return;
   }
+  const authority = window.BogatkaMutationAuthorityV437;
+  if (!authority?.canPublishReport?.()) {
+    if (authority?.denyReportPublication) authority.denyReportPublication();
+    else cloudSetMessage("Публикация отчёта доступна владельцу и редактору проекта.", "info");
+    return;
+  }
   cloudSetMessage("Синхронизирую данные перед публикацией…", "info");
   await cloudSyncAll({manual:true});
   const snapshot = await cloudBuildSnapshot();
