@@ -28,6 +28,7 @@ test('publication follows the central mutation authority for every role state',a
   const evidence=await page.evaluate(async()=>{
     const Authority=window.BogatkaMutationAuthorityV437;
     const deniedMessage='Публикация отчёта доступна владельцу и редактору проекта.';
+    const signInMessage='Сначала войдите, чтобы создать постоянную ссылку на отчёт.';
     const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     const clearAuthTokens=()=>{
       for(let index=localStorage.length-1;index>=0;index--){
@@ -47,6 +48,7 @@ test('publication follows the central mutation authority for every role state',a
       handleError:window.cloudHandleError,
       loadMembers:window.cloudLoadMembers,
       client:cloudClient,
+      cloud:window.BogatkaCloud,
     };
 
     const fixtureSync=async()=>{counters.sync+=1;return{status:'fixture-synced'}};
@@ -86,10 +88,24 @@ test('publication follows the central mutation authority for every role state',a
     async function setRoleState(kind){
       clearAuthTokens();
       online=true;
+      window.BogatkaCloud=original.cloud;
       const userId=`fixture-${kind}`;
       const projectId=`project-${kind}`;
       if(kind==='signed-out-local'){
         cloudSession=null;cloudRole=null;cloudProjectId=null;window.cloudRole=null;
+      }else if(kind==='session-pending'){
+        localStorage.setItem(`sb-${kind}-auth-token`,JSON.stringify({access_token:'fixture',user:{id:userId}}));
+        cloudSession={user:{}};
+        cloudProjectId=projectId;
+        cloudRole=null;window.cloudRole=null;
+        window.BogatkaCloud={...(original.cloud||{}),ready:false,lastInitResult:null};
+      }else if(kind==='error-readonly'){
+        localStorage.setItem(`sb-${kind}-auth-token`,JSON.stringify({access_token:'fixture',user:{id:userId}}));
+        cloudSession={user:{}};
+        cloudProjectId=projectId;
+        cloudRole=null;window.cloudRole=null;
+        online=false;
+        window.BogatkaCloud={...(original.cloud||{}),ready:true,lastInitResult:{status:'authority-failed',session:null}};
       }else{
         localStorage.setItem(`sb-${kind}-auth-token`,JSON.stringify({access_token:'fixture',user:{id:userId}}));
         cloudSession={user:{id:userId,email:`${kind}@example.test`,user_metadata:{display_name:kind}}};
@@ -105,21 +121,29 @@ test('publication follows the central mutation authority for every role state',a
       await sleep(80);
     }
 
-    async function runDenied(kind){
-      await setRoleState(kind);
+    async function openStablePublicationModal(){
+      await setRoleState('owner');
       cloudOpenModal();
       await sleep(100);
+      const modal=document.querySelector('#cloudPublishBtn');
+      if(!modal)throw new Error('Publication modal button was not created.');
+      return modal;
+    }
+
+    async function runDenied(kind){
+      const modal=await openStablePublicationModal();
+      await setRoleState(kind);
       cloudSetStatus('ready','fixture read-only');
       cloudSetMessage('fixture before','info');
       await sleep(20);
       resetCounters();
       const top=document.querySelector('#shareReportBtn');
-      const modal=document.querySelector('#cloudPublishBtn');
       const before=status();
       top?.click();
       modal?.click();
       await window.cloudPublishReport().catch(window.cloudHandleError);
       await sleep(120);
+      const message=document.querySelector('#cloudMessage')?.textContent||'';
       return{
         state:Authority.state,
         topDisabled:Boolean(top?.disabled),
@@ -127,10 +151,12 @@ test('publication follows the central mutation authority for every role state',a
         modalDisabled:Boolean(modal?.disabled),
         modalAria:modal?.getAttribute('aria-disabled'),
         sameModalNode:modal===document.querySelector('#cloudPublishBtn'),
+        modalCount:document.querySelectorAll('#cloudPublishBtn').length,
         counters:copyCounters(),
         before,
         after:status(),
-        deniedMessageVisible:(document.querySelector('#cloudMessage')?.textContent||'').includes(deniedMessage),
+        deniedMessageVisible:message.includes(deniedMessage),
+        signInMessageVisible:message.includes(signInMessage),
       };
     }
 
@@ -156,9 +182,11 @@ test('publication follows the central mutation authority for every role state',a
       };
     }
 
+    const sessionPending=await runDenied('session-pending');
     const rolePending=await runDenied('role-pending');
     const viewer=await runDenied('viewer');
     const offlineCachedViewer=await runDenied('offline-cached-viewer');
+    const errorReadonly=await runDenied('error-readonly');
     const owner=await runAllowed('owner');
     const editor=await runAllowed('editor');
 
@@ -189,30 +217,33 @@ test('publication follows the central mutation authority for every role state',a
     await setRoleState('viewer');
     const sameAfterViewer=dynamicButton===document.querySelector('#cloudPublishBtn');
     const viewerDisabled=Boolean(dynamicButton?.disabled&&dynamicButton.getAttribute('aria-disabled')==='true');
-    const dynamic={pendingDisabled,sameAfterEditor,editorEnabled,sameAfterViewer,viewerDisabled};
+    const dynamic={pendingDisabled,sameAfterEditor,editorEnabled,sameAfterViewer,viewerDisabled,modalCount:document.querySelectorAll('#cloudPublishBtn').length};
 
     window.cloudSyncAll=original.sync;try{cloudSyncAll=original.sync}catch(_){ }
     window.cloudBuildSnapshot=original.snapshot;try{cloudBuildSnapshot=original.snapshot}catch(_){ }
     window.cloudHandleError=original.handleError;try{cloudHandleError=original.handleError}catch(_){ }
     window.cloudLoadMembers=original.loadMembers;try{cloudLoadMembers=original.loadMembers}catch(_){ }
     cloudClient=original.client;
+    window.BogatkaCloud=original.cloud;
     online=true;
 
-    return{rolePending,viewer,offlineCachedViewer,owner,editor,signedOut,dynamic,authorityDiagnostics:Authority.diagnostics};
+    return{sessionPending,rolePending,viewer,offlineCachedViewer,errorReadonly,owner,editor,signedOut,dynamic,authorityDiagnostics:Authority.diagnostics};
   });
 
   await writeEvidence('09-report-publication-authority.json',evidence);
 
-  for(const denied of [evidence.rolePending,evidence.viewer,evidence.offlineCachedViewer]){
+  for(const denied of [evidence.sessionPending,evidence.rolePending,evidence.viewer,evidence.offlineCachedViewer,evidence.errorReadonly]){
     expect(denied.topDisabled).toBe(true);
     expect(denied.topAria).toBe('true');
     expect(denied.modalDisabled).toBe(true);
     expect(denied.modalAria).toBe('true');
     expect(denied.sameModalNode).toBe(true);
+    expect(denied.modalCount).toBe(1);
     expect(denied.counters).toEqual({sync:0,snapshot:0,insert:0,error:0,share:0});
     expect(denied.before.pillClass).not.toContain('error');
     expect(denied.after.pillClass).not.toContain('error');
     expect(denied.deniedMessageVisible).toBe(true);
+    expect(denied.signInMessageVisible).toBe(false);
   }
 
   for(const allowed of [evidence.owner,evidence.editor]){
@@ -237,5 +268,6 @@ test('publication follows the central mutation authority for every role state',a
     editorEnabled:true,
     sameAfterViewer:true,
     viewerDisabled:true,
+    modalCount:1,
   });
 });
