@@ -211,15 +211,18 @@
 
   function refreshPhotoCopy(root=document){root.querySelectorAll?.('.photo-plan-head-v400 strong').forEach(node=>{if(node.textContent!=='Минимальный фотоплан')node.textContent='Минимальный фотоплан'})}
 
-  function openPanel(panel,card,target){
-    if(!panel)return;
-    panel.dataset.panelOpenV419='1';
-    panel.classList.remove('panel-closed-v419');
-    const toggle=panel.querySelector(':scope > .panel-toggle-v419');
-    if(toggle)toggle.setAttribute('aria-expanded','true');
-    const chevron=panel.querySelector('.panel-chevron-v419');
-    if(chevron&&chevron.textContent!=='⌃')chevron.textContent='⌃';
-    try{localStorage.setItem(`bogatka.panel.${target}.open.${card.dataset.locationCard}`,'1')}catch(_){ }
+  function setCanonicalTopPanelState(card,target,{persist=true}={}){
+    const authority=window.BogatkaPanelAuthorityV437;
+    const id=card?.dataset?.locationCard;
+    if(!id||authority?.ownsPanelHeaders!==true||typeof authority.setPanelOpen!=='function'){
+      throw new Error('Не готов канонический владелец состояния верхних панелей.');
+    }
+    const inspection=card.querySelector('.inspection-card-v416');
+    const landlord=card.querySelector('.landlord-card-v416');
+    if(!inspection||!landlord)throw new Error('Не найдены канонические верхние панели.');
+    authority.setPanelOpen(inspection,'inspection',id,target==='inspection',{persist});
+    authority.setPanelOpen(landlord,'landlord',id,target==='landlord',{persist});
+    return{inspection,landlord};
   }
 
   function focusMissingField(card,target){
@@ -238,9 +241,11 @@
   }
 
   async function finalizePanelLayout(card){
+    const id=card?.dataset?.locationCard;
     await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
     window.BogatkaInspectionLayoutV461?.enhanceAll?.();
-    return card;
+    window.BogatkaPanelAuthorityV437?.canonicalizeAll?.();
+    return document.querySelector(`[data-location-card="${CSS.escape(String(id||''))}"]`)||card;
   }
 
   function handleProgressNavigation(event){
@@ -249,12 +254,21 @@
     if(target!=='inspection'&&target!=='landlord')return;
     const card=button.closest('[data-location-card]');
     if(!card)return;
-    finalizePanelLayout(card).finally(()=>{
-      const current=document.querySelector(`[data-location-card="${CSS.escape(card.dataset.locationCard)}"]`)||card;
-      const panel=target==='landlord'?current.querySelector('.landlord-card-v416'):current.querySelector('.inspection-card-v416');
-      openPanel(panel,current,target);
-      setTimeout(()=>focusMissingField(current,target),0);
-    });
+    // Readiness is the capture-phase owner for these two top-panel targets.
+    // Stop the legacy V448 navigation handler from applying a second partial
+    // state, then establish the complete canonical state synchronously so the
+    // click returns with exact aria/dataset/storage values already committed.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    try{
+      setCanonicalTopPanelState(card,target,{persist:true});
+      window.BogatkaPanelAuthorityV437?.canonicalizeAll?.();
+    }catch(error){console.error(error);return}
+    finalizePanelLayout(card).then(current=>{
+      setCanonicalTopPanelState(current,target,{persist:true});
+      window.BogatkaPanelAuthorityV437?.canonicalizeAll?.();
+      queueMicrotask(()=>focusMissingField(current,target));
+    }).catch(console.error);
   }
 
   async function refresh(){
@@ -280,5 +294,5 @@
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-  window.BogatkaReadinessProgressV434={version:VERSION,ready:true,PHOTO_PLAN,GROUP_ORDER,GROUP_WEIGHTS,inspectionRequirements,landlordRequirements,technicalRequirements,conclusionRequirements,buildProgress,applyMetric,compareMetrics,rankMetrics,transformMetrics,installPhotoPlan,installApi,installEngineTerminal,refresh};
+  window.BogatkaReadinessProgressV434={version:VERSION,ready:true,PHOTO_PLAN,GROUP_ORDER,GROUP_WEIGHTS,inspectionRequirements,landlordRequirements,technicalRequirements,conclusionRequirements,buildProgress,applyMetric,compareMetrics,rankMetrics,transformMetrics,installPhotoPlan,installApi,installEngineTerminal,setCanonicalTopPanelState,finalizePanelLayout,refresh};
 })();

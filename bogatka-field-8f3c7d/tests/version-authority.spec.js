@@ -26,7 +26,7 @@ test('repository build version controls UI when remote metadata is older',async(
     localStorage.removeItem('bogatka_build_meta_v426');
   });
 
-  await page.goto(`${APP}?v=436`,{waitUntil:'domcontentloaded'});
+  await page.goto(`${APP}?v=437`,{waitUntil:'domcontentloaded'});
   await page.waitForTimeout(5000);
   const initial=await page.evaluate(()=>({
     label:document.getElementById('versionLabel')?.textContent||'',
@@ -35,15 +35,15 @@ test('repository build version controls UI when remote metadata is older',async(
     accessVersionLoaded:[...document.scripts].some(script=>script.src.includes('access-version-v400.js')),
   }));
   expect(initial,diagnostics.join('\n')).toMatchObject({
-    label:'4.3.6',
+    label:'4.3.7',
     versionApi:true,
     accessVersionLoaded:true,
-    build:{version:'4.3.6',versionToken:'436',remoteIgnored:'4.2.6',sourceCommit:'4f584e01fcf02a99010e36c2a2eaaf97da3db113'},
+    build:{version:'4.3.7',versionToken:'437',remoteIgnored:'4.2.6',sourceCommit:'9c9543fc05a31985aaf5237cec5124a53d984ed3'},
   });
 
   const generated=await page.evaluate(()=>window.BogatkaVersion.makeAppUrl());
-  expect(generated).toContain('?v=436');
+  expect(generated).toContain('?v=437');
 
   await page.evaluate(()=>{document.getElementById('versionLabel').textContent='4.0.0'});
-  await expect(page.locator('#versionLabel')).toHaveText('4.3.6');
+  await expect(page.locator('#versionLabel')).toHaveText('4.3.7');
 });

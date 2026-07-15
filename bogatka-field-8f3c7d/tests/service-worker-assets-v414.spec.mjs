@@ -9,12 +9,13 @@ test('versioned service worker asset list is unique and complete',()=>{
   const assets=[...list.matchAll(/'([^']+)'/g)].map(match=>match[1]);
   expect(new Set(assets).size).toBe(assets.length);
   expect(source).toContain("searchParams.get('v')");
-  expect(source).toContain("||'436'");
+  expect(source).toContain("||'437'");
   expect(source).toContain('bogatka-location-v${BUILD_TOKEN}');
   for(const asset of [
     './version-authority-v426.js','./critical-deal-schema-v430.js','./critical-deal-v430.css','./compare-v430.js',
     './report-live-v427.js','./report-live-fixes-v427.js','./report-polish-v428.js','./report-authority-v428.js','./report-stability-v429.js',
     './workflow-v414.js','./workflow-v414.css','./location-panels-v419.js','./location-panels-render-v419.js','./location-panels-v419.css',
+    './startup-panel-authority-v437.js','./startup-panel-authority-v437.css',
     './location-global-v421.js','./location-global-v421.css','./location-card-collapse-v422.js','./location-card-collapse-v422.css',
     './readiness-progress-v434.js','./archive-state-v436.js'
   ]){

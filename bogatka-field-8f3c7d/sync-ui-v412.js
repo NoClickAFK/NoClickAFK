@@ -8,6 +8,7 @@
   const baseHandleRealtime=cloudHandleRealtime;
   const baseRenderModal=cloudRenderModal;
   const editorSelector='#app input:not([type="button"]):not([type="submit"]):not([type="file"]),#app textarea,#app select,#app [contenteditable="true"]';
+  const INITIAL_CLOUD_LIFECYCLES=new Set(['initial-cloud-pending','reconciling-early-edits','initial-cloud-error','offline']);
   let refreshTimer=null,inferredBaselines=0,deferredRefreshes=0,compatibilitySuppressed=0;
   let activeSync=null,pendingRerun=false,pendingManual=false,pendingTimer=null,lastSyncError='';
   const diagnostics={
@@ -16,6 +17,10 @@
     noOpUpdatesAccepted:0,
     revisionRebases:0,
     inFlightLocalMerges:0,
+    startupBasesUsed:0,
+    archiveComparisonsResolved:0,
+    lastDifferencePaths:[],
+    lastLegacyDifferencePaths:[],
     realConflicts:0,
     lastFailingStage:'',
   };
@@ -25,6 +30,7 @@
     Object.defineProperty(stability,'suppressedUiRefreshes',{configurable:true,get(){return suppressedDescriptor.get.call(stability)+compatibilitySuppressed}});
   }
 
+  const hasOwn=(value,key)=>Boolean(value&&typeof value==='object'&&Object.hasOwn(value,key));
   const activeEditor=()=>Boolean(document.activeElement?.matches?.(editorSelector));
   const pendingReset=id=>{
     try{
@@ -40,41 +46,55 @@
     address:item?.address||row?.address||'',
     note:item?.note||row?.note||'',
     sortOrder:index,
-    archivedAt:item?.archivedAt||row?.archived_at||null,
+    archivedAt:hasOwn(item,'archivedAt')?item.archivedAt:(hasOwn(row,'archived_at')?row.archived_at:null),
   });
   const rowMeta=row=>({
     title:row?.title||'',
     address:row?.address||'',
     note:row?.note||'',
     sortOrder:Number(row?.sort_order||0),
-    archivedAt:row?.archived_at||null,
+    archivedAt:hasOwn(row,'archived_at')?row.archived_at:null,
   });
   const localMeta=(item,index)=>({
     title:item?.title||item?.address||'',
     address:item?.address||'',
     note:item?.note||'',
     sortOrder:index,
-    archivedAt:item?.archivedAt||null,
+    archivedAt:hasOwn(item,'archivedAt')?item.archivedAt:null,
   });
   const remoteData=row=>{
     const data=Merge.clean(row?.form_data||{});
-    if(row?.archived_at)data.archivedAt=row.archived_at;
+    if((row?.archived_at!==null&&row?.archived_at!==undefined)||hasOwn(data,'archivedAt'))data.archivedAt=row?.archived_at??data.archivedAt;
     return data;
   };
-  const payload=(item,index,data,meta)=>Merge.transportNormalize({
-    project_id:cloudProjectId,
-    client_id:item.id,
-    title:meta.title||meta.address||'Без названия',
-    address:meta.address||null,
-    note:meta.note||null,
-    status:data.status||null,
-    object_type:data.objectType||null,
-    form_data:Merge.clean(data),
-    sort_order:Number(meta.sortOrder||0),
-    archived_at:data.archivedAt||meta.archivedAt||null,
-    updated_by:cloudSession.user.id,
-  });
-  const comparable=value=>value?Merge.transportNormalize({
+  const archiveSelection=(data,meta)=>{
+    if(hasOwn(data,'archivedAt'))return{known:true,value:data.archivedAt};
+    if(hasOwn(meta,'archivedAt')&&meta.archivedAt!==null&&meta.archivedAt!==undefined)return{known:true,value:meta.archivedAt};
+    return{known:false,value:null};
+  };
+  const coherentFormData=(data,archive)=>{
+    const formData=Merge.clean(data);
+    if(archive.known)formData.archivedAt=archive.value;
+    else delete formData.archivedAt;
+    return formData;
+  };
+  const payload=(item,index,data,meta,projectId,updatedBy)=>{
+    const archive=archiveSelection(data,meta);
+    return Merge.transportNormalize({
+      project_id:projectId??cloudProjectId,
+      client_id:item.id,
+      title:meta.title||meta.address||'Без названия',
+      address:meta.address||null,
+      note:meta.note||null,
+      status:data.status||null,
+      object_type:data.objectType||null,
+      form_data:coherentFormData(data,archive),
+      sort_order:Number(meta.sortOrder||0),
+      archived_at:archive.value,
+      updated_by:updatedBy??cloudSession?.user?.id??null,
+    });
+  };
+  const legacyComparable=value=>value?Merge.transportNormalize({
     project_id:value.project_id,
     client_id:value.client_id||value.id,
     title:value.title||'',
@@ -86,6 +106,27 @@
     sort_order:Number(value.sort_order||0),
     archived_at:value.archived_at||null,
   }):null;
+  const comparable=value=>{
+    if(!value)return null;
+    const formData=Merge.clean(value.form_data||{});
+    const formKnown=hasOwn(formData,'archivedAt');
+    const topKnown=hasOwn(value,'archived_at');
+    const archivedAt=topKnown?value.archived_at:(formKnown?formData.archivedAt:null);
+    if((topKnown&&archivedAt!==null&&archivedAt!==undefined)||formKnown)formData.archivedAt=archivedAt;
+    else delete formData.archivedAt;
+    return Merge.transportNormalize({
+      project_id:value.project_id,
+      client_id:value.client_id||value.id,
+      title:value.title||'',
+      address:value.address||null,
+      note:value.note||null,
+      status:value.status||null,
+      object_type:value.object_type||null,
+      form_data:formData,
+      sort_order:Number(value.sort_order||0),
+      archived_at:archivedAt,
+    });
+  };
 
   function differencePaths(left,right,path='',result=[]){
     if(result.length>=12||Merge.same(left,right))return result;
@@ -191,15 +232,30 @@
   function chooseMeta(base,item,row,index,preferLocal){
     return Merge.merge(base?.meta,localMeta(item,index),row?rowMeta(row):undefined,{preferLocal,explicitReset:false});
   }
+  function startupProtectionState(id,row){
+    if(!row)return{active:false,clean:false,journaled:false,reconciling:false,base:null};
+    const protection=window.BogatkaInitialBackgroundEditProtectionV437;
+    const snapshot=protection?.snapshot;
+    const active=Boolean(protection?.ready&&INITIAL_CLOUD_LIFECYCLES.has(protection.lifecycle)&&snapshot?.locations?.includes(id));
+    const clean=Boolean(active&&!(snapshot.preExistingDirty||[]).includes(id));
+    const journaled=Boolean(clean&&protection._test?.journalIds?.().has(id));
+    const reconciling=Boolean(clean&&protection.lifecycle==='reconciling-early-edits');
+    return{active,clean,journaled,reconciling,base:clean?protection._test?.startupBaseFor?.(id)||null:null};
+  }
   async function buildContext(item,index,row,syncState){
     const local=await getLocationData(item.id);
     const cleanLocal=Merge.clean(local);
-    const base=await State.readBase(item.id)||null;
-    const dirty=(syncState.dirtyLocations||[]).includes(item.id);
+    const persistedBase=await State.readBase(item.id)||null;
+    const startup=startupProtectionState(item.id,row);
+    const stateDirty=(syncState.dirtyLocations||[]).includes(item.id);
+    const useStartupBase=Boolean(startup.reconciling&&startup.base&&!stateDirty&&!startup.journaled);
+    const base=useStartupBase?startup.base:persistedBase||startup.base;
+    if(useStartupBase)diagnostics.startupBasesUsed+=1;
+    const dirty=stateDirty;
     const options={preferLocal:dirty,explicitReset:pendingReset(item.id)};
     const merged=Merge.merge(base?.formData,cleanLocal,row?remoteData(row):undefined,options);
     const meta=chooseMeta(base,item,row,index,Boolean(syncState.metaDirty)||dirty);
-    const nextPayload=payload(item,index,merged,meta);
+    const nextPayload=payload(item,index,merged,meta,syncState?.projectId,syncState?.userId);
     return {
       id:item.id,item,index,row,base,local,merged,meta,payload:nextPayload,dirty,
       needsPush:!row||!Merge.same(comparable(nextPayload),comparable(row)),
@@ -262,9 +318,16 @@
         throw new Error(`Не удалось подтвердить облачную запись локации «${context.item.title||context.id}».`);
       }
 
+      const legacyDesired=legacyComparable(context.payload);
+      const legacyRemote=legacyComparable(row);
+      const legacyPaths=differencePaths(legacyDesired,legacyRemote).slice(0,12);
       const desired=comparable(context.payload);
       const remote=comparable(row);
+      const paths=differencePaths(desired,remote).slice(0,12);
+      diagnostics.lastLegacyDifferencePaths=legacyPaths;
+      diagnostics.lastDifferencePaths=paths;
       if(Merge.same(desired,remote)){
+        if(legacyPaths.length)diagnostics.archiveComparisonsResolved++;
         if(!written)diagnostics.noOpUpdatesAccepted++;
         await adapter.saveLocal(context,row,remoteData(row));
         await adapter.saveBase(context,row);
@@ -274,10 +337,10 @@
 
       const signature=`${Number(row.revision||0)}|${Merge.canonical(desired)}|${Merge.canonical(remote)}`;
       if(seen.has(signature)){
-        const paths=differencePaths(desired,remote).slice(0,6);
+        const conflictPaths=paths.slice(0,6);
         diagnostics.realConflicts++;
-        diagnostics.lastFailingStage=`non-converging:${paths.join(',')||'unknown'}`;
-        throw new Error(`Конфликт синхронизации локации «${context.item.title||context.id}». Не удалось согласовать поля: ${paths.join(', ')||'неизвестно'}.`);
+        diagnostics.lastFailingStage=`non-converging:${conflictPaths.join(',')||'unknown'}`;
+        throw new Error(`Конфликт синхронизации локации «${context.item.title||context.id}». Не удалось согласовать поля: ${conflictPaths.join(', ')||'неизвестно'}.`);
       }
       seen.add(signature);
       if(Number(row.revision||0)!==previousRevision||!written)diagnostics.revisionRebases++;
@@ -285,6 +348,7 @@
       context=await adapter.rebuild(context,row,syncState);
     }
     const paths=differencePaths(comparable(context.payload),comparable(context.row)).slice(0,6);
+    diagnostics.lastDifferencePaths=paths;
     diagnostics.realConflicts++;
     diagnostics.lastFailingStage=`retry-limit:${paths.join(',')||'unknown'}`;
     throw new Error(`Конфликт синхронизации локации «${context.item.title||context.id}». Повторите синхронизацию.`);
@@ -302,7 +366,7 @@
       if(row){
         finalRows.set(item.id,row);
         item.cloudId=row.id;
-        if(row.archived_at)item.archivedAt=row.archived_at;else delete item.archivedAt;
+        if(hasOwn(row,'archived_at'))item.archivedAt=row.archived_at;else delete item.archivedAt;
       }else finalRows.delete(item.id);
     }
     await State.rawPut()(STORE,locations.filter(item=>!isPending(item.id)),'meta:locations');
@@ -432,6 +496,10 @@
     diagnostics.noOpUpdatesAccepted=0;
     diagnostics.revisionRebases=0;
     diagnostics.inFlightLocalMerges=0;
+    diagnostics.startupBasesUsed=0;
+    diagnostics.archiveComparisonsResolved=0;
+    diagnostics.lastDifferencePaths=[];
+    diagnostics.lastLegacyDifferencePaths=[];
     diagnostics.realConflicts=0;
     diagnostics.lastFailingStage='';
   }
@@ -449,6 +517,7 @@
     },
     _test:{
       comparable,
+      legacyComparable,
       differencePaths,
       persistLocation,
       buildContext,

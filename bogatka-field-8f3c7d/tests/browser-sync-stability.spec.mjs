@@ -6,6 +6,12 @@ async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>Boolean(window.BogatkaCloudStability&&window.BogatkaUIStability&&window.BogatkaSuite));
+  await page.waitForFunction(()=>{
+    const authority=window.BogatkaPanelAuthorityV437;
+    if(!authority)return true;
+    const diagnostics=authority.diagnostics;
+    return diagnostics.cloudBackgroundCompletions+diagnostics.cloudBackgroundErrors>0;
+  },{timeout:20000});
 }
 
 async function openCollaborationPane(page,pane){

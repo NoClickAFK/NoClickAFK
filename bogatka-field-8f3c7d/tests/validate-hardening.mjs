@@ -27,6 +27,8 @@ verify('cloud-stability-v401.js',['event-driven-sync-with-no-idle-network-loop',
 verify('field-integrity-v416.js',['one-location-one-ordered-save-queue','BogatkaFieldIntegrityV416']);
 verify('object-type-normalize-v416.js',['pendingEmptyResets','persistIntentionalEmpty','handleObjectTypeChange']);
 verify('location-panels-v419.js',['INSPECTION_HIDE','panel-hidden-v419','reorderChildren','BogatkaLocationPanelsV419']);
+verify('startup-panel-authority-v437.js',['BogatkaPanelAuthorityV437','prepareLocalUi','startCloudBackground','__localFirstV437','panel-authority-ready-v437','MutationObserver','audit()']);
+verify('startup-panel-authority-v437.css',['html:not(.panel-authority-ready-v437)','.panel-authority-v437','.panel-authority-failed-v437']);
 verify('location-global-v421.js',['premiseAvailability','landlordReadiness','BogatkaLocationGlobalV421']);
 verify('location-card-collapse-v422.js',['STORAGE_PREFIX','setCollapsed','BogatkaLocationCardCollapseV422']);
 const collapseCss=read('location-card-collapse-v422.css');
@@ -36,10 +38,10 @@ verify('visual-v411.css',['.comparison-shell-v430','border:2px solid #d8b860!imp
 verify('workflow-v414.js',['checklist-guide-v414','structured-notes-v414','history-pagination-v414','BogatkaWorkflowV414']);
 verify('members-v32.js',['create_project_invite','update_project_member_role','remove_project_member']);
 verify('auth-signup-fix-v31.js',['accept_bogatka_project_invite','bogatkaInviteAcceptancePromise']);
-verify('version-authority-v426.js',["functions.invoke('bogatka-version')",'protectLegacyVersionWriters','window.BOGATKA_BUILD','window.BogatkaVersion','registerVersionedWorker','installVersionedBackup',"version:'4.3.6'","versionToken:'436'","sourceCommit:'4f584e01fcf02a99010e36c2a2eaaf97da3db113'"]);
+verify('version-authority-v426.js',["functions.invoke('bogatka-version')",'protectLegacyVersionWriters','window.BOGATKA_BUILD','window.BogatkaVersion','registerVersionedWorker','installVersionedBackup',"version:'4.3.7'","versionToken:'437'","sourceCommit:'9c9543fc05a31985aaf5237cec5124a53d984ed3'"]);
 verify('readiness-progress-v434.js',['BogatkaReadinessProgressV434','PHOTO_PLAN','buildProgress','landlordRequirements','conclusionRequirements']);
 const versionAuthority=read('version-authority-v426.js');
-if(versionAuthority.includes("version:'4.3.5'")||versionAuthority.includes("versionToken:'435'"))failures.push('version-authority-v426.js contains stale v4.3.5 production markers');
+if(versionAuthority.includes("version:'4.3.6'")||versionAuthority.includes("versionToken:'436'"))failures.push('version-authority-v426.js contains stale v4.3.6 production markers');
 
 const functionPath=path.resolve('supabase/functions/bogatka-version/index.ts');
 if(!fs.existsSync(functionPath))failures.push('Missing Supabase version resolver source');
@@ -49,9 +51,9 @@ else{
 }
 
 const sw=read('sw-v340.js');
-for(const asset of ['./version-authority-v426.js','./location-card-collapse-v422.js','./location-card-collapse-v422.css','./location-global-v421.js','./report-finalize-v432.js','./report-editorial-core-v433.js','./report-editorial-single-v433.js','./report-editorial-portfolio-v433.js','./report-editorial-style-a-v433.js','./report-editorial-style-b-v433.js','./readiness-progress-v434.js','./archive-state-v436.js'])if(sw&&!sw.includes(`'${asset}'`))failures.push(`Service Worker does not cache ${asset}`);
+for(const asset of ['./version-authority-v426.js','./location-card-collapse-v422.js','./location-card-collapse-v422.css','./location-global-v421.js','./report-finalize-v432.js','./report-editorial-core-v433.js','./report-editorial-single-v433.js','./report-editorial-portfolio-v433.js','./report-editorial-style-a-v433.js','./report-editorial-style-b-v433.js','./readiness-progress-v434.js','./archive-state-v436.js','./startup-panel-authority-v437.js','./startup-panel-authority-v437.css'])if(sw&&!sw.includes(`'${asset}'`))failures.push(`Service Worker does not cache ${asset}`);
 if(sw&&!sw.includes("searchParams.get('v')"))failures.push('Service Worker does not derive its cache revision from the resolved version token');
-if(sw&&!sw.includes("||'436'"))failures.push('Service Worker fallback build token is not v436');
+if(sw&&!sw.includes("||'437'"))failures.push('Service Worker fallback build token is not v437');
 
 for(const migration of ['supabase/migrations/20260626000200_secure_personal_invites_v408.sql','supabase/migrations/20260626000400_collaboration_controls_and_idempotent_invites_v410.sql','supabase/migrations/20260626000500_sync_integrity_v412.sql','supabase/migrations/20260627000100_remove_location_activity_log_v413.sql'])if(!fs.existsSync(path.resolve(migration)))failures.push(`Missing migration ${migration}`);
 

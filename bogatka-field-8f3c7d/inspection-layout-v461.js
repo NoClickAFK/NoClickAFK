@@ -24,16 +24,54 @@ const LEFT=['inspectionPurpose','inspectionResult'];
 const RIGHT=['objectSource','listingUrl','objectSourceOther','inspectionParticipants'];
 const WIDE=new Set(['inspectionPurpose','inspectionResult','objectSourceOther','inspectionParticipants']);
 let timer=null;
+let timerDue=Infinity;
+let observer=null;
+let observerRoot=null;
+let enhancing=false;
 
 const fieldSelector=field=>`[data-field="${CSS.escape(field)}"]`;
 const visibleControl=(card,field)=>card.querySelector(fieldSelector(field));
 const fieldWrapper=control=>control?.closest('label.field')||null;
 const isEditing=card=>{const active=document.activeElement;return Boolean(active&&card.contains(active)&&/^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName));};
+const premiumTrigger=select=>select?.nextElementSibling?.classList?.contains('premium-select-trigger')?select.nextElementSibling:null;
+
+function observe(){
+  if(observer&&observerRoot)observer.observe(observerRoot,{childList:true,subtree:true});
+}
 
 function syncPremium(select){
-  if(!select||select.tagName!=='SELECT')return;
-  if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
-  else if(typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,select.nextElementSibling);
+  if(!select||select.tagName!=='SELECT')return true;
+  let trigger=premiumTrigger(select);
+  const expectsPremium=select.dataset.premiumSelect==='1'||select.classList.contains('premium-native-select');
+  if(!trigger&&expectsPremium&&typeof bogatkaEnhanceSelect==='function'){
+    // Preserve the native premium marker while asking the canonical enhancer to
+    // restore its visible trigger. Removing the marker here caused the premium
+    // observer and V461 to repeatedly undo each other during startup.
+    delete select.dataset.premiumSelect;
+    bogatkaEnhanceSelect(select);
+    trigger=premiumTrigger(select);
+  }
+  if(trigger){
+    if(window.BogatkaSelectSync?.syncVisibleSelect)window.BogatkaSelectSync.syncVisibleSelect(select);
+    else if(typeof bogatkaSyncPremiumSelect==='function')bogatkaSyncPremiumSelect(select,trigger);
+    return true;
+  }
+  // A select already claimed by the premium enhancer is not layout-ready until
+  // its visible trigger exists. Leave its classes intact and let the existing
+  // observer schedule one later V461 pass.
+  return !expectsPremium;
+}
+
+function clearResponsiveGridOverrides(...grids){
+  // Responsive column ownership belongs exclusively to inspection-layout-v461.css.
+  // Remove the former inline !important value so media queries remain authoritative
+  // through initial load, resize and every late compatibility enhancement pass.
+  for(const grid of grids){
+    if(!grid)continue;
+    if(grid.style.getPropertyValue('grid-template-columns')||grid.style.getPropertyPriority('grid-template-columns')){
+      grid.style.removeProperty('grid-template-columns');
+    }
+  }
 }
 
 function setCaption(wrapper,text){
@@ -64,14 +102,14 @@ function insertSequence(container,nodes,before){
 }
 
 function rewriteSource(select){
-  if(!select)return;
+  if(!select)return false;
   const current=select.value;
   for(const option of select.options){
     const next=SOURCE_LABELS[option.value];
     if(next&&option.textContent!==next)option.textContent=next;
   }
   if(select.value!==current)select.value=current;
-  syncPremium(select);
+  return syncPremium(select);
 }
 
 function normalizeUrl(value){
@@ -87,7 +125,7 @@ function syncSource(card){
   const source=visibleControl(card,'objectSource');
   const other=visibleControl(card,'objectSourceOther');
   const listing=visibleControl(card,'listingUrl');
-  if(!source||!other||!listing)return;
+  if(!source||!other||!listing)return false;
   const otherWrapper=fieldWrapper(other);
   const listingWrapper=fieldWrapper(listing);
   const showOther=source.value==='Другое';
@@ -106,7 +144,7 @@ function syncSource(card){
     if(href){link.href=href;link.textContent='Открыть объявление';}
     else{link.removeAttribute('href');link.textContent='Проверьте ссылку';}
   }
-  rewriteSource(source);
+  return rewriteSource(source);
 }
 
 function bindSource(card){
@@ -144,6 +182,8 @@ function patchLabels(){
 
 function placeCard(card){
   if(!card?.dataset?.locationCard||isEditing(card))return false;
+  delete card.dataset.inspectionLayoutV461;
+  delete card.dataset.inspectionLayoutV462;
   const inspection=card.querySelector('.inspection-card-v416');
   const landlord=card.querySelector('.landlord-card-v416');
   const inspectionGrid=inspection?.querySelector('.inspection-grid-v416');
@@ -151,6 +191,7 @@ function placeCard(card){
   const extra=inspection?.querySelector('.inspection-extra-v452');
   if(!inspectionGrid||!landlordGrid||!extra)return false;
   patchExtraLookup(extra,card);
+  clearResponsiveGridOverrides(inspectionGrid,landlordGrid);
 
   const controls={};
   for(const field of [...LEFT,...RIGHT]){
@@ -173,30 +214,55 @@ function placeCard(card){
   if(inspectionCopy)inspectionCopy.textContent='Статус, параметры осмотра, следующий шаг и итог.';
   if(landlordCopy)landlordCopy.textContent='Контакты, источник объекта и предварительные договорённости.';
 
-  rewriteSource(controls.objectSource);
+  const sourceReady=rewriteSource(controls.objectSource);
   bindSource(card);
-  syncSource(card);
+  const sourceStateReady=syncSource(card);
+  if(!sourceReady||!sourceStateReady)return false;
   card.dataset.inspectionLayoutV461='1';
   card.dataset.inspectionLayoutV462='1';
   return true;
 }
 
 function enhanceAll(){
-  patchLabels();
-  let ready=0;
-  for(const card of document.querySelectorAll('[data-location-card]'))if(placeCard(card))ready++;
-  return ready;
+  if(enhancing)return 0;
+  enhancing=true;
+  observer?.disconnect();
+  try{
+    patchLabels();
+    let ready=0;
+    for(const card of document.querySelectorAll('[data-location-card]'))if(placeCard(card))ready++;
+    return ready;
+  }finally{
+    enhancing=false;
+    observe();
+  }
 }
 
-function schedule(delay=70){clearTimeout(timer);timer=setTimeout(()=>{try{enhanceAll();}catch(error){console.error(error);}},delay);}
+function schedule(delay=70){
+  const due=performance.now()+Math.max(0,delay);
+  if(timer!==null&&timerDue<=due)return;
+  if(timer!==null)clearTimeout(timer);
+  timerDue=due;
+  timer=setTimeout(()=>{
+    timer=null;
+    timerDue=Infinity;
+    try{enhanceAll();}catch(error){console.error(error)}
+  },Math.max(0,delay));
+}
+
 function install(){
-  const root=document.getElementById('locations')||document.body;
-  new MutationObserver(()=>schedule(90)).observe(root,{childList:true,subtree:true});
+  observerRoot=document.getElementById('locations')||document.body;
+  observer=new MutationObserver(records=>{
+    if(enhancing)return;
+    if(records.some(record=>record.addedNodes.length||record.removedNodes.length))schedule(0);
+  });
+  observe();
   schedule(20);
   [250,700,1500,3000,6000].forEach(delay=>setTimeout(()=>schedule(0),delay));
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 window.addEventListener('load',()=>schedule(30),{once:true});
-window.BogatkaInspectionLayoutV461={version:VERSION,ready:true,LABELS,SOURCE_LABELS,enhanceAll,placeCard};
+window.addEventListener('resize',()=>schedule(0));
+window.BogatkaInspectionLayoutV461={version:VERSION,ready:true,LABELS,SOURCE_LABELS,responsiveOwner:'inspection-layout-v461.css',enhanceAll,placeCard};
 })();

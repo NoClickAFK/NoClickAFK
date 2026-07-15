@@ -7,6 +7,7 @@ import {spawnSync} from 'node:child_process';
 const ROOT=path.resolve('.');
 const WORKFLOW=path.join(ROOT,'.github/workflows/bogatka-feature-tests.yml');
 const RESOLVER=path.join(ROOT,'.github/scripts/resolve-feature-diff-base.sh');
+const PUBLICATION_BLOCKER='bogatka-field-8f3c7d/tests/release-blockers-v437.spec.mjs';
 const temporary=[];
 
 function command(cwd,program,args,env={}){
@@ -58,6 +59,39 @@ function runResolver(repo,env){
   };
 }
 
+function selectionScript(){
+  const lines=readFileSync(WORKFLOW,'utf8').split('\n');
+  const stepIndex=lines.findIndex(line=>line.trim()==='- name: Select tests for changed domains');
+  const runIndex=lines.findIndex((line,index)=>index>stepIndex&&line.trim()==='run: |');
+  const endIndex=lines.findIndex((line,index)=>index>runIndex&&line.startsWith('      - name:'));
+  if(stepIndex<0||runIndex<0||endIndex<0)throw new Error('Unable to extract the workflow selection step.');
+  const body=lines.slice(runIndex+1,endIndex);
+  const indentation=Math.min(...body.filter(line=>line.trim()).map(line=>line.match(/^\s*/)[0].length));
+  return body.map(line=>line.slice(indentation)).join('\n');
+}
+
+function runSelection(changedFiles){
+  const directory=mkdtempSync(path.join(os.tmpdir(),'bogatka-selection-'));
+  temporary.push(directory);
+  const changedFile=path.join(directory,'changed-files.txt');
+  const selectedFile=path.join(directory,'selected-tests.txt');
+  const githubOutput=path.join(directory,'github-output.txt');
+  writeFileSync(changedFile,`${changedFiles.join('\n')}\n`);
+  const script=selectionScript()
+    .replaceAll('/tmp/bogatka-changed-files.txt',changedFile)
+    .replaceAll('/tmp/selected-tests.txt',selectedFile);
+  const result=command(ROOT,'bash',['-c',script],{GITHUB_OUTPUT:githubOutput});
+  return{
+    ...result,
+    selected:result.status===0?readFileSync(selectedFile,'utf8').trim().split('\n').filter(Boolean):[],
+    output:result.status===0?readFileSync(githubOutput,'utf8'):'',
+  };
+}
+
+function outputValue(output,key){
+  return output.split('\n').find(line=>line.startsWith(`${key}=`))?.slice(key.length+1)||'';
+}
+
 test.afterAll(()=>{
   for(const directory of temporary)rmSync(directory,{recursive:true,force:true});
 });
@@ -79,6 +113,39 @@ test('feature workflow declares guarded bases, preserves artifacts, and keeps co
   expect(resolver).toContain("resolve_commit 'HEAD^'");
   expect(resolver).toContain('Unable to resolve a valid comparison base');
   expect(resolver).toContain('does not share a merge base with HEAD');
+});
+
+test('cloud.js-only selection executes the publication blocker and sync safety',()=>{
+  const result=runSelection(['bogatka-field-8f3c7d/cloud.js']);
+  expect(result.status,result.stderr).toBe(0);
+  expect(result.selected).toContain(PUBLICATION_BLOCKER);
+  expect(result.selected.filter(item=>item===PUBLICATION_BLOCKER)).toHaveLength(1);
+  expect(outputValue(result.output,'sync_changed')).toBe('true');
+});
+
+test('mutation authority selection keeps the publication blocker mapped once',()=>{
+  const result=runSelection(['bogatka-field-8f3c7d/mutation-authority-v437.js']);
+  expect(result.status,result.stderr).toBe(0);
+  expect(result.selected).toContain(PUBLICATION_BLOCKER);
+  expect(result.selected.filter(item=>item===PUBLICATION_BLOCKER)).toHaveLength(1);
+});
+
+test('publication focused test and aggregator changes keep the aggregator selected',()=>{
+  for(const changed of [
+    'bogatka-field-8f3c7d/tests/release-blockers-publication-authority-v437.spec.mjs',
+    'bogatka-field-8f3c7d/tests/release-blockers-v437.spec.mjs',
+  ]){
+    const result=runSelection([changed]);
+    expect(result.status,result.stderr).toBe(0);
+    expect(result.selected).toContain(PUBLICATION_BLOCKER);
+    expect(result.selected.filter(item=>item===PUBLICATION_BLOCKER)).toHaveLength(1);
+  }
+});
+
+test('unrelated file does not select the publication blocker accidentally',()=>{
+  const result=runSelection(['bogatka-field-8f3c7d/docs/unrelated-note.md']);
+  expect(result.status,result.stderr).toBe(0);
+  expect(result.selected).not.toContain(PUBLICATION_BLOCKER);
 });
 
 test('pull_request uses and verifies the event base SHA',()=>{

@@ -17,6 +17,12 @@ async function openApp(page){
   await page.waitForFunction(()=>window.BogatkaSyncFieldCompatV416?.ready===true);
   await page.waitForFunction(()=>window.BogatkaSyncCompatibility?.ready===true);
   await page.waitForFunction(()=>window.BogatkaArchiveStateV436?.ready===true);
+  await page.waitForFunction(()=>{
+    const authority=window.BogatkaPanelAuthorityV437;
+    if(!authority)return true;
+    const diagnostics=authority.diagnostics;
+    return diagnostics.cloudBackgroundCompletions+diagnostics.cloudBackgroundErrors>0;
+  },{timeout:20000});
 }
 
 test('pre-push queued restore intent wins over the earlier archived snapshot',async({page})=>{

@@ -149,7 +149,11 @@
     }
   }
 
-  function makeToggle(section,title,copy,storageKey,grid){
+  function terminalOwns(section,kind){
+    return window.BogatkaPanelAuthorityV437?.ownsPanelHeaders===true&&section.dataset.panelAuthorityV437===kind;
+  }
+
+  function makeToggle(section,kind,title,copy,storageKey,grid,id){
     let head=section.querySelector(':scope > .panel-toggle-v419');
     const existing=section.querySelector(':scope > .profile-section-head-v416');
     if(!grid.id)grid.id=`panel-${storageKey.replace(/[^a-z0-9_-]/gi,'-')}`;
@@ -161,20 +165,26 @@
       section.prepend(head);
       head.addEventListener('click',()=>{
         const next=!isOpen(section);
+        const authority=window.BogatkaPanelAuthorityV437;
+        if(authority?.ownsPanelHeaders===true&&authority.copy?.[kind]){
+          authority.setPanelOpen(section,kind,id,next,{persist:true});
+          return;
+        }
         section.dataset.panelOpenV419=next?'1':'0';
-        try{localStorage.setItem(storageKey,next?'1':'0')}catch(_){}
+        try{localStorage.setItem(storageKey,next?'1':'0')}catch(_){ }
         updateOpenState(section);
       });
     }
     if(existing)existing.remove();
     head.setAttribute('aria-controls',grid.id);
+    if(terminalOwns(section,kind))return;
     const titleNode=head.querySelector('.panel-title-v419');
     const copyNode=head.querySelector('.panel-copy-v419');
     if(titleNode.textContent!==title)titleNode.textContent=title;
     if(copyNode.textContent!==copy)copyNode.textContent=copy;
     if(section.dataset.panelOpenV419===undefined){
       let saved='1';
-      try{saved=localStorage.getItem(storageKey)||'1'}catch(_){}
+      try{saved=localStorage.getItem(storageKey)||'1'}catch(_){ }
       section.dataset.panelOpenV419=saved==='0'?'0':'1';
     }
     updateOpenState(section);
@@ -221,7 +231,7 @@
   }
 
   function arrangeInspection(card,section,grid,id){
-    makeToggle(section,'Параметры осмотра','Статус, формат, состояние помещения и следующий шаг.',`bogatka.panel.inspection.open.${id}`,grid);
+    makeToggle(section,'inspection','Параметры осмотра','Статус, формат, состояние помещения и следующий шаг.',`bogatka.panel.inspection.open.${id}`,grid,id);
     ensureInspectionFields(card,grid,id);
     setInspectionVisibility(card);
     const nodes=INSPECTION_KEEP.map(field=>fieldWrapper(controlOfField(card,field))).filter(Boolean);
@@ -232,7 +242,7 @@
   }
 
   function arrangeLandlord(card,section,grid,id){
-    makeToggle(section,'Арендодатель и условия','Собственник, роль контактного лица, контакты и договорённости.',`bogatka.panel.landlord.open.${id}`,grid);
+    makeToggle(section,'landlord','Арендодатель и условия','Собственник, роль контактного лица, контакты и договорённости.',`bogatka.panel.landlord.open.${id}`,grid,id);
     const rentWrapper=fieldWrapper(controlOfField(card,'rent'));
     if(rentWrapper){
       rentWrapper.hidden=true;
@@ -330,7 +340,7 @@
     wrapped.__locationProfileV416=true;
     wrapped.__base=base;
     window.buildReportHtml=wrapped;
-    try{buildReportHtml=wrapped}catch(_){}
+    try{buildReportHtml=wrapped}catch(_){ }
   }
 
   async function enhanceAll(options={}){
@@ -353,7 +363,9 @@
   function install(){
     addReportPatch();
     const root=document.getElementById('locations')||document.body;
-    new MutationObserver(()=>schedule(120)).observe(root,{childList:true,subtree:true});
+    new MutationObserver(records=>{
+      if(records.some(record=>record.addedNodes.length||record.removedNodes.length))schedule(120);
+    }).observe(root,{childList:true});
     schedule(20);
     setTimeout(()=>schedule(0),500);
     setTimeout(()=>schedule(0),1500);

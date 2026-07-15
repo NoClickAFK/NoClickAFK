@@ -18,6 +18,7 @@ async function openApp(page,{width=1440,height=1100}={}){
     window.BogatkaDecisionPanel?.ready&&
     window.BogatkaLocationPanelsV419?.ready&&
     window.BogatkaInspectionLayoutV461?.ready&&
+    window.BogatkaPanelAuthorityV437?.ready&&
     document.querySelector('[data-location-card] .decision-progress-v448')&&
     document.querySelector('[data-location-card] [data-field="listingUrl"]')
   ),null,{timeout:30000});
@@ -36,6 +37,7 @@ async function patchData(page,id,patch){
     await window.BogatkaLocationDataV452?.enhanceAll?.();
     await window.BogatkaLocationPanelsV419?.enhanceAll?.({force:true});
     window.BogatkaInspectionLayoutV461?.enhanceAll?.();
+    window.BogatkaPanelAuthorityV437?.canonicalizeAll?.();
     const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
     if(card&&Object.hasOwn(next,'decision')){
       card.querySelectorAll('[data-field="decision"]').forEach(control=>{control.checked=control.value===next.decision});
@@ -68,21 +70,76 @@ async function collapseTopPanels(card){
     const id=node.dataset.locationCard;
     await window.BogatkaLocationPanelsV419.enhanceAll({force:true});
     window.BogatkaInspectionLayoutV461.enhanceAll();
+    window.BogatkaPanelAuthorityV437.canonicalizeAll();
     const current=document.querySelector(`[data-location-card="${CSS.escape(id)}"]`);
-    for(const selector of ['.inspection-card-v416','.landlord-card-v416']){
+    const authority=window.BogatkaPanelAuthorityV437;
+    for(const [kind,selector] of [['inspection','.inspection-card-v416'],['landlord','.landlord-card-v416']]){
       const panel=current.querySelector(selector);
       if(!panel)throw new Error(`Missing final panel ${selector}`);
-      panel.dataset.panelOpenV419='0';
-      panel.classList.add('panel-closed-v419');
-      const toggle=panel.querySelector(':scope > .panel-toggle-v419');
-      if(!toggle)throw new Error(`Missing final panel toggle ${selector}`);
-      toggle.setAttribute('aria-expanded','false');
-      const chevron=panel.querySelector('.panel-chevron-v419');
-      if(chevron)chevron.textContent='⌄';
+      if(!authority.setPanelOpen(panel,kind,id,false,{persist:false}))throw new Error(`Failed to close ${kind}`);
     }
   });
   await expect(card.locator('.inspection-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
   await expect(card.locator('.landlord-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
+}
+
+async function rememberPanelNodes(page,id){
+  await page.evaluate(locationId=>{
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    window.__readinessPanelNodesV437={
+      inspection:card.querySelector('.inspection-card-v416 > .panel-toggle-v419'),
+      landlord:card.querySelector('.landlord-card-v416 > .panel-toggle-v419'),
+    };
+  },id);
+}
+
+async function panelState(page,id){
+  return page.evaluate(locationId=>{
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    const inspection=card.querySelector('.inspection-card-v416');
+    const landlord=card.querySelector('.landlord-card-v416');
+    const inspectionToggle=inspection.querySelector(':scope > .panel-toggle-v419');
+    const landlordToggle=landlord.querySelector(':scope > .panel-toggle-v419');
+    const remembered=window.__readinessPanelNodesV437||{};
+    return{
+      sameInspection:remembered.inspection===inspectionToggle,
+      sameLandlord:remembered.landlord===landlordToggle,
+      inspectionAria:inspectionToggle.getAttribute('aria-expanded'),
+      landlordAria:landlordToggle.getAttribute('aria-expanded'),
+      inspectionOpen:inspection.dataset.panelOpenV419,
+      landlordOpen:landlord.dataset.panelOpenV419,
+      inspectionStored:localStorage.getItem(`bogatka.panel.inspection.open.${locationId}`),
+      landlordStored:localStorage.getItem(`bogatka.panel.landlord.open.${locationId}`),
+      inspectionToggles:inspection.querySelectorAll(':scope > .panel-toggle-v419').length,
+      landlordToggles:landlord.querySelectorAll(':scope > .panel-toggle-v419').length,
+      audit:window.BogatkaPanelAuthorityV437.audit(),
+    };
+  },id);
+}
+
+async function runLatePanelPasses(page,id){
+  await page.evaluate(async locationId=>{
+    await window.BogatkaLocationPanelsV419.enhanceAll({force:true});
+    window.BogatkaInspectionLayoutV461.enhanceAll();
+    window.BogatkaPanelAuthorityV437.canonicalizeAll();
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    window.BogatkaInspectionLayoutV461.placeCard(card);
+    window.BogatkaPanelAuthorityV437.canonicalizeAll();
+  },id);
+}
+
+function expectLandlordNavigationState(state){
+  expect(state.sameInspection).toBe(true);
+  expect(state.sameLandlord).toBe(true);
+  expect(state.inspectionAria).toBe('false');
+  expect(state.landlordAria).toBe('true');
+  expect(state.inspectionOpen).toBe('0');
+  expect(state.landlordOpen).toBe('1');
+  expect(state.inspectionStored).toBe('0');
+  expect(state.landlordStored).toBe('1');
+  expect(state.inspectionToggles).toBe(1);
+  expect(state.landlordToggles).toBe(1);
+  expect(state.audit.ok).toBe(true);
 }
 
 async function expectControlInViewport(control){
@@ -100,7 +157,7 @@ async function screenshotCard(card,name){
 const completeInspection={status:'Осмотрен',objectType:'Торговое помещение',date:'2026-07-10',time:'12:00',floorLocation:'1 этаж',premiseCondition:'Готово',premiseAvailability:'Свободно',landlordReadiness:'Готов обсуждать',inspectionPurpose:'Первичный осмотр',inspectionResult:'Параметры подтверждены'};
 const completeLandlord={ownerName:'ООО Собственник',contactRole:'Собственник',contact:'Иван Иванов',contactPhone:'+375290000000'};
 
-test('listing and other-source readiness actions open the final landlord panel and exact field',async({page})=>{
+test('listing readiness action opens the final landlord panel and exact field',async({page})=>{
   const card=await openApp(page);
   const id=await card.getAttribute('data-location-card');
   await patchData(page,id,{...completeInspection,...completeLandlord,objectSource:'Объявление',listingUrl:'',objectSourceOther:'',inspectionParticipants:''});
@@ -115,16 +172,19 @@ test('listing and other-source readiness actions open the final landlord panel a
   expect(landlordBefore.title).toBe('Арендодатель и условия');
 
   await collapseTopPanels(card);
+  await rememberPanelNodes(page,id);
   const landlordItem=card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])');
   await expect(landlordItem).toHaveCount(1);
   await expect(landlordItem.locator('.fill-plan-copy-v448 strong')).toHaveText('Арендодатель и условия');
   await expect(landlordItem.locator('.fill-plan-copy-v448 small')).toContainText('ссылка на объявление');
   await landlordItem.locator('[data-progress-target-v448="landlord"]').click();
 
-  const landlordToggle=card.locator('.landlord-card-v416 > .panel-toggle-v419');
-  const inspectionToggle=card.locator('.inspection-card-v416 > .panel-toggle-v419');
-  await expect(landlordToggle).toHaveAttribute('aria-expanded','true');
-  await expect(inspectionToggle).toHaveAttribute('aria-expanded','false');
+  await expect(card.locator('.landlord-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','true');
+  await expect(card.locator('.inspection-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
+  expectLandlordNavigationState(await panelState(page,id));
+  await runLatePanelPasses(page,id);
+  expectLandlordNavigationState(await panelState(page,id));
+
   const listing=card.locator('.landlord-card-v416 .landlord-grid-v416 [data-field="listingUrl"]');
   await expect(listing).toHaveCount(1);
   await expect(listing).toBeVisible();
@@ -171,18 +231,29 @@ test('listing and other-source readiness actions open the final landlord panel a
   expect(new Set(idempotence.totals).size).toBe(1);
   for(const labels of idempotence.labels)expect(new Set(labels).size).toBe(labels.length);
   expect(idempotence.privateCache).toBe(false);
+});
 
-  await patchData(page,id,{objectSource:'Другое',objectSourceOther:'',listingUrl:''});
+test('other-source readiness action preserves canonical panel state through late passes and reload',async({page})=>{
+  let card=await openApp(page);
+  const id=await card.getAttribute('data-location-card');
+  await patchData(page,id,{...completeInspection,...completeLandlord,objectSource:'Другое',objectSourceOther:'',listingUrl:'',inspectionParticipants:''});
   await openProgressPlan(card);
+
   const landlordOther=await metricGroup(page,id,'landlord');
   expect(landlordOther.missingLabels).toContain('уточнение источника объекта');
   expect(landlordOther.missingFields).toEqual(['objectSourceOther']);
   expect(landlordOther.missingLabels).not.toContain('ссылка на объявление');
+
   await collapseTopPanels(card);
+  await rememberPanelNodes(page,id);
   const otherItem=card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])');
   await otherItem.locator('[data-progress-target-v448="landlord"]').click();
-  await expect(landlordToggle).toHaveAttribute('aria-expanded','true');
-  await expect(inspectionToggle).toHaveAttribute('aria-expanded','false');
+  await expect(card.locator('.landlord-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','true');
+  await expect(card.locator('.inspection-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
+  expectLandlordNavigationState(await panelState(page,id));
+  await runLatePanelPasses(page,id);
+  expectLandlordNavigationState(await panelState(page,id));
+
   const other=card.locator('.landlord-card-v416 .landlord-grid-v416 [data-field="objectSourceOther"]');
   await expect(other).toBeVisible();
   await expectControlInViewport(other);
@@ -194,6 +265,27 @@ test('listing and other-source readiness actions open the final landlord panel a
     return group&&!group.missingLabels.includes('уточнение источника объекта');
   },id,{timeout:10000});
   await expect(card.locator('.fill-plan-item-v448:has([data-progress-target-v448="landlord"])')).toHaveCount(0);
+
+  await page.reload({waitUntil:'networkidle'});
+  await page.waitForFunction(locationId=>Boolean(
+    window.BogatkaPanelAuthorityV437?.ready&&
+    document.querySelector(`[data-location-card="${CSS.escape(locationId)}"] .landlord-card-v416 > .panel-toggle-v419`)
+  ),id,{timeout:30000});
+  card=page.locator(`[data-location-card="${id}"]`);
+  await expect(card.locator('.landlord-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','true');
+  await expect(card.locator('.inspection-card-v416 > .panel-toggle-v419')).toHaveAttribute('aria-expanded','false');
+  const reloaded=await page.evaluate(locationId=>{
+    const card=document.querySelector(`[data-location-card="${CSS.escape(locationId)}"]`);
+    return{
+      inspection:card.querySelector('.inspection-card-v416').dataset.panelOpenV419,
+      landlord:card.querySelector('.landlord-card-v416').dataset.panelOpenV419,
+      inspectionStored:localStorage.getItem(`bogatka.panel.inspection.open.${locationId}`),
+      landlordStored:localStorage.getItem(`bogatka.panel.landlord.open.${locationId}`),
+      audit:window.BogatkaPanelAuthorityV437.audit(),
+    };
+  },id);
+  expect(reloaded).toMatchObject({inspection:'0',landlord:'1',inspectionStored:'0',landlordStored:'1'});
+  expect(reloaded.audit.ok).toBe(true);
 });
 
 test('minimum photo plan is exactly 13 and caps completion at 100 percent',async({page})=>{
@@ -319,5 +411,5 @@ test('final v4.3.4 completion re-ranks tied locations and rank sorting stays sta
 
 test.afterAll(async()=>{
   await mkdir(ARTIFACT_DIR,{recursive:true});
-  await writeFile(path.join(ARTIFACT_DIR,'evidence.json'),JSON.stringify({version:'4.3.4',photoPlan:{street:2,entrance:2,parking:1,traffic:1,competitors:1,interior:2,storage:1,engineering:2,documents:1,other:0,total:13},conclusionRequirements:['decision'],listingUrlOwner:'landlord',sourceNavigation:['listingUrl','objectSourceOther'],finalRanking:'post-v434-completion'},null,2));
+  await writeFile(path.join(ARTIFACT_DIR,'evidence.json'),JSON.stringify({version:'4.3.4',photoPlan:{street:2,entrance:2,parking:1,traffic:1,competitors:1,interior:2,storage:1,engineering:2,documents:1,other:0,total:13},conclusionRequirements:['decision'],listingUrlOwner:'landlord',sourceNavigation:['listingUrl','objectSourceOther'],panelStateOwner:'BogatkaPanelAuthorityV437',finalRanking:'post-v434-completion'},null,2));
 });

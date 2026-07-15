@@ -8,11 +8,20 @@ const REMOTE_ARCHIVE='2026-07-11T12:08:33.094+00:00';
 const CANONICAL_ARCHIVE='2026-07-11T12:08:33.094Z';
 
 function evidence(name,value){mkdirSync(ARTIFACT_DIR,{recursive:true});writeFileSync(path.join(ARTIFACT_DIR,name),JSON.stringify(value,null,2))}
+async function waitForCloudPhase(page){
+  await page.waitForFunction(()=>{
+    const authority=window.BogatkaPanelAuthorityV437;
+    if(!authority)return true;
+    const diagnostics=authority.diagnostics;
+    return diagnostics.cloudBackgroundCompletions+diagnostics.cloudBackgroundErrors>0;
+  },{timeout:20000});
+}
 async function openApp(page){
   await page.addInitScript(()=>localStorage.setItem('bogatka_access_authorized_v1','1'));
   await page.goto(APP_URL,{waitUntil:'networkidle'});
   await page.waitForFunction(()=>window.BogatkaSyncCompatibility?.ready===true);
   await page.waitForFunction(()=>window.BogatkaArchiveStateV436?.ready===true);
+  await waitForCloudPhase(page);
   await page.evaluate(()=>{window.confirm=()=>true;window.alert=()=>{};});
 }
 function remoteRow(overrides={}){
@@ -178,7 +187,7 @@ test('remote archive applies once without active/archive duplication and legacy 
   evidence('07-remote-archive-no-duplication.json',remoteResult);
   const archivePanel=page.locator('#archiveManagerV400');if(await archivePanel.count())await archivePanel.screenshot({path:path.join(ARTIFACT_DIR,'07-archive-list-no-duplication.png')});
 
-  await page.reload({waitUntil:'networkidle'});await page.waitForFunction(()=>window.BogatkaArchiveStateV436?.ready===true);await page.evaluate(()=>{window.confirm=()=>true;window.alert=()=>{}});
+  await page.reload({waitUntil:'networkidle'});await page.waitForFunction(()=>window.BogatkaArchiveStateV436?.ready===true);await waitForCloudPhase(page);await page.evaluate(()=>{window.confirm=()=>true;window.alert=()=>{}});
   const restoreActivity=[{id:'restore-1',at:'2026-07-11T12:30:00.000Z',action:'Локация восстановлена из архива',field:'archivedAt',label:'Архив',to:'Активна'}];
   await installFixture(page,{id:'lidskaya-34',archivedAt:'__ABSENT__',activity:restoreActivity,dirty:false,baseArchivedAt:'__ABSENT__'});
   const legacy=await page.evaluate(async({fixture})=>{

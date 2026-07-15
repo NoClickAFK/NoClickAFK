@@ -46,15 +46,21 @@ jobs:
         run: |
           CHANGED="$(tr '[:upper:]' '[:lower:]' < /tmp/bogatka-changed-files.txt)"
           : > /tmp/selected-tests.txt
-          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|readiness|progress|recommendation|decision-panel|photo-plan|compare'; then
+          if echo "$CHANGED" | grep -Eq 'location|inspection|landlord|readiness|progress|recommendation|decision-panel|startup-panel-authority|initial-background-edit-protection|mutation-authority|cloud-init-authority|release-blockers|photo-plan|compare'; then
             printf '%s\n' \
               bogatka-field-8f3c7d/tests/readiness-progress-v434.spec.mjs \
               bogatka-field-8f3c7d/tests/readiness-safety-v434.spec.mjs \
               bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs \
+              bogatka-field-8f3c7d/tests/inspection-startup-panels-v437.spec.mjs \
+              bogatka-field-8f3c7d/tests/initial-background-edit-protection-v437.spec.mjs \
+              bogatka-field-8f3c7d/tests/release-blockers-v437.spec.mjs \
               bogatka-field-8f3c7d/tests/launch-gate-v454.spec.mjs \
               bogatka-field-8f3c7d/tests/report-live-v427.spec.js >> /tmp/selected-tests.txt
           fi
-          if echo "$CHANGED" | grep -Eq 'critical-deal|lease'; then
+          if echo "$CHANGED" | grep -Eq '^(bogatka-field-8f3c7d/cloud\.js|bogatka-field-8f3c7d/mutation-authority-v437\.js|bogatka-field-8f3c7d/tests/release-blockers(-publication-authority)?-v437\.spec\.mjs)$'; then
+            echo bogatka-field-8f3c7d/tests/release-blockers-v437.spec.mjs >> /tmp/selected-tests.txt
+          fi
+          if echo "$CHANGED" | grep -Eq 'critical-deal|(^|[/_-])lease([/_-]|$)'; then
             printf '%s\n' \
               bogatka-field-8f3c7d/tests/critical-deal-bootstrap-v430.spec.mjs \
               bogatka-field-8f3c7d/tests/critical-deal-v430.spec.mjs \
@@ -77,16 +83,8 @@ jobs:
               bogatka-field-8f3c7d/tests/report-premium-security-v433.spec.js \
               bogatka-field-8f3c7d/tests/report-premium-artifacts-v433.spec.js >> /tmp/selected-tests.txt
           fi
-          if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|archive'; then
+          if echo "$CHANGED" | grep -Eq 'sync|cloud|stability|archive|startup-panel-authority|initial-background-edit-protection|mutation-authority|cloud-init-authority|release-blockers|inspection-layout|location-card-collapse'; then
             echo "sync_changed=true" >> "$GITHUB_OUTPUT"
-            printf '%s\n' \
-              bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs \
-              bogatka-field-8f3c7d/tests/sync-inflight-edit-v435.spec.mjs \
-              bogatka-field-8f3c7d/tests/archive-sync-v436.spec.mjs \
-              bogatka-field-8f3c7d/tests/archive-startup-guard-v436.spec.mjs \
-              bogatka-field-8f3c7d/tests/archive-final-races-v436.spec.mjs \
-              bogatka-field-8f3c7d/tests/archive-late-fetch-hydration-v436.spec.mjs \
-              bogatka-field-8f3c7d/tests/archive-startup-fetch-ready-v436.spec.mjs >> /tmp/selected-tests.txt
           else
             echo "sync_changed=false" >> "$GITHUB_OUTPUT"
           fi
@@ -96,7 +94,7 @@ jobs:
           if echo "$CHANGED" | grep -Eq 'backup|restore'; then
             echo bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs >> /tmp/selected-tests.txt
           fi
-          if echo "$CHANGED" | grep -Eq '^(\.github/workflows/bogatka-feature-tests\.yml|\.github/scripts/resolve-feature-diff-base\.sh|bogatka-field-8f3c7d/tests/feature-workflow-diff-base\.spec\.mjs)$'; then
+          if echo "$CHANGED" | grep -Eq '^(\.github/workflows/bogatka-feature-tests\.yml|\.github/scripts/resolve-feature-diff-base\.sh|bogatka-field-8f3c7d/tests/feature-workflow-(diff-base|sync-failure-propagation)\.spec\.mjs)$'; then
             echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
@@ -115,7 +113,7 @@ jobs:
       - name: Run changed-domain tests
         if: steps.select.outputs.count != '0'
         run: |
-          set -o pipefail
+          set -euo pipefail
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/bogatka-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
@@ -123,12 +121,38 @@ jobs:
             curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
             sleep 1
           done
-          xargs -a /tmp/selected-tests.txt npx playwright test --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-feature-tests.log
+          FEATURE_LOG=/tmp/bogatka-feature-tests.log
+          REPORT_LIVE_TEST=bogatka-field-8f3c7d/tests/report-live-v427.spec.js
+          INSPECTION_LAYOUT_TEST=bogatka-field-8f3c7d/tests/inspection-layout-v461.spec.mjs
+          : > "$FEATURE_LOG"
+          awk -v report="$REPORT_LIVE_TEST" -v layout="$INSPECTION_LAYOUT_TEST" '$0 != report && $0 != layout' /tmp/selected-tests.txt > /tmp/selected-tests-main.txt
+          if [ -s /tmp/selected-tests-main.txt ]; then
+            xargs -a /tmp/selected-tests-main.txt npx playwright test --workers=1 --reporter=line \
+              2>&1 | tee -a "$FEATURE_LOG"
+          fi
+          if grep -Fxq "$INSPECTION_LAYOUT_TEST" /tmp/selected-tests.txt; then
+            npx playwright test "$INSPECTION_LAYOUT_TEST" --workers=1 --reporter=line --retries=3 \
+              2>&1 | tee -a "$FEATURE_LOG"
+          fi
+          if grep -Fxq "$REPORT_LIVE_TEST" /tmp/selected-tests.txt; then
+            npx playwright test "$REPORT_LIVE_TEST" --workers=1 --reporter=line \
+              2>&1 | tee -a "$FEATURE_LOG"
+          fi
+
+      - name: Run feature workflow regressions
+        if: steps.select.outputs.workflow_changed == 'true'
+        run: |
+          set -o pipefail
+          npx playwright test \
+            bogatka-field-8f3c7d/tests/feature-workflow-diff-base.spec.mjs \
+            bogatka-field-8f3c7d/tests/feature-workflow-sync-failure-propagation.spec.mjs \
+            --workers=1 --reporter=line --output=/tmp/bogatka-workflow-resolver-results \
+            2>&1 | tee /tmp/bogatka-workflow-resolver-tests.log
 
       - name: Run sync safety regressions
         if: steps.select.outputs.sync_changed == 'true'
         run: |
-          set -o pipefail
+          set -uo pipefail
           python3 -m http.server 4173 --bind 127.0.0.1 >> /tmp/bogatka-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
@@ -136,21 +160,97 @@ jobs:
             curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
             sleep 1
           done
-          npx playwright test bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs \
-            --grep 'automatic sync waits|clean idle state|multiple realtime notifications' \
-            --workers=1 --reporter=line 2>&1 | tee /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs \
-            --grep 'three-way merge|first sync unions|archive and restore|permanent deletion|successful cloud deletion|offline tombstone|remote deletion|viewer cannot' \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
-          npx playwright test bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs \
-            --grep 'backup contains|field-wise sync merge' \
-            --workers=1 --reporter=line 2>&1 | tee -a /tmp/bogatka-sync-safety-tests.log
 
-      - name: Run diff-base resolver regression
-        if: steps.select.outputs.workflow_changed == 'true'
+          SYNC_LOG=/tmp/bogatka-sync-safety-tests.log
+          : > "$SYNC_LOG"
+          failures=0
+          failed_regressions=()
+
+          run_regression() {
+            local name="$1"
+            shift
+            echo "::group::$name"
+            printf '\n===== %s =====\n' "$name" >> "$SYNC_LOG"
+            set +e
+            "$@" 2>&1 | tee -a "$SYNC_LOG"
+            local command_status=${PIPESTATUS[0]}
+            set -e
+            printf '===== %s exit %s =====\n' "$name" "$command_status" >> "$SYNC_LOG"
+            echo "::endgroup::"
+            if [ "$command_status" -ne 0 ]; then
+              echo "::error::$name failed with exit code $command_status"
+              failures=$((failures + 1))
+              failed_regressions+=("$name ($command_status)")
+            fi
+            return 0
+          }
+
+          finish_regressions() {
+            if [ "$failures" -ne 0 ]; then
+              echo "::error::$failures sync/archive regression suite(s) failed: ${failed_regressions[*]}"
+              return 1
+            fi
+            echo "All sync/archive regression suites passed."
+          }
+
+          run_regression "browser sync stability" \
+            npx playwright test bogatka-field-8f3c7d/tests/browser-sync-stability.spec.mjs \
+              --grep 'automatic sync waits|clean idle state|multiple realtime notifications' \
+              --workers=1 --reporter=line
+          run_regression "sync integrity" \
+            npx playwright test bogatka-field-8f3c7d/tests/sync-integrity-v412.spec.mjs \
+              --grep 'three-way merge|first sync unions|archive and restore|permanent deletion|successful cloud deletion|offline tombstone|remote deletion|viewer cannot' \
+              --workers=1 --reporter=line
+          run_regression "release integrity" \
+            npx playwright test bogatka-field-8f3c7d/tests/release-integrity-v456.spec.mjs \
+              --grep 'backup contains|field-wise sync merge' \
+              --workers=1 --reporter=line
+          run_regression "sync convergence v4.3.5" \
+            npx playwright test bogatka-field-8f3c7d/tests/sync-convergence-v435.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "in-flight edit serialization" \
+            npx playwright test bogatka-field-8f3c7d/tests/sync-inflight-edit-v435.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "archive synchronization v4.3.6" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-sync-v436.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "archive startup guard" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-startup-guard-v436.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "archive final races" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-final-races-v436.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "late fetch hydration" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-late-fetch-hydration-v436.spec.mjs \
+              --workers=1 --reporter=line
+          run_regression "archive startup fetch readiness" \
+            npx playwright test bogatka-field-8f3c7d/tests/archive-startup-fetch-ready-v436.spec.mjs \
+              --workers=1 --reporter=line
+
+          finish_regressions
+
+      - name: Regenerate authoritative archive success evidence
+        if: steps.select.outputs.sync_changed == 'true'
         run: |
-          set -o pipefail
-          npx playwright test bogatka-field-8f3c7d/tests/feature-workflow-diff-base.spec.mjs --workers=1 --reporter=line --output=/tmp/bogatka-workflow-resolver-results 2>&1 | tee /tmp/bogatka-workflow-resolver-tests.log
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >> /tmp/bogatka-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/bogatka-field-8f3c7d/ > /dev/null && break
+            sleep 1
+          done
+          npx playwright test bogatka-field-8f3c7d/tests/archive-success-evidence-v437.spec.mjs \
+            --workers=1 --reporter=line
+
+      - name: Upload startup panels v4.3.7 review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bogatka-startup-panels-v437-review-artifacts
+          path: review-artifacts/startup-panels-v437-review/**
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload archive sync v4.3.6 review artifacts
         if: always()
@@ -179,7 +279,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Upload report export review artifacts
+      - name: Upload report v4.3.3 review artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
