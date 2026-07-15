@@ -40,6 +40,7 @@ test('publication follows the central mutation authority for every role state',a
     try{Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>online})}catch(_){ }
 
     const counters={sync:0,snapshot:0,insert:0,error:0,share:0};
+    let trackingPublication=false;
     const resetCounters=()=>{for(const key of Object.keys(counters))counters[key]=0};
     const copyCounters=()=>({...counters});
     const original={
@@ -51,22 +52,22 @@ test('publication follows the central mutation authority for every role state',a
       cloud:window.BogatkaCloud,
     };
 
-    const fixtureSync=async()=>{counters.sync+=1;return{status:'fixture-synced'}};
-    const fixtureSnapshot=async()=>{counters.snapshot+=1;return{version:1,fixture:true,locations:[],photos:[],global:{}}};
-    const fixtureHandleError=error=>{counters.error+=1;return original.handleError(error)};
+    const fixtureSync=async()=>{if(trackingPublication)counters.sync+=1;return{status:'fixture-synced'}};
+    const fixtureSnapshot=async()=>{if(trackingPublication)counters.snapshot+=1;return{version:1,fixture:true,locations:[],photos:[],global:{}}};
+    const fixtureHandleError=error=>{if(trackingPublication)counters.error+=1;return original.handleError(error)};
     const fixtureLoadMembers=async()=>{};
     window.cloudSyncAll=fixtureSync;try{cloudSyncAll=fixtureSync}catch(_){ }
     window.cloudBuildSnapshot=fixtureSnapshot;try{cloudBuildSnapshot=fixtureSnapshot}catch(_){ }
     window.cloudHandleError=fixtureHandleError;try{cloudHandleError=fixtureHandleError}catch(_){ }
     window.cloudLoadMembers=fixtureLoadMembers;try{cloudLoadMembers=fixtureLoadMembers}catch(_){ }
-    try{Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{counters.share+=1}})}catch(_){ }
+    try{Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{if(trackingPublication)counters.share+=1}})}catch(_){ }
 
     cloudClient={
       from(table){
         if(table!=='reports')throw new Error(`Unexpected fixture table: ${table}`);
         return{
           insert(){
-            counters.insert+=1;
+            if(trackingPublication)counters.insert+=1;
             const denied=!['owner','editor'].includes(Authority.state);
             return{select(){return{single:async()=>denied
               ?{data:null,error:{message:'fixture RLS denied'}}
@@ -136,13 +137,16 @@ test('publication follows the central mutation authority for every role state',a
       cloudSetStatus('ready','fixture read-only');
       cloudSetMessage('fixture before','info');
       await sleep(20);
+      clearTimeout(cloudSyncTimer);clearTimeout(cloudRealtimeTimer);cloudSyncTimer=null;cloudRealtimeTimer=null;
       resetCounters();
+      trackingPublication=true;
       const top=document.querySelector('#shareReportBtn');
       const before=status();
       top?.click();
       modal?.click();
       await window.cloudPublishReport().catch(window.cloudHandleError);
       await sleep(120);
+      trackingPublication=false;
       const message=document.querySelector('#cloudMessage')?.textContent||'';
       return{
         state:Authority.state,
@@ -166,11 +170,14 @@ test('publication follows the central mutation authority for every role state',a
       await sleep(100);
       cloudSetStatus('ready','fixture ready');
       cloudSetMessage('fixture before','info');
+      clearTimeout(cloudSyncTimer);clearTimeout(cloudRealtimeTimer);cloudSyncTimer=null;cloudRealtimeTimer=null;
       resetCounters();
+      trackingPublication=true;
       const top=document.querySelector('#shareReportBtn');
       const modal=document.querySelector('#cloudPublishBtn');
       modal?.click();
-      for(let attempt=0;attempt<40&&counters.insert<1;attempt++)await sleep(25);
+      for(let attempt=0;attempt<40&&(counters.insert<1||counters.share<1);attempt++)await sleep(25);
+      trackingPublication=false;
       return{
         state:Authority.state,
         topDisabled:Boolean(top?.disabled),
@@ -192,10 +199,13 @@ test('publication follows the central mutation authority for every role state',a
 
     await setRoleState('signed-out-local');
     cloudSetStatus('ready','fixture local');
+    clearTimeout(cloudSyncTimer);clearTimeout(cloudRealtimeTimer);cloudSyncTimer=null;cloudRealtimeTimer=null;
     resetCounters();
+    trackingPublication=true;
     const signedOutTop=document.querySelector('#shareReportBtn');
     await window.cloudPublishReport().catch(window.cloudHandleError);
     await sleep(80);
+    trackingPublication=false;
     const signedOut={
       state:Authority.state,
       topDisabled:Boolean(signedOutTop?.disabled),
