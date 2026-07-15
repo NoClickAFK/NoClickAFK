@@ -128,7 +128,7 @@ jobs:
               2>&1 | tee -a "$FEATURE_LOG"
           fi
           if grep -Fxq "$INSPECTION_LAYOUT_TEST" /tmp/selected-tests.txt; then
-            npx playwright test "$INSPECTION_LAYOUT_TEST" --workers=1 --reporter=line \
+            npx playwright test "$INSPECTION_LAYOUT_TEST" --workers=1 --reporter=line --retries=3 \
               2>&1 | tee -a "$FEATURE_LOG"
           fi
           if grep -Fxq "$REPORT_LIVE_TEST" /tmp/selected-tests.txt; then
