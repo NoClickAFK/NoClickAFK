@@ -24,13 +24,12 @@
   let refreshTimer=null;
   const controlBeforeEdit=new WeakMap();
   const durableRevisions=new WeakMap();
-  const diagnostics={stateChanges:0,blockedEvents:0,blockedWrites:0,durableEarlyWrites:0,durableEarlyWriteErrors:0,remoteBackedDurabilitySkips:0,publicationDenials:0,publicationGuardInstalls:0};
+  const diagnostics={stateChanges:0,blockedEvents:0,blockedWrites:0,durableEarlyWrites:0,durableEarlyWriteErrors:0,remoteBackedDurabilitySkips:0,publicationDenials:0};
 
   const clone=value=>value===undefined?undefined:(typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value)));
   const currentSession=()=>{try{return typeof cloudSession==='undefined'?(window.cloudSession??null):(cloudSession??window.cloudSession??null)}catch(_){return window.cloudSession??null}};
   const currentRole=()=>{try{return typeof cloudRole==='undefined'?(window.cloudRole??null):(cloudRole??window.cloudRole??null)}catch(_){return window.cloudRole??null}};
   const currentProjectId=()=>{try{return typeof cloudProjectId==='undefined'?(window.cloudProjectId??null):(cloudProjectId??window.cloudProjectId??null)}catch(_){return window.cloudProjectId??null}};
-  const currentPublication=()=>{try{return typeof cloudPublishReport==='function'?cloudPublishReport:window.cloudPublishReport}catch(_){return window.cloudPublishReport}};
   const cacheKey=(userId,projectId)=>`${CACHE_PREFIX}:${userId||'unknown'}:${projectId||'unknown'}`;
   const readCachedRole=(userId,projectId)=>{try{return localStorage.getItem(cacheKey(userId,projectId))||null}catch(_){return null}};
   const writeCachedRole=(userId,projectId,role)=>{if(!userId||!projectId||!['owner','editor','viewer'].includes(role))return;try{localStorage.setItem(cacheKey(userId,projectId),role)}catch(_){ }};
@@ -69,9 +68,8 @@
   function applyDomAuthority(){
     const readonly=!mayMutate();
     // Before session lookup completes, capture guards deny general mutation without
-    // adding disabled attributes. Report publication is different: it is a discrete
-    // cloud write action with no enhancer dependency, so it remains natively disabled
-    // even during session-pending.
+    // adding disabled attributes. Report publication is a discrete cloud write action
+    // with no enhancer dependency, so it remains natively disabled in session-pending.
     for(const element of document.querySelectorAll(MUTATING_CONTROL_SELECTOR)){
       const publicationControl=element.matches?.(PUBLICATION_CONTROL_SELECTOR);
       const hardReadonly=readonly&&(state!=='session-pending'||publicationControl);
@@ -133,33 +131,16 @@
     if(['owner','editor','viewer'].includes(role)||!hasCachedCloudSession())resolveRuntimeState();
     return mayMutate();
   }
-
+  function publicationAllowedNow(){
+    resolveRuntimeState();
+    return Boolean(currentSession()&&(state==='owner'||state==='editor'));
+  }
   function showPublicationDenial(){
     diagnostics.publicationDenials+=1;
     const setMessage=typeof cloudSetMessage==='function'?cloudSetMessage:window.cloudSetMessage;
     if(typeof setMessage==='function')setMessage(PUBLICATION_DENIED_MESSAGE,'info');
     applyDomAuthority();
     return false;
-  }
-  function installPublicationGuard(){
-    const current=currentPublication();
-    if(typeof current!=='function')return false;
-    if(current.__mutationAuthorityPublicationV437){
-      if(window.cloudPublishReport!==current)window.cloudPublishReport=current;
-      return true;
-    }
-    const guarded=async function centrallyAuthorizedCloudPublishReport(...args){
-      resolveRuntimeState();
-      if(state==='signed-out-local'&&!currentSession())return current.apply(this,args);
-      if(!mayMutate())return showPublicationDenial();
-      return current.apply(this,args);
-    };
-    try{Object.defineProperty(guarded,'__mutationAuthorityPublicationV437',{value:true})}catch(_){guarded.__mutationAuthorityPublicationV437=true}
-    try{Object.defineProperty(guarded,'__base',{value:current})}catch(_){guarded.__base=current}
-    window.cloudPublishReport=guarded;
-    try{cloudPublishReport=guarded}catch(_){ }
-    diagnostics.publicationGuardInstalls+=1;
-    return true;
   }
 
   function setPath(object,path,value){
@@ -258,14 +239,8 @@
     document.addEventListener('submit',onSubmit,true);
     observer=new MutationObserver(()=>applyDomAuthority());
     observer.observe(document.documentElement,{childList:true,subtree:true});
-    const refresh=()=>{
-      resolveRuntimeState();
-      installPublicationGuard();
-      applyDomAuthority();
-      refreshTimer=setTimeout(refresh,state==='session-pending'||state==='role-pending'?50:500);
-    };
+    const refresh=()=>{resolveRuntimeState();applyDomAuthority();refreshTimer=setTimeout(refresh,state==='session-pending'||state==='role-pending'?50:500)};
     refresh();
-    window.addEventListener('load',installPublicationGuard,{once:true,capture:true});
     window.addEventListener('online',resolveRuntimeState);
     window.addEventListener('offline',resolveRuntimeState);
     window.addEventListener('bogatka:cloud-background-ready',resolveRuntimeState);
@@ -275,16 +250,16 @@
   window.BogatkaMutationAuthorityV437={
     version:VERSION,ready:true,
     canMutate:mutationAllowedNow,
-    canPublishReport(){resolveRuntimeState();return Boolean(currentSession()&&(state==='owner'||state==='editor'))},
+    canPublishReport:publicationAllowedNow,
+    denyReportPublication:showPublicationDenial,
     refresh:resolveRuntimeState,
-    installPublicationGuard,
     assertMutationAllowed(){if(mutationAllowedNow())return true;diagnostics.blockedWrites+=1;throw new Error('Изменение недоступно до подтверждения прав доступа.');},
     persistEarlyControl,
     get state(){return state},
     get reason(){return reason},
     get publicationDeniedMessage(){return PUBLICATION_DENIED_MESSAGE},
     get diagnostics(){return{...diagnostics}},
-    _test:{setState,resolveRuntimeState,readCachedRole,writeCachedRole,restoreControl,hasCachedCloudSession,isLocalOnlyLocation,installPublicationGuard,get durableRevisionCount(){return diagnostics.durableEarlyWrites}},
+    _test:{setState,resolveRuntimeState,readCachedRole,writeCachedRole,restoreControl,hasCachedCloudSession,isLocalOnlyLocation,get durableRevisionCount(){return diagnostics.durableEarlyWrites}},
   };
   install();
 })();
