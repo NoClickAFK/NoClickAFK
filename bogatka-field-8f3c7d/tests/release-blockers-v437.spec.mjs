@@ -1,4 +1,5 @@
 import './archive-success-evidence-v437.spec.mjs';
+import './release-blockers-report-publication-authority-v437.spec.mjs';
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
